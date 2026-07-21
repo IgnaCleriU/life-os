@@ -32,6 +32,9 @@ Before designing or implementing, review these documents:
   plan (except for very small tasks) → implement (in parallel or in series
   depending on dependencies) → integrate and verify. See
   [docs/agentic-workflow.md](docs/agentic-workflow.md).
+- **Parallel agents:** run each agent in its own **git worktree** (the
+  worktree option in Claude Code) so their branches don't collide. See
+  [docs/agentic-workflow.md](docs/agentic-workflow.md#5-parallel-agents-isolation-with-git-worktrees).
 - **Commits:** [Conventional Commits](CONTRIBUTING.md#commit-convention)
   and **atomic** (several commits per task, one per logical change).
 - **PRs:** never commit directly to `master`; work on a branch

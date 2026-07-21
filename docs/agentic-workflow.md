@@ -113,7 +113,35 @@ or change without affecting each other, they go in parallel.
 
 ---
 
-## 5. Relation to PRs and commits
+## 5. Parallel agents: isolation with git worktrees
+
+When **several agents run at once on the same machine**, each must work on its own branch without
+stepping on the others. A git repository has a single working tree and a single index, so two agents
+in the same directory mix up each other's changes and branches.
+
+The solution is **one git worktree per agent**: each gets its own working directory with its own
+branch checked out, all backed by the same `.git`. In Claude Code this is enabled with the
+**worktree** option (per-worktree isolation) when launching agents in parallel.
+
+Benefits:
+
+- Each agent commits on its branch (`<type>/<short-description>`) without affecting the others.
+- Git refuses to check out the same branch in two worktrees → a guardrail against collisions.
+
+Since they share the same `.git`, keep in mind:
+
+- **`pre-commit`** is installed once (hooks live in the shared git-dir) and validates across all
+  worktrees.
+- **`backend/` Python environment**: each worktree is a new directory; if the venv lives inside the
+  worktree, dependencies must be installed per worktree.
+- **Dev ports and DB**: two agents starting the app or the SQLite DB at the same time collide (port
+  8000, DB file). Running the app in parallel requires distinct ports/DBs.
+- **Integration into `master`** is still sequential via PRs; worktrees avoid collisions during
+  development, not at merge time.
+
+---
+
+## 6. Relation to PRs and commits
 
 The agentic workflow ends in a delivery that follows the conventions in
 [../CONTRIBUTING.md](../CONTRIBUTING.md):
