@@ -55,6 +55,37 @@ tipo/scope, o con un footer `BREAKING CHANGE:` explicando el impacto:
 feat(application)!: cambiar firma de TaskRepository.list_by_project
 ```
 
+## Commits atómicos
+
+Una tarea no se resuelve con un único commit gigante: se parte en **varios commits atómicos**
+para que la Pull Request se lea como una historia clara y sea fácil de revisar.
+
+Reglas:
+
+- **Un commit = un cambio lógico completo y coherente**, que idealmente compila y pasa tests por
+  sí solo.
+- **No mezclar** feature + refactor + fix en el mismo commit. Cada commit usa el `tipo` que le
+  corresponde.
+- Ordenar los commits siguiendo la [regla de dependencia de la arquitectura](ARCHITECTURE.md)
+  (de adentro hacia afuera): dominio → puertos → casos de uso → infraestructura → adaptadores →
+  tests.
+
+### Ejemplo: una tarea partida en commits atómicos
+
+Tarea: "agregar la funcionalidad de completar una tarea (Task)".
+
+```
+feat(domain): agregar transición de estado a done en Task
+feat(application): agregar puerto TaskRepository
+feat(application): agregar caso de uso CompleteTask
+feat(infrastructure): implementar SQLiteTaskRepository
+feat(adapters-rest): agregar endpoint POST /tasks/{id}/complete
+feat(adapters-mcp): agregar tool complete_task
+test(application): tests del caso de uso CompleteTask
+```
+
+Cada línea es revisable de forma aislada, y la secuencia cuenta qué se hizo y en qué orden.
+
 ## Validación automática (pre-commit)
 
 El formato del mensaje de commit se valida automáticamente con
@@ -70,3 +101,36 @@ pre-commit install --hook-type commit-msg
 
 A partir de ahí, cualquier commit con un mensaje que no siga el formato de
 arriba es rechazado localmente antes de crearse.
+
+## Flujo de Pull Requests
+
+Nunca se commitea directo a `master`. Toda tarea se trabaja en una **rama propia** y se integra
+mediante una Pull Request.
+
+1. **Partir de `master` actualizado** y crear una rama nueva para la tarea.
+2. **Trabajar en la rama**, dejando la tarea en [commits atómicos](#commits-atómicos).
+3. **Abrir una PR contra `master`** al terminar; la PR contiene esos commits.
+
+### Nombre de rama
+
+Formato `<tipo>/<descripción-corta>` en kebab-case, usando el mismo `<tipo>` que el commit
+principal de la tarea (los tipos de la [convención de commits](#tipos)):
+
+```
+feat/completar-tarea
+fix/validacion-project-id
+docs/flujo-agentico
+refactor/extraer-validacion-task
+```
+
+### Contenido de la PR
+
+- **Título** en estilo Conventional Commits (mismo formato que un commit), ej.
+  `feat(tasks): agregar completar tarea`.
+- **Descripción** con: qué se hizo, por qué, y cómo verificarlo (tests a correr, endpoint/tool a
+  probar).
+- Los mensajes de los commits ya vienen validados localmente por `pre-commit`
+  (ver sección anterior).
+
+El flujo de trabajo agéntico que produce estas PRs está descrito en
+[docs/flujo-agentico.md](docs/flujo-agentico.md).
