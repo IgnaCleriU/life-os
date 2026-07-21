@@ -111,7 +111,34 @@ cambiar sin afectarse, van en paralelo.
 
 ---
 
-## 5. Relación con PRs y commits
+## 5. Agentes en paralelo: aislamiento con git worktrees
+
+Cuando se corren **varios agentes a la vez sobre la misma máquina**, cada uno debe trabajar en su
+propia rama sin pisarse. Un repo git tiene un solo working tree y un solo índice, así que dos
+agentes en el mismo directorio se mezclan los cambios y las ramas.
+
+La solución es un **git worktree por agente**: cada uno obtiene su propio directorio de trabajo con
+su propia rama checkouteada, respaldados por el mismo `.git`. En Claude Code esto se activa con la
+opción de **worktree** (aislamiento por worktree) al lanzar agentes en paralelo.
+
+Ventajas:
+
+- Cada agente commitea en su rama (`<tipo>/<descripción-corta>`) sin afectar a los demás.
+- Git impide checkoutear la misma rama en dos worktrees → guardarraíl contra colisiones.
+
+Como comparten el `.git`, tener en cuenta:
+
+- **`pre-commit`** se instala una vez (hooks en el git-dir común) y valida en todos los worktrees.
+- **Entorno Python de `backend/`**: cada worktree es un directorio nuevo; si el venv vive dentro del
+  worktree hay que instalar deps por worktree.
+- **Puertos y DB de dev**: dos agentes que levanten la app o la SQLite a la vez chocan (puerto 8000,
+  archivo de DB). Correr la app en paralelo requiere puertos/DB distintos.
+- **Integración a `master`** sigue siendo secuencial vía PRs; los worktrees evitan el pisón durante
+  el desarrollo, no el merge.
+
+---
+
+## 6. Relación con PRs y commits
 
 El flujo agéntico termina en una entrega que sigue las convenciones de [CONTRIBUTING.md](../CONTRIBUTING.md):
 

@@ -25,6 +25,9 @@ Antes de diseñar o implementar, tené en cuenta estos documentos:
 - **Flujo agéntico:** entender → investigar (subagentes ∥) → planear (salvo tareas muy chicas) →
   implementar (∥ o serie según dependencias) → integrar y verificar. Ver
   [docs/flujo-agentico.md](docs/flujo-agentico.md).
+- **Agentes en paralelo:** correr cada agente en su propio **git worktree** (opción de worktree en
+  Claude Code) para que no se pisen las ramas. Ver
+  [docs/flujo-agentico.md](docs/flujo-agentico.md#5-agentes-en-paralelo-aislamiento-con-git-worktrees).
 - **Commits:** [Conventional Commits](CONTRIBUTING.md#convención-de-commits) y **atómicos** (varios
   commits por tarea, uno por cambio lógico).
 - **PRs:** nunca commitear directo a `master`; trabajar en una rama `<tipo>/<descripción-corta>` y
