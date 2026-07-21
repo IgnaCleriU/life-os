@@ -1,1 +1,13 @@
-# Metadata y dependencias del backend (FastAPI, SQLModel, mcp, pytest, alembic).
+[project]
+name = "lifeos"
+version = "0.1.0"
+description = "Life OS — sistema operativo personal (backend)"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
