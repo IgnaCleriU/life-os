@@ -1,50 +1,68 @@
 # Life OS
 
-Sistema operativo personal que centraliza notas, contraseñas, calendario,
-proyectos/tareas, inventario del hogar y otros datos personales, con acceso
-y modificación vía agentes de IA a través de un servidor MCP propio.
+Life OS is a personal operating system that centralizes notes, passwords,
+calendar, projects/tasks, and home inventory, with access and modification
+through AI agents via a custom MCP (Model Context Protocol) server. It is
+designed for a single, self-hosted user: an AI agent becomes a first-class
+client of the system, using the same business rules as the web frontend,
+CLI, or mobile app — never a workaround that talks to files or screenshots.
 
-## Estado actual
+## Status
 
-🚧 **En planificación.** Todavía no hay código — el repo tiene la
-documentación de arranque y las convenciones de contribución. Fase 0
-(fundaciones) no arrancó.
+**Phase 0 (Foundations) is in progress.** The MVP domain layer is
+implemented and merged: `Project`/`Task` entities, domain exceptions, and
+domain unit tests exist in `backend/`. The application use cases, REST/MCP
+adapters, and SQLite infrastructure are still stubs, pending implementation.
+
+See [docs/roadmap.md](docs/roadmap.md) for the full phase breakdown and
+current status of each step.
 
 ## Stack
 
-| Capa | Recomendación |
+| Layer | Choice |
 |---|---|
 | Backend | FastAPI + Pydantic v2 |
-| ORM / DB | SQLModel + SQLite (MVP) → PostgreSQL (multi-dispositivo) |
-| MCP Server | `mcp` SDK oficial de Python (stdio → HTTP/SSE) |
+| ORM / DB | SQLModel + SQLite (MVP) → PostgreSQL (multi-device) |
+| MCP Server | Official Python `mcp` SDK (stdio → HTTP/SSE) |
 | Frontend | React + Vite + TypeScript, TailwindCSS |
 | CLI/TUI | `Typer` + `Textual` |
 | Android | Kotlin + Jetpack Compose, Retrofit |
-| Contenedores | Docker + docker-compose |
+| Containers | Docker + docker-compose |
 
-Detalle completo en [docs/guia-de-desarrollo.md](docs/guia-de-desarrollo.md).
+Full rationale in [docs/adr/0006-tech-stack.md](docs/adr/0006-tech-stack.md).
 
-## Arquitectura
+## Architecture
 
-Monorepo con arquitectura hexagonal: el dominio no depende de FastAPI,
-SQLite ni MCP, y REST/MCP son dos adaptadores de entrada distintos que
-ejecutan los mismos casos de uso. Ver [ARCHITECTURE.md](ARCHITECTURE.md).
+Monorepo with hexagonal architecture: the domain layer does not depend on
+FastAPI, SQLite, or MCP, and REST/MCP are two separate entry-point adapters
+that execute the same use cases, so business rules apply consistently
+regardless of which client originated the action. See
+[ARCHITECTURE.md](ARCHITECTURE.md) for the full layer breakdown.
 
 ## Roadmap
 
-- [ ] **Fase 0** — Fundaciones (repo, Docker Compose, modelo base, CI básico) — *en progreso*
-- [ ] **Fase 1** — MVP: Proyectos + Tareas (REST + frontend mínimo + CLI/TUI + servidor MCP)
-- [ ] **Fase 2** — Notas + búsqueda cross-módulo
-- [ ] **Fase 3** — Calendario + recordatorios
-- [ ] **Fase 4** — Inventario del hogar
-- [ ] **Fase 5** — Passwords / Vault (Vaultwarden)
-- [ ] **Fase 6** — App Android
-- [ ] **Fase 7** — Endurecimiento (rate limiting, auditoría, backups, e2e)
+- [ ] **Phase 0** — Foundations (repo, Docker Compose, base data model, basic CI) — *in progress*
+- [ ] **Phase 1** — MVP: Projects + Tasks (REST + minimal frontend + CLI/TUI + MCP server) — *in progress*
+- [ ] **Phase 2** — Notes + cross-module search
+- [ ] **Phase 3** — Calendar + reminders
+- [ ] **Phase 4** — Home inventory
+- [ ] **Phase 5** — Passwords / Vault
+- [ ] **Phase 6** — Android app
+- [ ] **Phase 7** — Hardening (rate limiting, auditing, backups, e2e tests)
 
-Detalle de cada fase en [docs/guia-de-desarrollo.md](docs/guia-de-desarrollo.md#8-roadmap-por-fases).
-El arranque de Fase 0/1 está desglosado paso a paso en
-[docs/paso-a-paso-inicio.md](docs/paso-a-paso-inicio.md).
+Full detail per phase in [docs/roadmap.md](docs/roadmap.md), which is the
+single source of truth for phasing and status.
 
-## Contribuir
+## Documentation
 
-Convenciones de commits y setup de `pre-commit` en [CONTRIBUTING.md](CONTRIBUTING.md).
+- **Vision** — [docs/vision.md](docs/vision.md)
+- **Roadmap** — [docs/roadmap.md](docs/roadmap.md)
+- **Architecture** — [ARCHITECTURE.md](ARCHITECTURE.md)
+- **Decisions (ADRs)** — [docs/adr/README.md](docs/adr/README.md)
+- **Contributing** — [CONTRIBUTING.md](CONTRIBUTING.md)
+
+## How to run / verify
+
+- **Tests:** run `pytest` from `backend/` (domain and use-case tests run
+  without a database, using in-memory fake repositories).
+- **Local environment:** `docker compose up` starts the backend.
