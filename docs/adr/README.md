@@ -1,0 +1,26 @@
+# Architecture Decision Records
+
+This directory records the significant architectural and technical
+decisions made for Life OS, using a lightweight MADR format (Context,
+Decision, Consequences, and optionally Alternatives considered). Each
+decision is captured once it is made, kept immutable, and superseded by a
+new ADR if it later changes — rather than edited in place — so the
+history of *why* the system looks the way it does stays legible over time.
+
+For background on the overall system, see [../vision.md](../vision.md) and
+[../../ARCHITECTURE.md](../../ARCHITECTURE.md). For the phased build plan,
+see [../roadmap.md](../roadmap.md).
+
+To propose a new decision, copy [0000-template.md](0000-template.md), give
+it the next available number, and open a pull request.
+
+## Index
+
+| Number | Title | Status |
+|---|---|---|
+| [0001](0001-hexagonal-monorepo.md) | Monorepo with hexagonal architecture | Accepted |
+| [0002](0002-mcp-consumes-use-cases.md) | MCP server consumes the same use cases as REST | Accepted |
+| [0003](0003-sqlite-for-mvp-postgres-later.md) | SQLite for the MVP, PostgreSQL later | Accepted |
+| [0004](0004-passwords-via-vaultwarden.md) | Password/vault storage approach | Proposed |
+| [0005](0005-deployment-target.md) | Deployment target | Proposed |
+| [0006](0006-tech-stack.md) | Technology stack | Accepted |

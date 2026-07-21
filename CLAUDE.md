@@ -1,43 +1,51 @@
 # CLAUDE.md
 
-Guía para agentes de IA (ej. Claude Code) trabajando sobre este repo. Léela antes de empezar.
+Guide for AI agents (e.g. Claude Code) working on this repo. Read it before starting.
 
-**Life OS** es un sistema operativo personal (notas, contraseñas, calendario, proyectos/tareas,
-inventario) accesible por agentes de IA vía un servidor MCP propio.
-**Estado actual:** Fase 0 / MVP de **Proyectos + Tareas** (ver roadmap en la guía de desarrollo).
+**Life OS** is a personal operating system (notes, passwords, calendar,
+projects/tasks, home inventory) accessible by AI agents through a custom
+MCP server.
+**Current status:** Phase 0 / MVP of **Projects + Tasks** — the domain
+layer is implemented, the rest is pending (see
+[docs/roadmap.md](docs/roadmap.md) for details).
 
-## Documentación obligatoria
+## Mandatory documentation
 
-Antes de diseñar o implementar, tené en cuenta estos documentos:
+Before designing or implementing, review these documents:
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — arquitectura hexagonal y regla de dependencia (estado actual).
-- [docs/guia-de-desarrollo.md](docs/guia-de-desarrollo.md) — visión, stack, módulos y roadmap por fases.
-- [docs/paso-a-paso-inicio.md](docs/paso-a-paso-inicio.md) — estructura de carpetas y pasos del MVP.
-- [docs/flujo-agentico.md](docs/flujo-agentico.md) — cómo organizar el trabajo (orquestador + subagentes).
-- [CONTRIBUTING.md](CONTRIBUTING.md) — convención de commits, commits atómicos y flujo de PRs.
+- [ARCHITECTURE.md](ARCHITECTURE.md) — hexagonal architecture and dependency rule (current state).
+- [docs/vision.md](docs/vision.md) — product vision and rationale.
+- [docs/roadmap.md](docs/roadmap.md) — phased roadmap, single source of truth for phasing and status.
+- [docs/agentic-workflow.md](docs/agentic-workflow.md) — how to organize work (orchestrator + subagents).
+- [CONTRIBUTING.md](CONTRIBUTING.md) — commit convention, atomic commits, and PR flow.
+- [docs/adr/README.md](docs/adr/README.md) — Architecture Decision Records index.
 
-## Reglas duras
+## Hard rules
 
-- **Arquitectura hexagonal:** el dominio (`domain/`) es Python puro y **no importa** `fastapi`,
-  `sqlmodel` ni `mcp`. Las dependencias apuntan hacia adentro
-  (`adapters → application → domain`). Detalle en [ARCHITECTURE.md](ARCHITECTURE.md).
-- **MCP no accede directo a la DB:** consume los mismos casos de uso que el adaptador REST.
-- **Flujo agéntico:** entender → investigar (subagentes ∥) → planear (salvo tareas muy chicas) →
-  implementar (∥ o serie según dependencias) → integrar y verificar. Ver
-  [docs/flujo-agentico.md](docs/flujo-agentico.md).
-- **Agentes en paralelo:** correr cada agente en su propio **git worktree** (opción de worktree en
-  Claude Code) para que no se pisen las ramas. Ver
-  [docs/flujo-agentico.md](docs/flujo-agentico.md#5-agentes-en-paralelo-aislamiento-con-git-worktrees).
-- **Commits:** [Conventional Commits](CONTRIBUTING.md#convención-de-commits) y **atómicos** (varios
-  commits por tarea, uno por cambio lógico).
-- **PRs:** nunca commitear directo a `master`; trabajar en una rama `<tipo>/<descripción-corta>` y
-  abrir PR contra `master`. Ver [CONTRIBUTING.md](CONTRIBUTING.md#flujo-de-pull-requests).
+- **Hexagonal architecture:** the domain (`domain/`) is pure Python and
+  **does not import** `fastapi`, `sqlmodel`, or `mcp`. Dependencies point
+  inward (`adapters → application → domain`). Detail in
+  [ARCHITECTURE.md](ARCHITECTURE.md).
+- **MCP never accesses the DB directly:** it consumes the same use cases as
+  the REST adapter.
+- **Agentic workflow:** understand → investigate (subagents in parallel) →
+  plan (except for very small tasks) → implement (in parallel or in series
+  depending on dependencies) → integrate and verify. See
+  [docs/agentic-workflow.md](docs/agentic-workflow.md).
+- **Parallel agents:** run each agent in its own **git worktree** (the
+  worktree option in Claude Code) so their branches don't collide. See
+  [docs/agentic-workflow.md](docs/agentic-workflow.md#5-parallel-agents-isolation-with-git-worktrees).
+- **Commits:** [Conventional Commits](CONTRIBUTING.md#commit-convention)
+  and **atomic** (several commits per task, one per logical change).
+- **PRs:** never commit directly to `master`; work on a branch
+  `<type>/<short-description>` and open a PR against `master`. See
+  [CONTRIBUTING.md](CONTRIBUTING.md#pull-request-flow).
 
-## Cómo correr y verificar
+## How to run / verify
 
-- **Tests:** `pytest` desde `backend/` (los tests de dominio y casos de uso corren sin DB, usando
-  repositorios fake en memoria).
-- **Validación de commits:** `pre-commit install --hook-type commit-msg` (una vez por clon); valida
-  el formato del mensaje antes de crear el commit.
-- **Entorno local:** `docker compose up` levanta el backend (ver
-  [docs/paso-a-paso-inicio.md](docs/paso-a-paso-inicio.md)).
+- **Tests:** run `pytest` from `backend/` (domain and use-case tests run
+  without a database, using in-memory fake repositories).
+- **Commit validation:** `pre-commit install --hook-type commit-msg` (once
+  per clone); validates the message format before a commit is created.
+- **Local environment:** `docker compose up` starts the backend (see
+  [ARCHITECTURE.md](ARCHITECTURE.md)).
