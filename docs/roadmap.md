@@ -1,0 +1,100 @@
+# Life OS — Roadmap
+
+This document is the single source of truth for project phasing and status.
+For the product rationale behind these phases, see [vision.md](vision.md).
+For architectural principles, see [../ARCHITECTURE.md](../ARCHITECTURE.md).
+
+## Phases
+
+| Phase | Name | Status |
+|---|---|---|
+| 0 | Foundations | In progress |
+| 1 | MVP: Projects + Tasks | In progress |
+| 2 | Notes + search | Planned |
+| 3 | Calendar | Planned |
+| 4 | Home inventory | Planned |
+| 5 | Passwords / Vault | Planned |
+| 6 | Android app | Planned |
+| 7 | Hardening | Planned |
+
+### Phase 0 — Foundations
+
+- Monorepo structure with hexagonal architecture (ports and adapters).
+- Docker Compose local environment.
+- Base data model (users, JWT auth).
+- Basic CI (lint + tests).
+
+### Phase 1 — MVP: Projects + Tasks
+
+Full REST endpoints (CRUD for projects/tasks), a minimal frontend
+(list + kanban), a basic CLI/TUI, and an MCP server exposing the tools
+described in [vision.md](vision.md#agent-access-model), wired to
+Claude Desktop/Code to validate the agent-to-API flow end to end.
+
+Task breakdown and current status:
+
+| Step | Scope | Status |
+|---|---|---|
+| 1. Scaffolding | Repo structure, `pyproject.toml`, Docker Compose, `Dockerfile`, `/health` endpoint | Done |
+| 2. Domain | `Project`, `Task` entities, domain exceptions, domain unit tests | **Done** |
+| 3. Ports | `ProjectRepository`, `TaskRepository` interfaces (`Protocol`) | Stub |
+| 4. Use cases | `CreateProject`, `ListProjects`, `CreateTask`, `ListTasks`, `UpdateTask`, `CompleteTask` + tests with in-memory fake repositories | Stub |
+| 5. Infrastructure (SQLite) | `ProjectORM`/`TaskORM` models, `SQLiteProjectRepository`, `SQLiteTaskRepository`, DB session | Stub |
+| 6. REST adapter | DTOs, dependency injection, routers for projects/tasks | Stub |
+| 7. MCP adapter | MCP server (stdio) and tools calling the same use cases as REST | Stub |
+| 8. MVP closing | Load the full roadmap (Phases 1-7) as a Project + Tasks inside the app itself, via the agent over MCP | Pending |
+
+The domain layer (`backend/src/lifeos/domain/`) and its unit tests
+(`backend/tests/domain/`) are implemented and merged. The application use
+cases, infrastructure (SQLite repositories), REST adapter, and MCP adapter
+currently exist only as placeholder/stub files and are not yet implemented.
+
+**Definition of Done (MVP):** in a single conversation with Claude
+connected to the local MCP server, it is possible to create a project and
+load the roadmap phases as tasks under it, and then see those tasks
+correctly through both the REST API and the MCP tools.
+
+### Phase 2 — Notes + search
+
+- Notes data model and endpoints.
+- Cross-module search (projects + notes).
+- Extend the MCP server with note-related tools.
+
+### Phase 3 — Calendar
+
+- Event model with recurrence.
+- Calendar view in the frontend.
+- Reminders via background jobs.
+
+### Phase 4 — Home inventory
+
+- Item model with locations and attachments (photos).
+- Concrete use case: inventory for a secondary residence.
+
+### Phase 5 — Passwords / Vault
+
+- Integration with an external vault (see [adr/README.md](adr/README.md)
+  for the storage approach) or a self-built vault.
+- Define agent permission policy specifically for this module, per the
+  default-deny principle in [vision.md](vision.md#agent-access-model).
+
+### Phase 6 — Android app
+
+- Can start in parallel with Phase 2/3 once the API is stable.
+- Kotlin + Jetpack Compose consuming the same REST API.
+
+### Phase 7 — Hardening
+
+- Rate limiting, full audit logging of AI agent actions.
+- Automated backups.
+- End-to-end tests.
+
+## Immediate next steps
+
+1. Decide the target deployment topology (see [adr/README.md](adr/README.md)) —
+   this conditions auth and network configuration.
+2. Implement Phase 1 Steps 3-7: ports, use cases, SQLite infrastructure,
+   REST adapter, and MCP adapter, in that order.
+3. Reach the Phase 1 Definition of Done: a working end-to-end flow
+   (API → MCP → agent) for Projects and Tasks.
+4. Iterate on this roadmap as phases complete and priorities shift.
