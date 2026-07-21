@@ -1,1 +1,16 @@
-# Orquesta el servicio backend (FastAPI) y su base de datos para desarrollo local; frontend/otros servicios se suman en fases futuras.
+# Orquesta el servicio backend (FastAPI) para desarrollo local. La base de
+# datos es SQLite embebida (sin contenedor propio); su archivo se persiste en
+# el volumen nombrado `lifeos-data`. Frontend/otros servicios se suman en fases
+# futuras.
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - lifeos-data:/app/data
+
+volumes:
+  lifeos-data:
