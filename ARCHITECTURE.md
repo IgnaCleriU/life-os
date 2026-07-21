@@ -1,55 +1,135 @@
 # Architecture
 
-Documento vivo — se actualiza a medida que se agregan módulos de dominio
-(Notas, Calendario, Inventario, Passwords) o nuevos adaptadores. A
-diferencia de [docs/paso-a-paso-inicio.md](docs/paso-a-paso-inicio.md), que
-queda como registro histórico del arranque del MVP, este documento describe
-el estado actual de la arquitectura.
+Living document — updated as domain modules are added (Notes, Calendar,
+Inventory, Passwords) or new adapters are introduced. It describes the
+current state of the architecture. For phase status, see
+[docs/roadmap.md](docs/roadmap.md); for the reasoning behind key decisions,
+see [docs/adr/README.md](docs/adr/README.md).
 
-## Principio: arquitectura hexagonal
+## Principle: hexagonal architecture
 
-El **dominio** (entidades y reglas de negocio) no sabe nada de FastAPI,
-SQLite ni MCP — es Python puro. Esto es clave en Life OS porque el servidor
-MCP y la API REST son dos "entradas" distintas al mismo negocio: ambas
-deben ejecutar exactamente la misma lógica de casos de uso, sin
-duplicarla. Cuando se agregue un módulo nuevo o se cambie de motor de DB,
-no se toca el dominio ni los casos de uso — solo se agrega/reemplaza una
-implementación de un puerto ya definido.
+The **domain** (entities and business rules) knows nothing about FastAPI,
+SQLite, or MCP — it is pure Python. This is central to Life OS because the
+MCP server and the REST API are two distinct "entry points" into the same
+business logic: both must execute exactly the same use-case logic, without
+duplicating it. When a new module is added or the database engine changes,
+neither the domain nor the use cases are touched — only a new implementation
+of an already-defined port is added or replaced.
 
-## Regla de dependencia
+## Dependency rule
 
-Las flechas de dependencia siempre apuntan hacia adentro:
+Dependency arrows always point inward:
 
 ```
-adapters (REST, MCP) ──► application (casos de uso) ──► domain (entidades)
+adapters (REST, MCP) ──► application (use cases) ──► domain (entities)
                                     ▲
-infrastructure (DB) ────────────────┘ (implementa los puertos que application define)
+infrastructure (DB) ────────────────┘ (implements the ports defined by application)
 ```
 
-## Capas
+## Layers
 
-| Capa | Responsabilidad | No depende de |
+| Layer | Responsibility | Does not depend on |
 |---|---|---|
-| `domain/` | Entidades (`Project`, `Task`, ...) y excepciones de dominio | `sqlmodel`, `fastapi`, `mcp` |
-| `application/ports/` | Interfaces (`Protocol`/`ABC`) que definen contratos de persistencia, ej. `ProjectRepository` | Implementación concreta |
-| `application/use_cases/` | Lógica de negocio (`CreateProject`, `CompleteTask`, ...), recibe repositorios por constructor | `sqlmodel`, `fastapi`, `mcp` |
-| `infrastructure/` | Implementación concreta de los puertos (ej. `SQLiteProjectRepository`), config, sesión de DB | — |
-| `adapters/rest/` | FastAPI: routers, DTOs Pydantic, inyección de dependencias | Lógica de negocio propia (delega a `application`) |
-| `adapters/mcp/` | Servidor MCP: cada tool llama al mismo caso de uso que usa REST | Lógica de negocio propia (delega a `application`) |
+| `domain/` | Entities (`Project`, `Task`, ...) and domain exceptions | `sqlmodel`, `fastapi`, `mcp` |
+| `application/ports/` | Interfaces (`Protocol`/`ABC`) defining persistence contracts, e.g. `ProjectRepository` | Concrete implementations |
+| `application/use_cases/` | Business logic (`CreateProject`, `CompleteTask`, ...), receives repositories via constructor | `sqlmodel`, `fastapi`, `mcp` |
+| `infrastructure/` | Concrete implementation of the ports (e.g. `SQLiteProjectRepository`), config, DB session | — |
+| `adapters/rest/` | FastAPI: routers, Pydantic DTOs, dependency injection | Its own business logic (delegates to `application`) |
+| `adapters/mcp/` | MCP server: each tool calls the same use case used by REST | Its own business logic (delegates to `application`) |
 
-Estructura de carpetas completa (con archivos concretos del MVP) en
-[docs/paso-a-paso-inicio.md](docs/paso-a-paso-inicio.md#2-estructura-de-carpetas).
+## Folder structure
 
-## Servidor MCP
+```
+life-os/
+├── docker-compose.yml
+├── .env.example
+├── backend/
+│   ├── pyproject.toml
+│   ├── src/
+│   │   └── lifeos/
+│   │       ├── domain/
+│   │       │   ├── __init__.py
+│   │       │   ├── project.py          # Project entity (dataclass, no external deps)
+│   │       │   ├── task.py             # Task entity
+│   │       │   └── exceptions.py       # domain exceptions (e.g. TaskNotFound)
+│   │       │
+│   │       ├── application/
+│   │       │   ├── ports/              # abstract interfaces (Protocol/ABC)
+│   │       │   │   ├── project_repository.py
+│   │       │   │   └── task_repository.py
+│   │       │   └── use_cases/
+│   │       │       ├── create_project.py
+│   │       │       ├── list_projects.py
+│   │       │       ├── create_task.py
+│   │       │       ├── list_tasks.py
+│   │       │       ├── update_task.py
+│   │       │       └── complete_task.py
+│   │       │
+│   │       ├── infrastructure/
+│   │       │   ├── config.py           # settings (pydantic-settings)
+│   │       │   └── db/
+│   │       │       ├── models.py       # SQLModel: ProjectORM, TaskORM
+│   │       │       ├── session.py      # engine + sessionmaker
+│   │       │       └── repositories/
+│   │       │           ├── sqlite_project_repository.py   # implements ProjectRepository
+│   │       │           └── sqlite_task_repository.py      # implements TaskRepository
+│   │       │
+│   │       └── adapters/
+│   │           ├── rest/
+│   │           │   ├── main.py         # FastAPI instance, includes routers
+│   │           │   ├── deps.py         # dependency injection (repos, use cases)
+│   │           │   ├── schemas.py      # Pydantic DTOs (request/response)
+│   │           │   └── routers/
+│   │           │       ├── projects.py
+│   │           │       └── tasks.py
+│   │           └── mcp/
+│   │               ├── server.py       # MCP server (stdio)
+│   │               └── tools.py        # defines tools, calling the same use cases
+│   │
+│   └── tests/
+│       ├── domain/
+│       ├── application/
+│       └── adapters/
+│
+└── docs/
+    └── (planning documents)
+```
 
-El servidor MCP **no accede directamente a la base de datos**: consume los
-mismos casos de uso que expone el adaptador REST. Esto garantiza que las
-reglas de negocio (validaciones, permisos, auditoría) se apliquen siempre,
-sin importar si la acción vino de un agente de IA, del frontend o del CLI.
+**Implementation notes:**
+- `domain/` does not import `sqlmodel`, `fastapi`, or `mcp`. Pure Python only
+  (dataclasses/enums).
+- `ports/` are interfaces (`Protocol` from `typing`, or `ABC`) that
+  `application/use_cases` consumes without knowing the concrete
+  implementation.
+- `rest/deps.py` and `mcp/server.py` are the only places where the real
+  implementation (SQLite) is wired to the use cases — manual dependency
+  injection, without additional DI frameworks for now.
 
-## Mantenimiento de este documento
+## Current implementation status
 
-Actualizar cuando:
-- Se agrega un nuevo módulo de dominio (Notas, Calendario, Inventario, Passwords — Fases 2+)
-- Se agrega un nuevo adaptador de entrada (ej. app Android hablando directo a la API)
-- Se reemplaza SQLite por PostgreSQL, o cambia algún puerto existente
+- **Implemented:** domain layer (`Project`/`Task` entities, domain
+  exceptions) and domain tests, under `backend/src/lifeos/domain/` and
+  `backend/tests/domain/`.
+- **Pending (stubs):** application use cases, infrastructure (SQLite
+  repositories), REST adapter, and MCP adapter.
+
+See [docs/roadmap.md](docs/roadmap.md) for the phased plan.
+
+## MCP server
+
+The MCP server **does not access the database directly**: it consumes the
+same use cases exposed by the REST adapter. This guarantees that business
+rules (validation, permissions, auditing) are always applied, regardless of
+whether the action originated from an AI agent, the frontend, or the CLI.
+
+## Maintaining this document
+
+Update it when:
+- A new domain module is added (Notes, Calendar, Inventory, Passwords —
+  Phase 2+).
+- A new entry-point adapter is added (e.g. an Android app talking directly
+  to the API).
+- SQLite is replaced by PostgreSQL, or an existing port changes.
+
+Significant architectural decisions should also be recorded as an ADR — see
+[docs/adr/README.md](docs/adr/README.md).
