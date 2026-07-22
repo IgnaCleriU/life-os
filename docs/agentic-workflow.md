@@ -128,6 +128,12 @@ Benefits:
 - Each agent commits on its branch (`<type>/<short-description>`) without affecting the others.
 - Git refuses to check out the same branch in two worktrees → a guardrail against collisions.
 
+> **Branch name.** The worktree may be created with an auto-generated name
+> (e.g. `claude/busy-pare-e5448c`). Before integrating, rename the branch to
+> a `<type>/<short-description>` coherent with the task — the auto-generated
+> name must not reach the PR. See
+> [../CONTRIBUTING.md](../CONTRIBUTING.md#branch-name).
+
 Since they share the same `.git`, keep in mind:
 
 - **`pre-commit`** is installed once (hooks live in the shared git-dir) and validates across all

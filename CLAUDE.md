@@ -38,8 +38,9 @@ Before designing or implementing, review these documents:
 - **Commits:** [Conventional Commits](CONTRIBUTING.md#commit-convention)
   and **atomic** (several commits per task, one per logical change).
 - **PRs:** never commit directly to `master`; work on a branch
-  `<type>/<short-description>` and open a PR against `master`. See
-  [CONTRIBUTING.md](CONTRIBUTING.md#pull-request-flow).
+  `<type>/<short-description>` and open a PR against `master`. The branch name
+  must reflect the task — do **not** keep the auto-generated `claude/...`
+  name. See [CONTRIBUTING.md](CONTRIBUTING.md#pull-request-flow).
 
 ## How to run / verify
 
