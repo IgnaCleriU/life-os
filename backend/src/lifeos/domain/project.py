@@ -28,7 +28,7 @@ class ProjectStatus(str, Enum):
 
 
 def _validate_name(name: str) -> str:
-    """Valida que el nombre no sea vacío y lo devuelve normalizado (sin espacios extremos)."""
+    """Valida que el nombre no sea vacío y lo devuelve normalizado."""
     cleaned = name.strip()
     if not cleaned:
         raise DomainValidationError("El nombre del proyecto no puede estar vacío")

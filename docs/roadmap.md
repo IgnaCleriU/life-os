@@ -19,10 +19,11 @@ For architectural principles, see [../ARCHITECTURE.md](../ARCHITECTURE.md).
 
 ### Phase 0 — Foundations
 
-- Monorepo structure with hexagonal architecture (ports and adapters).
-- Docker Compose local environment.
-- Base data model (users, JWT auth).
-- Basic CI (lint + tests).
+- Monorepo structure with hexagonal architecture (ports and adapters). **Done.**
+- Docker Compose local environment (backend service + SQLite volume). **Done.**
+- Basic CI (commit-lint gate + ruff + pytest). **Done.**
+- Base data model (users, JWT auth). **Pending** — blocked on the deployment
+  topology decision (see [adr/README.md](adr/README.md)).
 
 ### Phase 1 — MVP: Projects + Tasks
 
@@ -45,9 +46,12 @@ Task breakdown and current status:
 | 8. MVP closing | Load the full roadmap (Phases 1-7) as a Project + Tasks inside the app itself, via the agent over MCP | Pending |
 
 The domain layer (`backend/src/lifeos/domain/`) and its unit tests
-(`backend/tests/domain/`) are implemented and merged. The application use
-cases, infrastructure (SQLite repositories), REST adapter, and MCP adapter
-currently exist only as placeholder/stub files and are not yet implemented.
+(`backend/tests/domain/`) are implemented and merged. The REST adapter has a
+minimal FastAPI app with a working `/health` endpoint (`main.py`), plus app
+settings (`infrastructure/config.py`). The application use cases, the SQLite
+infrastructure (repositories, ORM models), the REST routers for
+projects/tasks, and the MCP adapter currently exist only as placeholder/stub
+files and are not yet implemented.
 
 **Definition of Done (MVP):** in a single conversation with Claude
 connected to the local MCP server, it is possible to create a project and

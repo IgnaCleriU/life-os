@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  # Gate: valida los mensajes de commit contra Conventional Commits antes de
+  # gastar tiempo instalando dependencias o corriendo tests. Reusa los tipos
+  # permitidos definidos en .pre-commit-config.yaml.
+  commit-lint:
+    name: Commit message lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install conventional-pre-commit
+        run: pip install conventional-pre-commit
+      - name: Validate commit messages
+        env:
+          TYPES: "feat fix docs refactor test chore build ci style perf revert"
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            commits=$(git rev-list "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}")
+          else
+            commits="HEAD"
+          fi
+          if [ -z "$commits" ]; then
+            echo "No commits to validate."
+            exit 0
+          fi
+          for sha in $commits; do
+            echo "Checking $sha: $(git log -1 --format=%s "$sha")"
+            git log -1 --format=%B "$sha" > /tmp/commit-msg
+            conventional-pre-commit $TYPES /tmp/commit-msg
+          done
+
+  # Solo corre si el gate de mensajes pasó.
+  lint-test:
+    name: Lint & test
+    runs-on: ubuntu-latest
+    needs: commit-lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend (dev)
+        run: pip install -e "./backend[dev]"
+      - name: Ruff
+        run: ruff check backend
+      - name: Pytest
+        run: pytest
+        working-directory: backend
