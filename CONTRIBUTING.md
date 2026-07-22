@@ -127,6 +127,11 @@ docs/agentic-workflow
 refactor/extract-task-validation
 ```
 
+**The name must describe the task.** Do not leave the branch with the
+tool's auto-generated name (e.g. `claude/busy-pare-e5448c`): those names say
+nothing about the work. Rename the branch to `<type>/<short-description>`
+before opening the PR.
+
 ### PR contents
 
 - **Title** in Conventional Commits style (same format as a commit), e.g.
