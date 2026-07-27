@@ -2,23 +2,37 @@
 
 from uuid import uuid4
 
-from lifeos.domain import Priority, Task, TaskStatus
+import pytest
+from sqlalchemy.exc import IntegrityError
+
+from lifeos.domain import Priority, Project, Task, TaskStatus
+from lifeos.infrastructure.db.repositories.sqlite_project_repository import (
+    SQLiteProjectRepository,
+)
 from lifeos.infrastructure.db.repositories.sqlite_task_repository import (
     SQLiteTaskRepository,
 )
 
 
+def _add_project(session) -> Project:
+    """Crea y persiste un `Project`, requerido por el FK de `tasks.project_id`."""
+    project = Project.create(name="Proyecto de prueba")
+    SQLiteProjectRepository(session).add(project)
+    return project
+
+
 def test_add_get_and_list_by_project(session):
     repo = SQLiteTaskRepository(session)
-    project_id = uuid4()
-    task = Task.create(project_id=project_id, title="Escribir tests")
-    other = Task.create(project_id=uuid4(), title="Tarea de otro proyecto")
+    project = _add_project(session)
+    other_project = _add_project(session)
+    task = Task.create(project_id=project.id, title="Escribir tests")
+    other = Task.create(project_id=other_project.id, title="Tarea de otro proyecto")
 
     repo.add(task)
     repo.add(other)
 
     assert repo.get(task.id) == task
-    assert repo.list_by_project(project_id) == [task]
+    assert repo.list_by_project(project.id) == [task]
 
 
 def test_get_missing_returns_none(session):
@@ -35,7 +49,8 @@ def test_list_by_project_empty(session):
 
 def test_update_persists_status_change(session):
     repo = SQLiteTaskRepository(session)
-    task = Task.create(project_id=uuid4(), title="Tarea")
+    project = _add_project(session)
+    task = Task.create(project_id=project.id, title="Tarea")
     repo.add(task)
 
     task.complete()
@@ -46,7 +61,8 @@ def test_update_persists_status_change(session):
 
 def test_update_persists_all_mutable_fields(session):
     repo = SQLiteTaskRepository(session)
-    task = Task.create(project_id=uuid4(), title="Tarea", priority=Priority.LOW)
+    project = _add_project(session)
+    task = Task.create(project_id=project.id, title="Tarea", priority=Priority.LOW)
     repo.add(task)
 
     task.rename("Tarea renombrada")
@@ -58,3 +74,11 @@ def test_update_persists_all_mutable_fields(session):
     assert reloaded.title == "Tarea renombrada"
     assert reloaded.priority == Priority.HIGH
     assert reloaded.due_date is None
+
+
+def test_add_rejects_task_with_unknown_project_id(session):
+    repo = SQLiteTaskRepository(session)
+    task = Task.create(project_id=uuid4(), title="Tarea huérfana")
+
+    with pytest.raises(IntegrityError):
+        repo.add(task)

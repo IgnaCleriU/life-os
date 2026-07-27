@@ -11,16 +11,35 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 from sqlmodel import Session, SQLModel, create_engine
 
 from lifeos.infrastructure.config import get_settings
 
 
+def enable_sqlite_foreign_keys(engine: Engine) -> None:
+    """Activa el enforcement de foreign keys en SQLite.
+
+    SQLite lo trae deshabilitado por defecto por conexión; sin esto, un
+    `TaskModel.project_id` que no exista en `projects` se inserta sin error
+    pese a la `foreign_key="projects.id"` declarada en el modelo.
+    """
+
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, connection_record) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+
 def _make_engine():
     settings = get_settings()
-    return create_engine(
+    engine = create_engine(
         settings.database_url, connect_args={"check_same_thread": False}
     )
+    enable_sqlite_foreign_keys(engine)
+    return engine
 
 
 engine = _make_engine()
