@@ -247,3 +247,83 @@ def test_update_not_found_exits_1(runner: CliRunner) -> None:
     assert result.exit_code == 1
     assert result.stdout == ""
     assert result.stderr.startswith("project_not_found: ")
+
+
+# --- complete/archive/activate ------------------------------------------
+
+
+def test_complete_plain(runner: CliRunner) -> None:
+    project_id = _create(runner)
+
+    result = runner.invoke(app, ["project", "complete", project_id])
+    assert result.exit_code == 0
+    assert "completed" in result.stdout
+    assert result.stderr == ""
+
+
+def test_complete_json(runner: CliRunner) -> None:
+    project_id = _create(runner)
+
+    result = runner.invoke(app, ["--json", "project", "complete", project_id])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "completed"
+
+
+def test_complete_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["project", "complete", str(uuid4())])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("project_not_found: ")
+
+
+def test_archive_plain(runner: CliRunner) -> None:
+    project_id = _create(runner)
+
+    result = runner.invoke(app, ["project", "archive", project_id])
+    assert result.exit_code == 0
+    assert "archived" in result.stdout
+    assert result.stderr == ""
+
+
+def test_archive_json(runner: CliRunner) -> None:
+    project_id = _create(runner)
+
+    result = runner.invoke(app, ["--json", "project", "archive", project_id])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "archived"
+
+
+def test_archive_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["project", "archive", str(uuid4())])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("project_not_found: ")
+
+
+def test_activate_plain(runner: CliRunner) -> None:
+    project_id = _create(runner)
+    runner.invoke(app, ["project", "archive", project_id])
+
+    result = runner.invoke(app, ["project", "activate", project_id])
+    assert result.exit_code == 0
+    assert "active" in result.stdout
+    assert result.stderr == ""
+
+
+def test_activate_json(runner: CliRunner) -> None:
+    project_id = _create(runner)
+    runner.invoke(app, ["project", "archive", project_id])
+
+    result = runner.invoke(app, ["--json", "project", "activate", project_id])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "active"
+
+
+def test_activate_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["project", "activate", str(uuid4())])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("project_not_found: ")
