@@ -492,3 +492,46 @@ def test_reopen_not_found_exits_1(runner: CliRunner) -> None:
     assert result.exit_code == 1
     assert result.stdout == ""
     assert result.stderr.startswith("task_not_found: ")
+
+
+# --- move ------------------------------------------------------------------
+
+
+def test_move_plain(runner: CliRunner) -> None:
+    origin = _create_project(runner, "Groceries")
+    destination = _create_project(runner, "Chores")
+    task_id = _create_task(runner, origin, "Buy milk")
+
+    result = runner.invoke(app, ["task", "move", task_id, destination])
+    assert result.exit_code == 0
+    assert "Buy milk" in result.stdout
+    assert result.stderr == ""
+
+
+def test_move_json(runner: CliRunner) -> None:
+    origin = _create_project(runner, "Groceries")
+    destination = _create_project(runner, "Chores")
+    task_id = _create_task(runner, origin, "Buy milk")
+
+    result = runner.invoke(app, ["--json", "task", "move", task_id, destination])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["project_id"] == destination
+
+
+def test_move_task_not_found_exits_1(runner: CliRunner) -> None:
+    destination = _create_project(runner)
+
+    result = runner.invoke(app, ["task", "move", str(uuid4()), destination])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("task_not_found: ")
+
+
+def test_move_destination_project_not_found_exits_1(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["task", "move", task_id, str(uuid4())])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("project_not_found: ")
