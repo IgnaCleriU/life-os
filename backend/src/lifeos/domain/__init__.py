@@ -3,6 +3,7 @@
 from .exceptions import (
     DomainError,
     DomainValidationError,
+    ProjectNotEmpty,
     ProjectNotFound,
     TaskNotFound,
 )
@@ -12,6 +13,7 @@ from .task import Priority, Task, TaskStatus
 __all__ = [
     "DomainError",
     "DomainValidationError",
+    "ProjectNotEmpty",
     "ProjectNotFound",
     "TaskNotFound",
     "Project",

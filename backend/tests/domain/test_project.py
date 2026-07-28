@@ -74,3 +74,42 @@ def test_free_transitions_between_states():
     # y volver a activo
     project.activate()
     assert project.status is ProjectStatus.ACTIVE
+
+
+def test_describe_sets_and_clears_description():
+    project = Project.create(name="Life OS", description="original")
+
+    project.describe("nueva")
+    assert project.description == "nueva"
+
+    project.describe(None)
+    assert project.description is None
+
+
+def test_create_is_not_deleted():
+    project = Project.create(name="Life OS")
+
+    assert project.deleted_at is None
+    assert project.is_deleted is False
+
+
+def test_delete_marks_and_restore_clears():
+    project = Project.create(name="Life OS")
+
+    project.delete()
+    assert project.is_deleted is True
+    assert project.deleted_at.tzinfo is not None
+
+    project.restore()
+    assert project.is_deleted is False
+    assert project.deleted_at is None
+
+
+def test_delete_is_idempotent_and_keeps_original_timestamp():
+    project = Project.create(name="Life OS")
+
+    project.delete()
+    primera_marca = project.deleted_at
+    project.delete()
+
+    assert project.deleted_at == primera_marca

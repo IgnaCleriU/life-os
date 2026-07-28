@@ -50,6 +50,12 @@ class Task:
     priority: Priority
     due_date: date | None
     created_at: datetime
+    deleted_at: datetime | None = None
+
+    @property
+    def is_deleted(self) -> bool:
+        """Si la tarea está borrada lógicamente."""
+        return self.deleted_at is not None
 
     @classmethod
     def create(
@@ -76,6 +82,14 @@ class Task:
         """Cambia el título de la tarea, validando la invariante."""
         self.title = _validate_title(new_title)
 
+    def describe(self, description: str | None) -> None:
+        """Cambia la descripción (o la quita si es None)."""
+        self.description = description
+
+    def move_to(self, project_id: UUID) -> None:
+        """Mueve la tarea a otro proyecto."""
+        self.project_id = project_id
+
     def change_priority(self, priority: Priority) -> None:
         """Cambia la prioridad de la tarea."""
         self.priority = priority
@@ -95,3 +109,16 @@ class Task:
     def reopen(self) -> None:
         """Vuelve la tarea a pendiente."""
         self.status = TaskStatus.TODO
+
+    def delete(self) -> None:
+        """Borra la tarea lógicamente (idempotente).
+
+        No se pisa un `deleted_at` ya puesto: reborrar no debe mover la marca
+        de tiempo del borrado original.
+        """
+        if self.deleted_at is None:
+            self.deleted_at = datetime.now(timezone.utc)
+
+    def restore(self) -> None:
+        """Deshace el borrado lógico (idempotente)."""
+        self.deleted_at = None

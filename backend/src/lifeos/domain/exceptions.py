@@ -32,3 +32,15 @@ class TaskNotFound(DomainError):
     def __init__(self, task_id: UUID) -> None:
         self.task_id = task_id
         super().__init__(f"No existe la tarea con id {task_id}")
+
+
+class ProjectNotEmpty(DomainError):
+    """Se intenta borrar un proyecto que todavía tiene tareas vivas.
+
+    El borrado no cascadea: las tareas se mueven o se borran primero. Así
+    `RestoreProject` no necesita recordar qué tareas se llevó por delante.
+    """
+
+    def __init__(self, project_id: UUID) -> None:
+        self.project_id = project_id
+        super().__init__(f"El proyecto con id {project_id} todavía tiene tareas")
