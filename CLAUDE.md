@@ -49,5 +49,12 @@ Before designing or implementing, review these documents:
   without a database, using in-memory fake repositories).
 - **Commit validation:** `pre-commit install --hook-type commit-msg` (once
   per clone); validates the message format before a commit is created.
-- **Local environment:** `docker compose up` starts the backend (see
-  [ARCHITECTURE.md](ARCHITECTURE.md)).
+- **Local environment:** install the backend into a virtualenv from
+  `backend/` (`python -m venv .venv && .venv/bin/pip install -e ".[dev]"`),
+  then `uvicorn lifeos.adapters.rest.main:app` (REST) or `lifeos-mcp`
+  (MCP). Both share one database, see
+  [ARCHITECTURE.md](ARCHITECTURE.md#where-the-data-lives).
+- **Docker Compose** still works but is no longer the target runtime; Life
+  OS is being built as a native TUI desktop app. Do not treat
+  [docs/adr/0005-deployment-target.md](docs/adr/0005-deployment-target.md)
+  as current — it is deprecated.
