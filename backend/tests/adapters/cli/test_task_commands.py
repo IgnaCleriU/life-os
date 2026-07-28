@@ -535,3 +535,103 @@ def test_move_destination_project_not_found_exits_1(runner: CliRunner) -> None:
     assert result.exit_code == 1
     assert result.stdout == ""
     assert result.stderr.startswith("project_not_found: ")
+
+
+# --- delete/restore ------------------------------------------------------
+
+
+def test_delete_confirm_accepted(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["task", "delete", task_id], input="y\n")
+    assert result.exit_code == 0
+    assert result.stderr == ""
+
+    show_result = runner.invoke(app, ["task", "show", task_id])
+    assert show_result.exit_code == 1
+    assert show_result.stderr.startswith("task_not_found: ")
+
+
+def test_delete_confirm_declined(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["task", "delete", task_id], input="n\n")
+    assert result.exit_code == 1
+
+    show_result = runner.invoke(app, ["task", "show", task_id])
+    assert show_result.exit_code == 0
+
+
+def test_delete_yes_flag_skips_prompt(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["task", "delete", task_id, "--yes"])
+    assert result.exit_code == 0
+
+    show_result = runner.invoke(app, ["task", "show", task_id])
+    assert show_result.exit_code == 1
+
+
+def test_delete_short_yes_flag_skips_prompt(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["task", "delete", task_id, "-y"])
+    assert result.exit_code == 0
+
+    show_result = runner.invoke(app, ["task", "show", task_id])
+    assert show_result.exit_code == 1
+
+
+def test_delete_empty_input_aborts(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["task", "delete", task_id], input="")
+    assert result.exit_code == 1
+
+    show_result = runner.invoke(app, ["task", "show", task_id])
+    assert show_result.exit_code == 0
+
+
+def test_delete_json_prints_deleted_task(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["--json", "task", "delete", task_id, "--yes"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["id"] == task_id
+
+
+def test_delete_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["task", "delete", str(uuid4()), "--yes"])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("task_not_found: ")
+
+
+def test_restore_plain(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+    runner.invoke(app, ["task", "delete", task_id, "--yes"])
+
+    result = runner.invoke(app, ["task", "restore", task_id])
+    assert result.exit_code == 0
+    assert result.stderr == ""
+
+    show_result = runner.invoke(app, ["task", "show", task_id])
+    assert show_result.exit_code == 0
+
+
+def test_restore_json(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+    runner.invoke(app, ["task", "delete", task_id, "--yes"])
+
+    result = runner.invoke(app, ["--json", "task", "restore", task_id])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["id"] == task_id
+
+
+def test_restore_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["task", "restore", str(uuid4())])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("task_not_found: ")
