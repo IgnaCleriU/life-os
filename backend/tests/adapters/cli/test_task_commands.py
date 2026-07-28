@@ -412,3 +412,83 @@ def test_update_not_found_exits_1(runner: CliRunner) -> None:
     assert result.exit_code == 1
     assert result.stdout == ""
     assert result.stderr.startswith("task_not_found: ")
+
+
+# --- complete/start/reopen -----------------------------------------------
+
+
+def test_complete_plain(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["task", "complete", task_id])
+    assert result.exit_code == 0
+    assert "done" in result.stdout
+    assert result.stderr == ""
+
+
+def test_complete_json(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["--json", "task", "complete", task_id])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "done"
+
+
+def test_complete_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["task", "complete", str(uuid4())])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("task_not_found: ")
+
+
+def test_start_plain(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["task", "start", task_id])
+    assert result.exit_code == 0
+    assert "doing" in result.stdout
+    assert result.stderr == ""
+
+
+def test_start_json(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["--json", "task", "start", task_id])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "doing"
+
+
+def test_start_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["task", "start", str(uuid4())])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("task_not_found: ")
+
+
+def test_reopen_plain(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+    runner.invoke(app, ["task", "complete", task_id])
+
+    result = runner.invoke(app, ["task", "reopen", task_id])
+    assert result.exit_code == 0
+    assert "todo" in result.stdout
+    assert result.stderr == ""
+
+
+def test_reopen_json(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+    runner.invoke(app, ["task", "complete", task_id])
+
+    result = runner.invoke(app, ["--json", "task", "reopen", task_id])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "todo"
+
+
+def test_reopen_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["task", "reopen", str(uuid4())])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("task_not_found: ")
