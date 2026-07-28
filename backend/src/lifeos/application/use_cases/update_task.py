@@ -1,9 +1,9 @@
 """Caso de uso: actualizar los datos de una Task existente.
 
 Actualización parcial: solo se modifican los campos provistos. Para `due_date`
-se usa un centinela (`_UNSET`) que distingue "no tocar la fecha" de "poner la
-fecha en None" (quitarla). Las invariantes (título no vacío) las valida el
-dominio a través de los métodos de `Task`.
+y `description` se usa un centinela (`_UNSET`) que distingue "no tocar el
+campo" de "ponerlo en None" (quitarlo). Las invariantes (título no vacío) las
+valida el dominio a través de los métodos de `Task`.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ class UpdateTask:
         task_id: UUID,
         *,
         title: str | None = None,
-        description: str | None = None,
+        description: str | None | object = _UNSET,
         priority: Priority | None = None,
         due_date: date | None | object = _UNSET,
     ) -> Task:
@@ -43,8 +43,8 @@ class UpdateTask:
             task.change_priority(priority)
         if due_date is not _UNSET:
             task.reschedule(due_date)  # type: ignore[arg-type]
-        if description is not None:
-            task.description = description
+        if description is not _UNSET:
+            task.describe(description)  # type: ignore[arg-type]
 
         self._task_repo.update(task)
         return task
