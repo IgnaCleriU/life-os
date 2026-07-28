@@ -149,3 +149,56 @@ def test_capture_multi_arg_unquoted_invocation_joins_with_spaces(
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert payload["title"] == "buy milk and eggs"
+
+
+# --- add alias parity --------------------------------------------------
+
+
+@pytest.mark.parametrize("command", ["capture", "add"])
+def test_add_alias_targets_existing_project_same_as_capture(
+    runner: CliRunner, command: str
+) -> None:
+    project_id = _create_project(runner, "Casa")
+
+    result = runner.invoke(app, [command, "buy", "milk", "#casa"])
+    assert result.exit_code == 0
+
+    tasks = _list_tasks(runner)
+    assert len(tasks) == 1
+    assert tasks[0]["project_id"] == project_id
+
+
+@pytest.mark.parametrize("command", ["capture", "add"])
+def test_add_alias_domain_error_same_as_capture(
+    runner: CliRunner, command: str
+) -> None:
+    result = runner.invoke(app, [command, "!high"])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("domain_validation_error: ")
+
+
+# --- --json output shape ----------------------------------------------
+
+
+def test_capture_json_output_matches_task_dict_shape(runner: CliRunner) -> None:
+    result = runner.invoke(
+        app, ["--json", "capture", "buy", "milk", "!high", "@2026-08-03"]
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert set(payload.keys()) == {
+        "id",
+        "project_id",
+        "title",
+        "description",
+        "status",
+        "priority",
+        "due_date",
+        "created_at",
+    }
+    assert payload["title"] == "buy milk"
+    assert payload["priority"] == "high"
+    assert payload["due_date"] == "2026-08-03"
+    assert payload["status"] == "todo"
+    assert payload["description"] is None
