@@ -60,6 +60,22 @@ def test_list_tasks_returns_only_that_projects_tasks(client: TestClient) -> None
     assert body[0]["id"] == task_a["id"]
 
 
+def test_list_tasks_of_project_applies_status_filter(client: TestClient) -> None:
+    """Regresión: esta ruta ignoraba en silencio `status`/`due_before`/`q`."""
+    project = _create_project(client)
+    todo = client.post(
+        f"/projects/{project['id']}/tasks", json={"title": "Pendiente"}
+    ).json()
+    done = client.post(
+        f"/projects/{project['id']}/tasks", json={"title": "Hecha"}
+    ).json()
+    client.post(f"/tasks/{done['id']}/complete")
+
+    response = client.get(f"/projects/{project['id']}/tasks?status=todo")
+
+    assert [t["id"] for t in response.json()] == [todo["id"]]
+
+
 def test_list_tasks_unknown_project_returns_empty_list(client: TestClient) -> None:
     response = client.get(f"/projects/{uuid4()}/tasks")
 

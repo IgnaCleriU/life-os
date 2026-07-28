@@ -69,9 +69,15 @@ def create_task(
 def list_tasks_of_project(
     project_id: UUID,
     use_case: Annotated[ListTasks, Depends(get_list_tasks_use_case)],
+    status_filter: Annotated[list[TaskStatus] | None, Query(alias="status")] = None,
+    due_before: date | None = None,
+    q: str | None = None,
 ) -> list[TaskResponse]:
-    """Lista las tareas de un proyecto."""
-    tasks = use_case.execute(project_id)
+    """Lista las tareas de un proyecto, con los mismos filtros opcionales que
+    `GET /tasks` (ver esa ruta para el significado de cada uno)."""
+    tasks = use_case.execute(
+        project_id, statuses=status_filter, due_before=due_before, text=q
+    )
     return [TaskResponse.model_validate(task) for task in tasks]
 
 
@@ -108,11 +114,12 @@ def update_task(
     """Actualiza parcialmente una tarea.
 
     `model_dump(exclude_unset=True)` solo incluye las claves que el cliente
-    mandó en el JSON: un `due_date` omitido no llega a `execute` (que la deja
-    intacta vía su propio centinela `_UNSET`), mientras que `due_date: null`
-    sí llega como `due_date=None` (que la limpia). Esto también aplica de
-    forma segura a `title`/`description`/`priority`, cuyo propio default
-    (`None`) ya significa "no tocar" en `UpdateTask.execute`.
+    mandó en el JSON: un campo omitido no llega a `execute`. Para `due_date` y
+    `description`, eso significa "no tocar" vía el centinela `_UNSET` propio de
+    `UpdateTask.execute`; enviados explícitamente en `null`, se limpian. Para
+    `title`/`priority`, en cambio, el propio default de `execute` (`None`) ya
+    significa "no tocar" — no tienen forma de limpiarse a través de esta ruta,
+    consistente con que el dominio no permite un título vacío.
     """
     kwargs = body.model_dump(exclude_unset=True)
     task = use_case.execute(task_id, **kwargs)
