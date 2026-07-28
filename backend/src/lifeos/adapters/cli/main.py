@@ -10,17 +10,17 @@ from __future__ import annotations
 
 import typer
 
+from lifeos.adapters.cli.project_commands import project_app
 from lifeos.infrastructure.db.session import create_db_and_tables
 
 app = typer.Typer(help="Life OS command-line interface.")
 
 # --- Placeholders --------------------------------------------------------
-# Sub-apps vacíos, registrados solo para que `lifeos --help` liste los
-# grupos `project` y `task`. Agentes posteriores (Step 12/13) reemplazan
-# este registro por sus propios sub-apps (`project_commands.py`,
-# `task_commands.py`), con los comandos reales. No agregar comandos acá.
+# Sub-app vacío, registrado solo para que `lifeos --help` liste el grupo
+# `task`. Un agente posterior (Step 13) reemplaza este registro por su
+# propio sub-app (`task_commands.py`), con los comandos reales. No agregar
+# comandos acá.
 
-project_app = typer.Typer(help="Manage projects.")
 task_app = typer.Typer(help="Manage tasks.")
 
 app.add_typer(project_app, name="project", help="Manage projects.")

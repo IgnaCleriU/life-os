@@ -74,22 +74,32 @@ def test_list_json_prints_list_of_project_dicts(runner: CliRunner) -> None:
     assert payload[0]["name"] == "Groceries"
 
 
-def test_list_filters_by_status(runner: CliRunner) -> None:
+def _seed_archived_project(db_session, name: str) -> None:
+    """Crea y archiva un proyecto directo por repositorio, sin pasar por el
+    comando `archive` (todavía no implementado en este grupo)."""
+    from lifeos.domain import Project
+    from lifeos.infrastructure.db.repositories.sqlite_project_repository import (
+        SQLiteProjectRepository,
+    )
+
+    repo = SQLiteProjectRepository(db_session)
+    project = Project.create(name)
+    project.archive()
+    repo.add(project)
+
+
+def test_list_filters_by_status(runner: CliRunner, db_session) -> None:
     runner.invoke(app, ["project", "create", "Groceries"])
-    create_result = runner.invoke(app, ["--json", "project", "create", "Chores"])
-    chores_id = json.loads(create_result.stdout)["id"]
-    runner.invoke(app, ["project", "archive", chores_id])
+    _seed_archived_project(db_session, "Chores")
 
     result = runner.invoke(app, ["--json", "project", "list", "--status", "archived"])
     payload = json.loads(result.stdout)
     assert [p["name"] for p in payload] == ["Chores"]
 
 
-def test_list_filters_by_multiple_statuses(runner: CliRunner) -> None:
+def test_list_filters_by_multiple_statuses(runner: CliRunner, db_session) -> None:
     runner.invoke(app, ["project", "create", "Groceries"])
-    create_result = runner.invoke(app, ["--json", "project", "create", "Chores"])
-    chores_id = json.loads(create_result.stdout)["id"]
-    runner.invoke(app, ["project", "archive", chores_id])
+    _seed_archived_project(db_session, "Chores")
 
     result = runner.invoke(
         app,
