@@ -272,3 +272,143 @@ def test_show_bad_uuid_exits_2(runner: CliRunner) -> None:
     result = runner.invoke(app, ["task", "show", "not-a-uuid"])
     assert result.exit_code == 2
     assert result.stdout == ""
+
+
+# --- update ------------------------------------------------------------
+
+
+def test_update_title_plain(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["task", "update", task_id, "--title", "Buy oat milk"])
+    assert result.exit_code == 0
+    assert "Buy oat milk" in result.stdout
+    assert result.stderr == ""
+
+
+def test_update_priority_json(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(
+        app, ["--json", "task", "update", task_id, "--priority", "high"]
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["priority"] == "high"
+
+
+def test_update_due_json(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(
+        app, ["--json", "task", "update", task_id, "--due", "2026-08-01"]
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["due_date"] == "2026-08-01"
+
+
+def test_update_description_json(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(
+        app,
+        ["--json", "task", "update", task_id, "--description", "New desc"],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["description"] == "New desc"
+    assert payload["title"] == "Buy milk"
+
+
+def test_update_no_fields_leaves_task_untouched(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["--json", "task", "update", task_id])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["title"] == "Buy milk"
+    assert payload["description"] is None
+    assert payload["due_date"] is None
+
+
+def test_update_clear_description(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+    runner.invoke(app, ["task", "update", task_id, "--description", "Something"])
+
+    result = runner.invoke(
+        app, ["--json", "task", "update", task_id, "--clear-description"]
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["description"] is None
+
+
+def test_update_clear_due(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+    runner.invoke(app, ["task", "update", task_id, "--due", "2026-08-01"])
+
+    result = runner.invoke(app, ["--json", "task", "update", task_id, "--clear-due"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["due_date"] is None
+
+
+def test_update_description_and_clear_description_mutually_exclusive(
+    runner: CliRunner,
+) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(
+        app,
+        [
+            "task",
+            "update",
+            task_id,
+            "--description",
+            "x",
+            "--clear-description",
+        ],
+    )
+    assert result.exit_code == 2
+    assert result.stdout == ""
+
+
+def test_update_due_and_clear_due_mutually_exclusive(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(
+        app,
+        ["task", "update", task_id, "--due", "2026-08-01", "--clear-due"],
+    )
+    assert result.exit_code == 2
+    assert result.stdout == ""
+
+
+def test_update_combined_clear_flags(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+    runner.invoke(app, ["task", "update", task_id, "--description", "Something"])
+    runner.invoke(app, ["task", "update", task_id, "--due", "2026-08-01"])
+
+    result = runner.invoke(
+        app,
+        [
+            "--json",
+            "task",
+            "update",
+            task_id,
+            "--clear-description",
+            "--clear-due",
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["description"] is None
+    assert payload["due_date"] is None
+
+
+def test_update_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["task", "update", str(uuid4()), "--title", "New"])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("task_not_found: ")
