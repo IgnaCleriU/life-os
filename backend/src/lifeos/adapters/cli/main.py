@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import typer
 
+from lifeos.adapters.cli.capture import capture
 from lifeos.adapters.cli.project_commands import project_app
 from lifeos.adapters.cli.task_commands import task_app
 from lifeos.infrastructure.db.session import create_db_and_tables
@@ -18,6 +19,8 @@ app = typer.Typer(help="Life OS command-line interface.")
 
 app.add_typer(project_app, name="project", help="Manage projects.")
 app.add_typer(task_app, name="task", help="Manage tasks.")
+app.command("capture")(capture)
+app.command("add")(capture)
 
 
 @app.callback()
