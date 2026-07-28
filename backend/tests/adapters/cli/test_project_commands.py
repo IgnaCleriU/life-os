@@ -166,3 +166,84 @@ def test_show_bad_uuid_exits_2(runner: CliRunner) -> None:
     result = runner.invoke(app, ["project", "show", "not-a-uuid"])
     assert result.exit_code == 2
     assert result.stdout == ""
+
+
+# --- update ------------------------------------------------------------
+
+
+def _create(runner: CliRunner, name: str = "Groceries") -> str:
+    result = runner.invoke(app, ["--json", "project", "create", name])
+    return json.loads(result.stdout)["id"]
+
+
+def test_update_name_plain(runner: CliRunner) -> None:
+    project_id = _create(runner)
+
+    result = runner.invoke(app, ["project", "update", project_id, "--name", "Errands"])
+    assert result.exit_code == 0
+    assert "Errands" in result.stdout
+    assert result.stderr == ""
+
+
+def test_update_description_json(runner: CliRunner) -> None:
+    project_id = _create(runner)
+
+    result = runner.invoke(
+        app,
+        ["--json", "project", "update", project_id, "--description", "New desc"],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["description"] == "New desc"
+    assert payload["name"] == "Groceries"
+
+
+def test_update_no_fields_leaves_project_untouched(runner: CliRunner) -> None:
+    project_id = _create(runner)
+
+    result = runner.invoke(app, ["--json", "project", "update", project_id])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["name"] == "Groceries"
+    assert payload["description"] is None
+
+
+def test_update_clear_description(runner: CliRunner) -> None:
+    project_id = _create(runner)
+    runner.invoke(app, ["project", "update", project_id, "--description", "Something"])
+
+    result = runner.invoke(
+        app, ["--json", "project", "update", project_id, "--clear-description"]
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["description"] is None
+
+
+def test_update_description_and_clear_description_mutually_exclusive(
+    runner: CliRunner,
+) -> None:
+    project_id = _create(runner)
+
+    result = runner.invoke(
+        app,
+        [
+            "project",
+            "update",
+            project_id,
+            "--description",
+            "x",
+            "--clear-description",
+        ],
+    )
+    assert result.exit_code == 2
+    assert result.stdout == ""
+
+
+def test_update_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(
+        app, ["project", "update", str(uuid4()), "--name", "Errands"]
+    )
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("project_not_found: ")
