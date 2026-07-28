@@ -1,7 +1,34 @@
 # 0005. Deployment target
 
-- Status: Proposed
+- Status: Deprecated
 - Date: 2026-07
+- Deprecated: 2026-07
+
+> **Deprecated.** Life OS is being built as a **native TUI desktop
+> application for Omarchy**, launching the backend and the TUI together on
+> the user's own machine. That makes the framing below obsolete: it treats
+> deployment as a hosting question (where does a server run, how is it
+> reached remotely) when the answer is now that there is no server to host
+> — the app runs locally, like any other desktop program.
+>
+> Specifically no longer current:
+> - **Docker Compose as the local runtime.** The Compose files remain in
+>   the repo but are no longer the intended way to run Life OS day to day.
+> - **The self-hosted Pi / mini-PC + Tailscale trajectory** as the assumed
+>   next step once the system is used daily.
+>
+> What still holds is the underlying reasoning, not the conclusion: the
+> data is sensitive and should stay on hardware the user owns. A native
+> desktop app satisfies that more directly than any of the three options
+> weighed below.
+>
+> Remote access and multi-device use (e.g. the Android app in Phase 6, see
+> [../roadmap.md](../roadmap.md)) are *not* settled by this deprecation —
+> they become open questions for the desktop-app ADR that supersedes this
+> one. Update this Status to `Superseded by 000X` once that ADR exists.
+>
+> The text below is kept unedited as the record of what was believed at the
+> time; see [README.md](README.md) for why ADRs are not rewritten in place.
 
 ## Context
 

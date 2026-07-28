@@ -124,6 +124,22 @@ same use cases exposed by the REST adapter. This guarantees that business
 rules (validation, permissions, auditing) are always applied, regardless of
 whether the action originated from an AI agent, the frontend, or the CLI.
 
+## Where the data lives
+
+Every entry point (REST, MCP, and the planned CLI/TUI) is a separate
+process, but they all read and write **one** database: by default
+`$XDG_DATA_HOME/life-os/lifeos.db` — in practice
+`~/.local/share/life-os/lifeos.db`. That path is deliberately absolute and
+outside the repository, so it does not depend on the working directory a
+process was launched from, nor on the checkout, branch or worktree it was
+launched from. `DATABASE_URL` overrides it (tests and containers do).
+
+This matters architecturally: sharing the application layer is only half of
+the guarantee above. Two adapters running the same use cases against two
+different database files would still show the agent and the user different
+worlds. See
+[docs/adr/0007-shared-database-location.md](docs/adr/0007-shared-database-location.md).
+
 ## Maintaining this document
 
 Update it when:
@@ -132,6 +148,8 @@ Update it when:
 - A new entry-point adapter is added (e.g. an Android app talking directly
   to the API).
 - SQLite is replaced by PostgreSQL, or an existing port changes.
+- The location or ownership of the database file changes (see "Where the
+  data lives").
 
 Significant architectural decisions should also be recorded as an ADR — see
 [docs/adr/README.md](docs/adr/README.md).
