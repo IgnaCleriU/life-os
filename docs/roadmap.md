@@ -48,7 +48,7 @@ Task breakdown and current status:
 | 7. MCP adapter | MCP server (stdio) and tools calling the same use cases as REST | **Done** |
 | 8. MVP closing | Load the full roadmap (Phases 1-7) as a Project + Tasks inside the app itself, via the agent over MCP | Pending |
 | 9. Lifecycle use cases | Soft deletion, project mutation, `doing`, move, get-by-id, filtered listings; WAL + `busy_timeout` | **Done** |
-| 10. REST + MCP parity | Expose every Step 9 capability as routes and tools | Pending |
+| 10. REST + MCP parity | Expose every Step 9 capability as routes and tools | **Done** |
 | 11. CLI adapter | Typer CLI mirroring the use cases, plus the shared quick-add parser | Pending |
 | 12. TUI shell | Generic Textual shell: panes, modes, keymap registry, palette, undo | Pending |
 | 13. TUI module + desktop wiring | Projects/Tasks module, console scripts, capture prompt, Omarchy binds | Pending |
@@ -69,13 +69,13 @@ use cases (`backend/src/lifeos/application/`), the SQLite infrastructure
 (`backend/src/lifeos/infrastructure/`), the REST adapter
 (`backend/src/lifeos/adapters/rest/`), and the MCP adapter
 (`backend/src/lifeos/adapters/mcp/`) are implemented and merged, each with
-its own test suite under `backend/tests/`. The REST API exposes create/list
-for projects and create/list/update/complete for tasks, with structured
-error responses for domain and validation errors. The MCP server exposes
-the same six operations as tools (`create_project`, `list_projects`,
-`create_task`, `list_tasks`, `update_task`, `complete_task`) over stdio,
-calling the same use cases as REST per ADR 0002; see
-[mcp-setup.md](mcp-setup.md) for how to point an agent at it.
+its own test suite under `backend/tests/`. Both the REST API and the MCP
+server (over stdio) expose the full Projects/Tasks lifecycle — create,
+filtered listing, get by id, partial update, every status transition
+(including `doing`), move, soft delete and restore — calling the same use
+cases per ADR 0002, with structured error responses for domain and
+validation errors on REST. See [mcp-setup.md](mcp-setup.md) for the full tool
+list and how to point an agent at it.
 
 **Definition of Done (MVP):** in a single conversation with Claude
 connected to the local MCP server, it is possible to create a project and

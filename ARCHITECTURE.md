@@ -117,8 +117,9 @@ life-os/
   `adapters/rest/`, and `adapters/mcp/` respectively, each with its own test
   suite under `backend/tests/`. The application layer covers the full
   Projects/Tasks lifecycle (Step 9), including soft deletion and filtered
-  listings; REST and MCP still expose only the original six operations.
-- **Pending:** Phase 1 Step 8 (MVP closing) and Steps 10-13, which build the
+  listings, and both REST and MCP expose all of it (Step 10) — see
+  [docs/mcp-setup.md](docs/mcp-setup.md) for the tool list.
+- **Pending:** Phase 1 Step 8 (MVP closing) and Steps 11-13, which build the
   CLI and TUI adapters of
   [docs/adr/0008-keyboard-driven-tui-adapter.md](docs/adr/0008-keyboard-driven-tui-adapter.md)
   — see [docs/roadmap.md](docs/roadmap.md).
