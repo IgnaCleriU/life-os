@@ -10,10 +10,11 @@ CLI, or mobile app — never a workaround that talks to files or screenshots.
 ## Status
 
 **Phase 1 (MVP: Projects + Tasks) is in progress.** The domain layer,
-application use cases, SQLite infrastructure, and REST adapter are
-implemented and merged — a full REST API for Projects and Tasks is
-available. Only the MCP adapter remains to be implemented to reach the
-Phase 1 Definition of Done.
+application use cases, SQLite infrastructure, REST adapter, and MCP adapter
+are implemented and merged — a full REST API and MCP server for Projects
+and Tasks are both available (see [docs/mcp-setup.md](docs/mcp-setup.md) to
+connect an agent). Only Step 8 (loading the roadmap into the app itself via
+an agent) remains to reach the Phase 1 Definition of Done.
 
 See [docs/roadmap.md](docs/roadmap.md) for the full phase breakdown and
 current status of each step.

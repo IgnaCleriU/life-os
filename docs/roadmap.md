@@ -42,18 +42,21 @@ Task breakdown and current status:
 | 4. Use cases | `CreateProject`, `ListProjects`, `CreateTask`, `ListTasks`, `UpdateTask`, `CompleteTask` + tests with in-memory fake repositories | **Done** |
 | 5. Infrastructure (SQLite) | `ProjectORM`/`TaskORM` models, `SQLiteProjectRepository`, `SQLiteTaskRepository`, DB session | **Done** |
 | 6. REST adapter | DTOs, dependency injection, routers for projects/tasks | **Done** |
-| 7. MCP adapter | MCP server (stdio) and tools calling the same use cases as REST | Stub |
+| 7. MCP adapter | MCP server (stdio) and tools calling the same use cases as REST | **Done** |
 | 8. MVP closing | Load the full roadmap (Phases 1-7) as a Project + Tasks inside the app itself, via the agent over MCP | Pending |
 
 The domain layer (`backend/src/lifeos/domain/`), the application ports and
 use cases (`backend/src/lifeos/application/`), the SQLite infrastructure
-(`backend/src/lifeos/infrastructure/`), and the REST adapter
-(`backend/src/lifeos/adapters/rest/`) are implemented and merged, each with
+(`backend/src/lifeos/infrastructure/`), the REST adapter
+(`backend/src/lifeos/adapters/rest/`), and the MCP adapter
+(`backend/src/lifeos/adapters/mcp/`) are implemented and merged, each with
 its own test suite under `backend/tests/`. The REST API exposes create/list
 for projects and create/list/update/complete for tasks, with structured
-error responses for domain and validation errors. Only the MCP adapter
-(`backend/src/lifeos/adapters/mcp/`) currently exists as a placeholder/stub
-file and is not yet implemented.
+error responses for domain and validation errors. The MCP server exposes
+the same six operations as tools (`create_project`, `list_projects`,
+`create_task`, `list_tasks`, `update_task`, `complete_task`) over stdio,
+calling the same use cases as REST per ADR 0002; see
+[mcp-setup.md](mcp-setup.md) for how to point an agent at it.
 
 **Definition of Done (MVP):** in a single conversation with Claude
 connected to the local MCP server, it is possible to create a project and
@@ -99,8 +102,7 @@ correctly through both the REST API and the MCP tools.
 
 1. Decide the target deployment topology (see [adr/README.md](adr/README.md)) —
    this conditions auth and network configuration.
-2. Implement Phase 1 Step 7: the MCP adapter, consuming the same use cases
-   as the REST adapter.
-3. Reach the Phase 1 Definition of Done: a working end-to-end flow
-   (API → MCP → agent) for Projects and Tasks.
-4. Iterate on this roadmap as phases complete and priorities shift.
+2. Reach the Phase 1 Definition of Done (Step 8): load the roadmap phases
+   as a Project + Tasks in a single Claude conversation over MCP, and
+   confirm the same data is visible through REST.
+3. Iterate on this roadmap as phases complete and priorities shift.
