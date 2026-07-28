@@ -12,10 +12,14 @@ dependencies = [
     "uvicorn[standard]",
     "pydantic-settings",
     "sqlmodel",
+    "mcp",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest", "httpx", "ruff"]
+
+[project.scripts]
+lifeos-mcp = "lifeos.adapters.mcp.server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
