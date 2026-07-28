@@ -117,3 +117,39 @@ def update(
     with deps.update_project_use_case() as use_case:
         project = use_case.execute(project_id, **kwargs)
     _emit_project(ctx, project)
+
+
+@project_app.command("complete")
+@handle_domain_errors
+def complete(
+    ctx: typer.Context,
+    project_id: UUID = typer.Argument(..., help="Project id."),
+) -> None:
+    """Mark a project as completed (idempotent)."""
+    with deps.complete_project_use_case() as use_case:
+        project = use_case.execute(project_id)
+    _emit_project(ctx, project)
+
+
+@project_app.command("archive")
+@handle_domain_errors
+def archive(
+    ctx: typer.Context,
+    project_id: UUID = typer.Argument(..., help="Project id."),
+) -> None:
+    """Archive a project (idempotent)."""
+    with deps.archive_project_use_case() as use_case:
+        project = use_case.execute(project_id)
+    _emit_project(ctx, project)
+
+
+@project_app.command("activate")
+@handle_domain_errors
+def activate(
+    ctx: typer.Context,
+    project_id: UUID = typer.Argument(..., help="Project id."),
+) -> None:
+    """Reactivate a project (idempotent)."""
+    with deps.activate_project_use_case() as use_case:
+        project = use_case.execute(project_id)
+    _emit_project(ctx, project)
