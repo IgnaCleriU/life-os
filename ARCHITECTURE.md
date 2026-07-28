@@ -108,10 +108,12 @@ life-os/
 ## Current implementation status
 
 - **Implemented:** domain layer, application ports and use cases, SQLite
-  infrastructure, and the REST adapter — under `backend/src/lifeos/domain/`,
-  `application/`, `infrastructure/`, and `adapters/rest/` respectively, each
-  with its own test suite under `backend/tests/`.
-- **Pending (stub):** MCP adapter (`backend/src/lifeos/adapters/mcp/`).
+  infrastructure, the REST adapter, and the MCP adapter — under
+  `backend/src/lifeos/domain/`, `application/`, `infrastructure/`,
+  `adapters/rest/`, and `adapters/mcp/` respectively, each with its own test
+  suite under `backend/tests/`.
+- **Pending:** Phase 1 Step 8 (MVP closing) — see
+  [docs/roadmap.md](docs/roadmap.md).
 
 See [docs/roadmap.md](docs/roadmap.md) for the phased plan.
 
