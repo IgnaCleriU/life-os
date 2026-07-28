@@ -10,11 +10,13 @@ CLI, or mobile app — never a workaround that talks to files or screenshots.
 ## Status
 
 **Phase 1 (MVP: Projects + Tasks) is in progress.** The domain layer,
-application use cases, SQLite infrastructure, REST adapter, and MCP adapter
-are implemented and merged — a full REST API and MCP server for Projects
-and Tasks are both available (see [docs/mcp-setup.md](docs/mcp-setup.md) to
-connect an agent). Only Step 8 (loading the roadmap into the app itself via
-an agent) remains to reach the Phase 1 Definition of Done.
+application use cases, SQLite infrastructure, REST adapter, MCP adapter, and
+CLI adapter are implemented and merged — a full REST API, MCP server, and
+`lifeos` command-line tool for Projects and Tasks are all available (see
+[docs/mcp-setup.md](docs/mcp-setup.md) to connect an agent, or
+[docs/cli.md](docs/cli.md) for the CLI). The TUI (Steps 12-13) and Step 8
+(loading the roadmap into the app itself via an agent) remain to reach the
+Phase 1 Definition of Done.
 
 See [docs/roadmap.md](docs/roadmap.md) for the full phase breakdown and
 current status of each step.
@@ -62,6 +64,7 @@ single source of truth for phasing and status.
 - **Architecture** — [ARCHITECTURE.md](ARCHITECTURE.md)
 - **Decisions (ADRs)** — [docs/adr/README.md](docs/adr/README.md)
 - **Connecting an AI agent to the MCP server** — [docs/mcp-setup.md](docs/mcp-setup.md)
+- **CLI reference** — [docs/cli.md](docs/cli.md)
 - **Contributing** — [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## How to run / verify
@@ -71,8 +74,9 @@ single source of truth for phasing and status.
 - **Local environment:** run `uv sync --all-extras` from `backend/` — it
   creates `.venv` and installs the exact versions pinned in
   `backend/uv.lock`, the same ones CI uses. Then run
-  `uv run uvicorn lifeos.adapters.rest.main:app` for the REST API, or
-  `uv run lifeos-mcp` for the MCP server. Both use the shared database
+  `uv run uvicorn lifeos.adapters.rest.main:app` for the REST API,
+  `uv run lifeos-mcp` for the MCP server, or `uv run lifeos --help` for the
+  CLI (see [docs/cli.md](docs/cli.md)). All three use the shared database
   described in [ARCHITECTURE.md](ARCHITECTURE.md#where-the-data-lives).
 - **Updating dependencies:** change the version range in
   `backend/pyproject.toml`, then run `uv lock` and commit the updated
