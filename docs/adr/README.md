@@ -24,3 +24,4 @@ it the next available number, and open a pull request.
 | [0004](0004-passwords-via-vaultwarden.md) | Password/vault storage approach | Proposed |
 | [0005](0005-deployment-target.md) | Deployment target | Proposed |
 | [0006](0006-tech-stack.md) | Technology stack | Accepted |
+| [0007](0007-shared-database-location.md) | One shared database in the user data directory | Accepted |
