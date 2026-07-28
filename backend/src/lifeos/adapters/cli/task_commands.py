@@ -207,3 +207,16 @@ def reopen(
     with deps.reopen_task_use_case() as use_case:
         task = use_case.execute(task_id)
     _emit_task(ctx, task)
+
+
+@task_app.command("move")
+@handle_domain_errors
+def move(
+    ctx: typer.Context,
+    task_id: UUID = typer.Argument(..., help="Task id."),
+    project_id: UUID = typer.Argument(..., help="Destination project id."),
+) -> None:
+    """Move a task to another existing project."""
+    with deps.move_task_use_case() as use_case:
+        task = use_case.execute(task_id, project_id)
+    _emit_task(ctx, task)
