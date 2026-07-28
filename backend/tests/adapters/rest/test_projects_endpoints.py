@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from uuid import uuid4
+
 from fastapi.testclient import TestClient
 
 
@@ -47,3 +49,119 @@ def test_list_projects_empty_returns_empty_list(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_get_project_returns_it(client: TestClient) -> None:
+    project = client.post("/projects", json={"name": "Life OS"}).json()
+
+    response = client.get(f"/projects/{project['id']}")
+
+    assert response.status_code == 200
+    assert response.json()["id"] == project["id"]
+
+
+def test_get_missing_project_returns_404(client: TestClient) -> None:
+    response = client.get(f"/projects/{uuid4()}")
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "project_not_found"
+
+
+def test_update_project_partial_fields(client: TestClient) -> None:
+    project = client.post("/projects", json={"name": "Original"}).json()
+
+    response = client.patch(f"/projects/{project['id']}", json={"name": "Renamed"})
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "Renamed"
+
+
+def test_update_project_description_omitted_leaves_unchanged(
+    client: TestClient,
+) -> None:
+    project = client.post(
+        "/projects", json={"name": "Life OS", "description": "original"}
+    ).json()
+
+    response = client.patch(f"/projects/{project['id']}", json={"name": "Life OS v2"})
+
+    assert response.json()["description"] == "original"
+
+
+def test_update_project_description_explicit_null_clears_it(
+    client: TestClient,
+) -> None:
+    project = client.post(
+        "/projects", json={"name": "Life OS", "description": "original"}
+    ).json()
+
+    response = client.patch(
+        f"/projects/{project['id']}", json={"description": None}
+    )
+
+    assert response.json()["description"] is None
+
+
+def test_complete_archive_activate_project(client: TestClient) -> None:
+    project = client.post("/projects", json={"name": "Life OS"}).json()
+
+    assert (
+        client.post(f"/projects/{project['id']}/complete").json()["status"]
+        == "completed"
+    )
+    assert (
+        client.post(f"/projects/{project['id']}/archive").json()["status"]
+        == "archived"
+    )
+    assert (
+        client.post(f"/projects/{project['id']}/activate").json()["status"]
+        == "active"
+    )
+
+
+def test_list_projects_filters_by_status(client: TestClient) -> None:
+    client.post("/projects", json={"name": "Active"})
+    archived = client.post("/projects", json={"name": "Archived"}).json()
+    client.post(f"/projects/{archived['id']}/archive")
+
+    response = client.get("/projects?status=archived")
+
+    assert [p["id"] for p in response.json()] == [archived["id"]]
+
+
+def test_list_projects_filters_by_text(client: TestClient) -> None:
+    casa = client.post("/projects", json={"name": "Casa de campo"}).json()
+    client.post("/projects", json={"name": "Finanzas"})
+
+    response = client.get("/projects?q=CASA")
+
+    assert [p["id"] for p in response.json()] == [casa["id"]]
+
+
+def test_delete_empty_project_returns_204_and_hides_it(client: TestClient) -> None:
+    project = client.post("/projects", json={"name": "Vacio"}).json()
+
+    response = client.delete(f"/projects/{project['id']}")
+
+    assert response.status_code == 204
+    assert client.get(f"/projects/{project['id']}").status_code == 404
+
+
+def test_delete_project_with_live_tasks_returns_409(client: TestClient) -> None:
+    project = client.post("/projects", json={"name": "Con tareas"}).json()
+    client.post(f"/projects/{project['id']}/tasks", json={"title": "Tarea"})
+
+    response = client.delete(f"/projects/{project['id']}")
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "project_not_empty"
+
+
+def test_restore_project_makes_it_visible_again(client: TestClient) -> None:
+    project = client.post("/projects", json={"name": "Vacio"}).json()
+    client.delete(f"/projects/{project['id']}")
+
+    response = client.post(f"/projects/{project['id']}/restore")
+
+    assert response.status_code == 200
+    assert client.get(f"/projects/{project['id']}").status_code == 200

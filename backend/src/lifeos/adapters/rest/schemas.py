@@ -40,6 +40,18 @@ class ProjectCreateRequest(BaseModel):
     description: str | None = None
 
 
+class ProjectUpdateRequest(BaseModel):
+    """Body de `PATCH /projects/{project_id}` — actualización parcial.
+
+    Un campo omitido en el JSON no se toca; `description` explícitamente
+    `null` la limpia. Igual que en `TaskUpdateRequest`, la distinción se
+    resuelve en el router con `model_dump(exclude_unset=True)`.
+    """
+
+    name: str | None = None
+    description: str | None = None
+
+
 class ProjectResponse(BaseModel):
     """Representación de un Project en las respuestas REST."""
 
@@ -76,6 +88,12 @@ class TaskUpdateRequest(BaseModel):
     description: str | None = None
     priority: Priority | None = None
     due_date: date | None = None
+
+
+class TaskMoveRequest(BaseModel):
+    """Body de `POST /tasks/{task_id}/move`."""
+
+    project_id: UUID
 
 
 class TaskResponse(BaseModel):

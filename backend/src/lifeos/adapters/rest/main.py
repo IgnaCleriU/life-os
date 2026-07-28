@@ -15,7 +15,12 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from lifeos.adapters.rest.routers import projects, tasks
-from lifeos.domain import DomainValidationError, ProjectNotFound, TaskNotFound
+from lifeos.domain import (
+    DomainValidationError,
+    ProjectNotEmpty,
+    ProjectNotFound,
+    TaskNotFound,
+)
 from lifeos.infrastructure.config import get_settings
 from lifeos.infrastructure.db.session import create_db_and_tables
 
@@ -68,6 +73,15 @@ def create_app() -> FastAPI:
     def handle_task_not_found(request: Request, exc: TaskNotFound) -> JSONResponse:
         """Tarea inexistente -> 404."""
         return _error_response(status.HTTP_404_NOT_FOUND, "task_not_found", str(exc))
+
+    @app.exception_handler(ProjectNotEmpty)
+    def handle_project_not_empty(
+        request: Request, exc: ProjectNotEmpty
+    ) -> JSONResponse:
+        """Se intenta borrar un proyecto con tareas vivas -> 409."""
+        return _error_response(
+            status.HTTP_409_CONFLICT, "project_not_empty", str(exc)
+        )
 
     @app.exception_handler(RequestValidationError)
     def handle_request_validation_error(
