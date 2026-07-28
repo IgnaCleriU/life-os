@@ -60,6 +60,7 @@ single source of truth for phasing and status.
 - **Roadmap** — [docs/roadmap.md](docs/roadmap.md)
 - **Architecture** — [ARCHITECTURE.md](ARCHITECTURE.md)
 - **Decisions (ADRs)** — [docs/adr/README.md](docs/adr/README.md)
+- **Connecting an AI agent to the MCP server** — [docs/mcp-setup.md](docs/mcp-setup.md)
 - **Contributing** — [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## How to run / verify
