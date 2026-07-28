@@ -153,3 +153,40 @@ def activate(
     with deps.activate_project_use_case() as use_case:
         project = use_case.execute(project_id)
     _emit_project(ctx, project)
+
+
+@project_app.command("delete")
+@handle_domain_errors
+def delete(
+    ctx: typer.Context,
+    project_id: UUID = typer.Argument(..., help="Project id."),
+    yes: bool = typer.Option(
+        False, "--yes", "-y", help="Skip the confirmation prompt."
+    ),
+) -> None:
+    """Delete a project (soft delete; fails if it still has live tasks).
+
+    The delete is soft: use `lifeos project restore` to undo it.
+    """
+    if not yes:
+        typer.confirm(
+            "This will soft-delete the project. It can be undone with "
+            "'lifeos project restore'. Continue?",
+            abort=True,
+        )
+
+    with deps.delete_project_use_case() as use_case:
+        project = use_case.execute(project_id)
+    _emit_project(ctx, project)
+
+
+@project_app.command("restore")
+@handle_domain_errors
+def restore(
+    ctx: typer.Context,
+    project_id: UUID = typer.Argument(..., help="Project id."),
+) -> None:
+    """Undo the soft delete of a project."""
+    with deps.restore_project_use_case() as use_case:
+        project = use_case.execute(project_id)
+    _emit_project(ctx, project)
