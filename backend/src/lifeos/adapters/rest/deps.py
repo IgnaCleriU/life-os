@@ -151,5 +151,7 @@ def get_delete_task_use_case(task_repo: TaskRepo) -> DeleteTask:
     return DeleteTask(task_repo)
 
 
-def get_restore_task_use_case(task_repo: TaskRepo) -> RestoreTask:
-    return RestoreTask(task_repo)
+def get_restore_task_use_case(
+    task_repo: TaskRepo, project_repo: ProjectRepo
+) -> RestoreTask:
+    return RestoreTask(task_repo, project_repo)

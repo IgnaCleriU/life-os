@@ -310,10 +310,13 @@ def register_tools(server: FastMCP) -> None:
 
     @server.tool()
     def restore_task(task_id: UUID) -> dict[str, Any]:
-        """Deshace el borrado lógico de una tarea."""
+        """Deshace el borrado lógico de una tarea.
+
+        Falla si el proyecto padre no existe o sigue borrado.
+        """
         try:
             with deps.restore_task_use_case() as use_case:
                 task = use_case.execute(task_id)
-        except TaskNotFound as exc:
+        except (TaskNotFound, ProjectNotFound) as exc:
             raise _as_tool_error(exc) from exc
         return _task_dict(task)

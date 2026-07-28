@@ -255,3 +255,22 @@ def test_list_tasks_across_projects_with_filters(client: TestClient) -> None:
     response = client.get(f"/tasks?project_id={project_b['id']}")
     assert len(response.json()) == 1
     assert response.json()[0]["title"] == "Otra cosa"
+
+
+def test_restore_task_under_deleted_project_returns_404(client: TestClient) -> None:
+    """Regresión: borrar la única tarea de un proyecto lo deja vacío y por lo
+    tanto borrable; restaurar la tarea después no debe reflotarla colgada de
+    un proyecto invisible."""
+    project = _create_project(client)
+    task = client.post(
+        f"/projects/{project['id']}/tasks", json={"title": "Task"}
+    ).json()
+    client.delete(f"/tasks/{task['id']}")
+    delete_project_response = client.delete(f"/projects/{project['id']}")
+    assert delete_project_response.status_code == 204
+
+    response = client.post(f"/tasks/{task['id']}/restore")
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "project_not_found"
+    assert client.get(f"/tasks/{task['id']}").status_code == 404

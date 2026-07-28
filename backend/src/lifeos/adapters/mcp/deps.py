@@ -160,4 +160,6 @@ def delete_task_use_case() -> Iterator[DeleteTask]:
 @contextmanager
 def restore_task_use_case() -> Iterator[RestoreTask]:
     with get_session() as session:
-        yield RestoreTask(SQLiteTaskRepository(session))
+        yield RestoreTask(
+            SQLiteTaskRepository(session), SQLiteProjectRepository(session)
+        )
