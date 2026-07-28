@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from datetime import date
+from typing import Any
 from uuid import UUID
 
 import typer
@@ -112,4 +113,61 @@ def show(
     """Show a single task by id."""
     with deps.get_task_use_case() as use_case:
         task = use_case.execute(task_id)
+    _emit_task(ctx, task)
+
+
+@task_app.command("update")
+@handle_domain_errors
+def update(
+    ctx: typer.Context,
+    task_id: UUID = typer.Argument(..., help="Task id."),
+    title: str | None = typer.Option(None, "--title", help="New task title."),
+    description: str | None = typer.Option(
+        None, "--description", help="New task description."
+    ),
+    clear_description: bool = typer.Option(
+        False,
+        "--clear-description",
+        help="Clear the task description (mutually exclusive with --description).",
+    ),
+    priority: Priority | None = typer.Option(
+        None, "--priority", help="New task priority."
+    ),
+    due: str | None = typer.Option(
+        None, "--due", help="New due date (ISO format, YYYY-MM-DD)."
+    ),
+    clear_due: bool = typer.Option(
+        False,
+        "--clear-due",
+        help="Clear the task due date (mutually exclusive with --due).",
+    ),
+) -> None:
+    """Update a task's title, description, priority and/or due date.
+
+    An omitted `--description`/`--due` leaves that field untouched;
+    `--clear-description`/`--clear-due` clears it explicitly. There is no
+    `--clear-title`: the domain forbids empty titles.
+    """
+    if description is not None and clear_description:
+        raise typer.BadParameter(
+            "--description and --clear-description are mutually exclusive."
+        )
+    if due is not None and clear_due:
+        raise typer.BadParameter("--due and --clear-due are mutually exclusive.")
+
+    due_date = _parse_date(due, "--due")
+
+    kwargs: dict[str, Any] = {"title": title, "priority": priority}
+    if description is not None:
+        kwargs["description"] = description
+    elif clear_description:
+        kwargs["description"] = None
+
+    if due_date is not None:
+        kwargs["due_date"] = due_date
+    elif clear_due:
+        kwargs["due_date"] = None
+
+    with deps.update_task_use_case() as use_case:
+        task = use_case.execute(task_id, **kwargs)
     _emit_task(ctx, task)
