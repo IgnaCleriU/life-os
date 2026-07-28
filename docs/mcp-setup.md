@@ -9,15 +9,16 @@ local development.
 
 ## 1. Install the backend package
 
-From `backend/`, in a virtualenv:
+From `backend/`:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
+uv sync --all-extras
 ```
 
-This registers the `lifeos-mcp` console script (see `[project.scripts]` in
+This creates `.venv` with the exact versions pinned in `backend/uv.lock`, so
+your MCP server runs the same dependency set as CI.
+
+It also registers the `lifeos-mcp` console script (see `[project.scripts]` in
 `backend/pyproject.toml`), which runs `lifeos.adapters.mcp.server:main` —
 creates the SQLite tables if they don't exist yet, then serves the MCP
 tools over stdio.

@@ -7,16 +7,26 @@ name = "lifeos"
 version = "0.1.0"
 description = "Life OS — sistema operativo personal (backend)"
 requires-python = ">=3.12"
+# Rangos con cota superior en el próximo major (o en el próximo minor para
+# los paquetes 0.x, donde un minor ya puede romper). La versión exacta la fija
+# `uv.lock`; estos rangos son la red de seguridad para que una resolución
+# nueva nunca arrastre un major incompatible.
 dependencies = [
-    "fastapi",
-    "uvicorn[standard]",
-    "pydantic-settings",
-    "sqlmodel",
-    "mcp",
+    "fastapi>=0.140.13,<0.141",
+    "uvicorn[standard]>=0.51.0,<0.52",
+    "pydantic-settings>=2.14.2,<3",
+    "sqlmodel>=0.0.39,<0.1",
+    # mcp 2.0 eliminó FastMCP (mcp.server.fastmcp) y mcp.shared.memory; el
+    # adapter sigue en la API 1.x. Migrar es tarea aparte (revisa ADR 0006).
+    "mcp>=1.29.0,<2",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "httpx", "ruff"]
+dev = [
+    "pytest>=9.1.1,<10",
+    "httpx>=0.28.1,<0.29",
+    "ruff>=0.16.0,<0.17",
+]
 
 [project.scripts]
 lifeos-mcp = "lifeos.adapters.mcp.server:main"
