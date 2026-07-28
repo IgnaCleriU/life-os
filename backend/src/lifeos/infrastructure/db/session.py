@@ -19,18 +19,29 @@ from sqlmodel import Session, SQLModel, create_engine
 from lifeos.infrastructure.config import get_settings
 
 
-def enable_sqlite_foreign_keys(engine: Engine) -> None:
-    """Activa el enforcement de foreign keys en SQLite.
+def configure_sqlite_pragmas(engine: Engine) -> None:
+    """Fija los PRAGMA de SQLite que Life OS necesita, por conexión.
 
-    SQLite lo trae deshabilitado por defecto por conexión; sin esto, un
-    `TaskModel.project_id` que no exista en `projects` se inserta sin error
-    pese a la `foreign_key="projects.id"` declarada en el modelo.
+    - `foreign_keys=ON`: SQLite lo trae deshabilitado por defecto; sin esto, un
+      `TaskModel.project_id` que no exista en `projects` se inserta sin error
+      pese a la `foreign_key="projects.id"` declarada en el modelo.
+    - `journal_mode=WAL`: con la DB compartida de la ADR 0007, el acceso
+      concurrente es lo normal y no la excepción —la TUI, un servidor MCP
+      lanzado por un agente y un proceso REST pueden tenerla abierta a la vez—.
+      WAL deja que los lectores no bloqueen al escritor.
+    - `busy_timeout`: sin él vale 0 y cualquier contención revienta al instante
+      con `database is locked` en vez de esperar.
+
+    En las bases en memoria de los tests, `journal_mode` sigue siendo `memory`:
+    el PRAGMA no falla, simplemente no aplica.
     """
 
     @event.listens_for(engine, "connect")
     def _set_sqlite_pragma(dbapi_connection, connection_record) -> None:
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=5000")
         cursor.close()
 
 
@@ -39,7 +50,7 @@ def _make_engine():
     engine = create_engine(
         settings.database_url, connect_args={"check_same_thread": False}
     )
-    enable_sqlite_foreign_keys(engine)
+    configure_sqlite_pragmas(engine)
     return engine
 
 

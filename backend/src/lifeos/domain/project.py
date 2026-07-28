@@ -44,6 +44,12 @@ class Project:
     description: str | None
     status: ProjectStatus
     created_at: datetime
+    deleted_at: datetime | None = None
+
+    @property
+    def is_deleted(self) -> bool:
+        """Si el proyecto está borrado lógicamente."""
+        return self.deleted_at is not None
 
     @classmethod
     def create(cls, name: str, description: str | None = None) -> Project:
@@ -60,6 +66,10 @@ class Project:
         """Cambia el nombre del proyecto, validando la invariante."""
         self.name = _validate_name(new_name)
 
+    def describe(self, description: str | None) -> None:
+        """Cambia la descripción (o la quita si es None)."""
+        self.description = description
+
     def complete(self) -> None:
         """Marca el proyecto como finalizado."""
         self.status = ProjectStatus.COMPLETED
@@ -71,3 +81,16 @@ class Project:
     def activate(self) -> None:
         """Vuelve a poner el proyecto como activo (desde completado o archivado)."""
         self.status = ProjectStatus.ACTIVE
+
+    def delete(self) -> None:
+        """Borra el proyecto lógicamente (idempotente).
+
+        No se pisa un `deleted_at` ya puesto: reborrar no debe mover la marca
+        de tiempo del borrado original.
+        """
+        if self.deleted_at is None:
+            self.deleted_at = datetime.now(timezone.utc)
+
+    def restore(self) -> None:
+        """Deshace el borrado lógico (idempotente)."""
+        self.deleted_at = None

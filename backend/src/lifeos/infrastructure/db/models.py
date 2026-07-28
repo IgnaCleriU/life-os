@@ -25,6 +25,7 @@ class ProjectModel(SQLModel, table=True):
     description: str | None = None
     status: str
     created_at: datetime
+    deleted_at: datetime | None = Field(default=None, index=True)
 
 
 class TaskModel(SQLModel, table=True):
@@ -40,3 +41,4 @@ class TaskModel(SQLModel, table=True):
     priority: str
     due_date: date | None = None
     created_at: datetime
+    deleted_at: datetime | None = Field(default=None, index=True)

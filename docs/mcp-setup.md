@@ -60,7 +60,27 @@ directory the MCP client happens to launch it from, so the REST API, the
 MCP server, and the future TUI all share one database automatically. Set
 `DATABASE_URL` only to deliberately point somewhere else.
 
-## 3. Verify
+## 3. Available tools
+
+The server exposes the full Projects/Tasks lifecycle, each tool calling the
+same use case as its REST equivalent (ADR 0002):
+
+- **Projects:** `create_project`, `list_projects` (optional `status`, `text`
+  filters), `get_project`, `update_project` (partial; `description: null`
+  clears it), `complete_project`, `archive_project`, `activate_project`,
+  `delete_project` (fails if the project still has live tasks),
+  `restore_project`.
+- **Tasks:** `create_task`, `list_tasks` (optional `project_id`, `status`,
+  `due_before`, `text` filters — omit `project_id` to list across all
+  projects), `get_task`, `update_task` (partial; `description: null` and
+  `due_date: null` each clear that field), `complete_task`, `start_task`,
+  `reopen_task`, `move_task`, `delete_task`, `restore_task`.
+
+Deletion is soft: a deleted project or task disappears from every listing and
+from `get_*`, but is not gone — only the session that deleted it (the TUI's
+undo stack) can bring it back with `restore_project`/`restore_task`.
+
+## 4. Verify
 
 Start a conversation with Claude and ask it to create a project and a task
 under it using the `create_project`/`create_task` tools. Confirm the data

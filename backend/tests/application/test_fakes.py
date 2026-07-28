@@ -14,7 +14,7 @@ def test_project_repo_add_get_and_list():
     repo.add(project)
 
     assert repo.get(project.id) is project
-    assert repo.list_all() == [project]
+    assert repo.list() == [project]
 
 
 def test_project_repo_get_missing_returns_none():
@@ -23,7 +23,7 @@ def test_project_repo_get_missing_returns_none():
     assert repo.get(uuid4()) is None
 
 
-def test_task_repo_add_get_and_list_by_project():
+def test_task_repo_add_get_and_list_filtered_by_project():
     repo = InMemoryTaskRepository()
     project_id = uuid4()
     task = Task.create(project_id=project_id, title="Escribir ports")
@@ -33,7 +33,7 @@ def test_task_repo_add_get_and_list_by_project():
     repo.add(other)
 
     assert repo.get(task.id) is task
-    assert repo.list_by_project(project_id) == [task]
+    assert repo.list(project_id=project_id) == [task]
 
 
 def test_task_repo_update_persists_changes():

@@ -13,7 +13,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from lifeos.infrastructure.db import models  # noqa: F401  (registra las tablas)
-from lifeos.infrastructure.db.session import enable_sqlite_foreign_keys
+from lifeos.infrastructure.db.session import configure_sqlite_pragmas
 
 
 @pytest.fixture
@@ -23,7 +23,7 @@ def session() -> Iterator[Session]:
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    enable_sqlite_foreign_keys(engine)
+    configure_sqlite_pragmas(engine)
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         yield session

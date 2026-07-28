@@ -59,3 +59,29 @@ def test_update_missing_task_raises():
 
     with pytest.raises(TaskNotFound):
         use_case.execute(uuid4(), title="No existe")
+
+
+def test_update_sets_description():
+    use_case, _, task = _seed_task()
+
+    updated = use_case.execute(task.id, description="Detalle largo")
+
+    assert updated.description == "Detalle largo"
+
+
+def test_update_clears_description_with_explicit_none():
+    """Antes era imposible: `description` usaba `is not None` como centinela,
+    con lo cual un `None` explícito se leía como "no tocar"."""
+    use_case, _, task = _seed_task(description="original")
+
+    updated = use_case.execute(task.id, description=None)
+
+    assert updated.description is None
+
+
+def test_update_leaves_description_untouched_when_omitted():
+    use_case, _, task = _seed_task(description="original")
+
+    updated = use_case.execute(task.id, title="Otro título")
+
+    assert updated.description == "original"

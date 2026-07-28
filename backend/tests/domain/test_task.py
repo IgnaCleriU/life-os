@@ -82,3 +82,59 @@ def test_rename_with_empty_title_raises():
 
     with pytest.raises(DomainValidationError):
         task.rename("  ")
+
+
+def test_move_to_reassigns_project():
+    task = Task.create(project_id=uuid4(), title="Tarea")
+    destino = uuid4()
+
+    task.move_to(destino)
+
+    assert task.project_id == destino
+
+
+def test_describe_sets_and_clears_description():
+    task = Task.create(project_id=uuid4(), title="Tarea", description="original")
+
+    task.describe("nueva")
+    assert task.description == "nueva"
+
+    task.describe(None)
+    assert task.description is None
+
+
+def test_create_is_not_deleted():
+    task = Task.create(project_id=uuid4(), title="Tarea")
+
+    assert task.deleted_at is None
+    assert task.is_deleted is False
+
+
+def test_delete_marks_and_restore_clears():
+    task = Task.create(project_id=uuid4(), title="Tarea")
+
+    task.delete()
+    assert task.is_deleted is True
+    assert task.deleted_at.tzinfo is not None
+
+    task.restore()
+    assert task.is_deleted is False
+    assert task.deleted_at is None
+
+
+def test_delete_is_idempotent_and_keeps_original_timestamp():
+    task = Task.create(project_id=uuid4(), title="Tarea")
+
+    task.delete()
+    primera_marca = task.deleted_at
+    task.delete()
+
+    assert task.deleted_at == primera_marca
+
+
+def test_restore_is_idempotent():
+    task = Task.create(project_id=uuid4(), title="Tarea")
+
+    task.restore()
+
+    assert task.deleted_at is None

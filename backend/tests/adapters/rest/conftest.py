@@ -15,7 +15,7 @@ from sqlmodel import Session, SQLModel, create_engine
 from lifeos.adapters.rest.deps import get_db_session
 from lifeos.adapters.rest.main import app
 from lifeos.infrastructure.db import models  # noqa: F401  (registra las tablas)
-from lifeos.infrastructure.db.session import enable_sqlite_foreign_keys
+from lifeos.infrastructure.db.session import configure_sqlite_pragmas
 
 
 @pytest.fixture
@@ -25,7 +25,7 @@ def client() -> Iterator[TestClient]:
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    enable_sqlite_foreign_keys(engine)
+    configure_sqlite_pragmas(engine)
     SQLModel.metadata.create_all(engine)
 
     def _get_test_session() -> Iterator[Session]:
