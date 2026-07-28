@@ -32,6 +32,20 @@ def _create_task(
     return json.loads(result.stdout)["id"]
 
 
+def _seed_doing_task(db_session, project_id: UUID, title: str) -> None:
+    """Crea una tarea en curso directo por repositorio, sin pasar por el
+    comando `start` (todavía no implementado en este grupo)."""
+    from lifeos.domain import Task
+    from lifeos.infrastructure.db.repositories.sqlite_task_repository import (
+        SQLiteTaskRepository,
+    )
+
+    repo = SQLiteTaskRepository(db_session)
+    task = Task.create(project_id=project_id, title=title)
+    task.start()
+    repo.add(task)
+
+
 # --- create ------------------------------------------------------------
 
 
@@ -159,22 +173,20 @@ def test_list_without_project_returns_all_projects(runner: CliRunner) -> None:
     assert {t["title"] for t in payload} == {"Buy milk", "Vacuum"}
 
 
-def test_list_filters_by_status(runner: CliRunner) -> None:
+def test_list_filters_by_status(runner: CliRunner, db_session) -> None:
     project_id = _create_project(runner)
     runner.invoke(app, ["task", "create", project_id, "Buy milk"])
-    doing_id = _create_task(runner, project_id, "Vacuum")
-    runner.invoke(app, ["task", "start", doing_id])
+    _seed_doing_task(db_session, UUID(project_id), "Vacuum")
 
     result = runner.invoke(app, ["--json", "task", "list", "--status", "doing"])
     payload = json.loads(result.stdout)
     assert [t["title"] for t in payload] == ["Vacuum"]
 
 
-def test_list_filters_by_multiple_statuses(runner: CliRunner) -> None:
+def test_list_filters_by_multiple_statuses(runner: CliRunner, db_session) -> None:
     project_id = _create_project(runner)
     runner.invoke(app, ["task", "create", project_id, "Buy milk"])
-    doing_id = _create_task(runner, project_id, "Vacuum")
-    runner.invoke(app, ["task", "start", doing_id])
+    _seed_doing_task(db_session, UUID(project_id), "Vacuum")
 
     result = runner.invoke(
         app,
