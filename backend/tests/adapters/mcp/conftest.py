@@ -22,7 +22,7 @@ from sqlmodel import Session, SQLModel, create_engine
 from lifeos.adapters.mcp import deps
 from lifeos.adapters.mcp.server import create_server
 from lifeos.infrastructure.db import models  # noqa: F401  (registra las tablas)
-from lifeos.infrastructure.db.session import enable_sqlite_foreign_keys
+from lifeos.infrastructure.db.session import configure_sqlite_pragmas
 
 
 @pytest.fixture
@@ -32,7 +32,7 @@ def mcp_server(monkeypatch: pytest.MonkeyPatch):
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    enable_sqlite_foreign_keys(engine)
+    configure_sqlite_pragmas(engine)
     SQLModel.metadata.create_all(engine)
 
     @contextmanager
