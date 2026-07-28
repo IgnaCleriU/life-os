@@ -203,3 +203,294 @@ class TestCompleteTask:
 
         assert result.isError is True
         assert "task_not_found" in result.content[0].text
+
+
+class TestGetProject:
+    def test_returns_the_project(self, call_tool):
+        project = _create_project(call_tool)
+
+        result = call_tool("get_project", {"project_id": project["id"]})
+
+        assert result.isError is False
+        assert result.structuredContent["id"] == project["id"]
+
+    def test_unknown_project_is_project_not_found(self, call_tool):
+        result = call_tool(
+            "get_project", {"project_id": "00000000-0000-0000-0000-000000000000"}
+        )
+
+        assert result.isError is True
+        assert "project_not_found" in result.content[0].text
+
+
+class TestUpdateProject:
+    def test_updates_name(self, call_tool):
+        project = _create_project(call_tool, "Original")
+
+        result = call_tool(
+            "update_project", {"project_id": project["id"], "name": "Renamed"}
+        )
+
+        assert result.isError is False
+        assert result.structuredContent["name"] == "Renamed"
+
+    def test_omitted_description_leaves_it_untouched(self, call_tool):
+        result = call_tool(
+            "create_project", {"name": "Life OS", "description": "original"}
+        )
+        project = result.structuredContent
+
+        updated = call_tool(
+            "update_project", {"project_id": project["id"], "name": "Life OS v2"}
+        )
+
+        assert updated.structuredContent["description"] == "original"
+
+    def test_explicit_null_description_clears_it(self, call_tool):
+        result = call_tool(
+            "create_project", {"name": "Life OS", "description": "original"}
+        )
+        project = result.structuredContent
+
+        updated = call_tool(
+            "update_project", {"project_id": project["id"], "description": None}
+        )
+
+        assert updated.isError is False
+        assert updated.structuredContent["description"] is None
+
+
+class TestProjectStatusTransitions:
+    def test_complete_archive_activate(self, call_tool):
+        project = _create_project(call_tool)
+
+        assert (
+            call_tool(
+                "complete_project", {"project_id": project["id"]}
+            ).structuredContent["status"]
+            == "completed"
+        )
+        assert (
+            call_tool(
+                "archive_project", {"project_id": project["id"]}
+            ).structuredContent["status"]
+            == "archived"
+        )
+        assert (
+            call_tool(
+                "activate_project", {"project_id": project["id"]}
+            ).structuredContent["status"]
+            == "active"
+        )
+
+    def test_unknown_project_is_project_not_found(self, call_tool):
+        result = call_tool(
+            "complete_project",
+            {"project_id": "00000000-0000-0000-0000-000000000000"},
+        )
+
+        assert result.isError is True
+        assert "project_not_found" in result.content[0].text
+
+
+class TestDeleteAndRestoreProject:
+    def test_delete_empty_project_hides_it(self, call_tool):
+        project = _create_project(call_tool)
+
+        deleted = call_tool("delete_project", {"project_id": project["id"]})
+        assert deleted.isError is False
+
+        result = call_tool("get_project", {"project_id": project["id"]})
+        assert result.isError is True
+
+    def test_delete_project_with_live_tasks_is_project_not_empty(self, call_tool):
+        project = _create_project(call_tool)
+        _create_task(call_tool, project["id"], title="Tarea")
+
+        result = call_tool("delete_project", {"project_id": project["id"]})
+
+        assert result.isError is True
+        assert "project_not_empty" in result.content[0].text
+
+    def test_restore_makes_it_visible_again(self, call_tool):
+        project = _create_project(call_tool)
+        call_tool("delete_project", {"project_id": project["id"]})
+
+        restored = call_tool("restore_project", {"project_id": project["id"]})
+
+        assert restored.isError is False
+        assert call_tool("get_project", {"project_id": project["id"]}).isError is False
+
+
+class TestListProjectsFilters:
+    def test_filters_by_status(self, call_tool):
+        _create_project(call_tool, "Active")
+        archived = _create_project(call_tool, "Archived")
+        call_tool("archive_project", {"project_id": archived["id"]})
+
+        result = call_tool("list_projects", {"status": ["archived"]})
+
+        names = {p["name"] for p in result.structuredContent["result"]}
+        assert names == {"Archived"}
+
+    def test_filters_by_text(self, call_tool):
+        _create_project(call_tool, "Casa de campo")
+        _create_project(call_tool, "Finanzas")
+
+        result = call_tool("list_projects", {"text": "CASA"})
+
+        names = {p["name"] for p in result.structuredContent["result"]}
+        assert names == {"Casa de campo"}
+
+
+class TestGetTask:
+    def test_returns_the_task(self, call_tool):
+        project = _create_project(call_tool)
+        task = _create_task(call_tool, project["id"], title="Tarea")
+
+        result = call_tool("get_task", {"task_id": task["id"]})
+
+        assert result.isError is False
+        assert result.structuredContent["id"] == task["id"]
+
+    def test_unknown_task_is_task_not_found(self, call_tool):
+        result = call_tool(
+            "get_task", {"task_id": "00000000-0000-0000-0000-000000000000"}
+        )
+
+        assert result.isError is True
+        assert "task_not_found" in result.content[0].text
+
+
+class TestUpdateTaskDescription:
+    def test_omitted_description_leaves_it_untouched(self, call_tool):
+        project = _create_project(call_tool)
+        task = _create_task(
+            call_tool, project["id"], title="Tarea", description="original"
+        )
+
+        updated = call_tool(
+            "update_task", {"task_id": task["id"], "priority": "high"}
+        )
+
+        assert updated.structuredContent["description"] == "original"
+
+    def test_explicit_null_description_clears_it(self, call_tool):
+        """Antes era imposible: `description` no tenía centinela y un `None`
+        explícito se confundía con "no tocar"."""
+        project = _create_project(call_tool)
+        task = _create_task(
+            call_tool, project["id"], title="Tarea", description="original"
+        )
+
+        updated = call_tool(
+            "update_task", {"task_id": task["id"], "description": None}
+        )
+
+        assert updated.isError is False
+        assert updated.structuredContent["description"] is None
+
+
+class TestTaskStatusTransitions:
+    def test_start_and_reopen(self, call_tool):
+        project = _create_project(call_tool)
+        task = _create_task(call_tool, project["id"], title="Tarea")
+
+        assert (
+            call_tool("start_task", {"task_id": task["id"]}).structuredContent[
+                "status"
+            ]
+            == "doing"
+        )
+        assert (
+            call_tool("reopen_task", {"task_id": task["id"]}).structuredContent[
+                "status"
+            ]
+            == "todo"
+        )
+
+    def test_unknown_task_is_task_not_found(self, call_tool):
+        result = call_tool(
+            "start_task", {"task_id": "00000000-0000-0000-0000-000000000000"}
+        )
+
+        assert result.isError is True
+        assert "task_not_found" in result.content[0].text
+
+
+class TestMoveTask:
+    def test_moves_to_another_project(self, call_tool):
+        origin = _create_project(call_tool, "Origin")
+        destination = _create_project(call_tool, "Destination")
+        task = _create_task(call_tool, origin["id"], title="Tarea")
+
+        result = call_tool(
+            "move_task", {"task_id": task["id"], "project_id": destination["id"]}
+        )
+
+        assert result.isError is False
+        assert result.structuredContent["project_id"] == destination["id"]
+
+    def test_unknown_destination_is_project_not_found(self, call_tool):
+        project = _create_project(call_tool)
+        task = _create_task(call_tool, project["id"], title="Tarea")
+
+        result = call_tool(
+            "move_task",
+            {
+                "task_id": task["id"],
+                "project_id": "00000000-0000-0000-0000-000000000000",
+            },
+        )
+
+        assert result.isError is True
+        assert "project_not_found" in result.content[0].text
+
+
+class TestDeleteAndRestoreTask:
+    def test_delete_hides_it_and_restore_brings_it_back(self, call_tool):
+        project = _create_project(call_tool)
+        task = _create_task(call_tool, project["id"], title="Tarea")
+
+        deleted = call_tool("delete_task", {"task_id": task["id"]})
+        assert deleted.isError is False
+        assert call_tool("get_task", {"task_id": task["id"]}).isError is True
+
+        restored = call_tool("restore_task", {"task_id": task["id"]})
+        assert restored.isError is False
+        assert call_tool("get_task", {"task_id": task["id"]}).isError is False
+
+
+class TestListTasksFilters:
+    def test_lists_across_projects_without_project_id(self, call_tool):
+        project_a = _create_project(call_tool, "A")
+        project_b = _create_project(call_tool, "B")
+        _create_task(call_tool, project_a["id"], title="Task A")
+        _create_task(call_tool, project_b["id"], title="Task B")
+
+        result = call_tool("list_tasks")
+
+        titles = {t["title"] for t in result.structuredContent["result"]}
+        assert titles == {"Task A", "Task B"}
+
+    def test_filters_by_due_before(self, call_tool):
+        project = _create_project(call_tool)
+        vencida = _create_task(
+            call_tool, project["id"], title="Vencida", due_date="2026-07-01"
+        )
+        _create_task(call_tool, project["id"], title="Futura", due_date="2026-12-01")
+
+        result = call_tool("list_tasks", {"due_before": "2026-07-28"})
+
+        ids = {t["id"] for t in result.structuredContent["result"]}
+        assert ids == {vencida["id"]}
+
+    def test_filters_by_text(self, call_tool):
+        project = _create_project(call_tool)
+        match = _create_task(call_tool, project["id"], title="Pagar EXPENSAS")
+        _create_task(call_tool, project["id"], title="Otra cosa")
+
+        result = call_tool("list_tasks", {"text": "expensas"})
+
+        ids = {t["id"] for t in result.structuredContent["result"]}
+        assert ids == {match["id"]}
