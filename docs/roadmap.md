@@ -38,20 +38,22 @@ Task breakdown and current status:
 |---|---|---|
 | 1. Scaffolding | Repo structure, `pyproject.toml`, Docker Compose, `Dockerfile`, `/health` endpoint | Done |
 | 2. Domain | `Project`, `Task` entities, domain exceptions, domain unit tests | **Done** |
-| 3. Ports | `ProjectRepository`, `TaskRepository` interfaces (`Protocol`) | Stub |
-| 4. Use cases | `CreateProject`, `ListProjects`, `CreateTask`, `ListTasks`, `UpdateTask`, `CompleteTask` + tests with in-memory fake repositories | Stub |
-| 5. Infrastructure (SQLite) | `ProjectORM`/`TaskORM` models, `SQLiteProjectRepository`, `SQLiteTaskRepository`, DB session | Stub |
-| 6. REST adapter | DTOs, dependency injection, routers for projects/tasks | Stub |
+| 3. Ports | `ProjectRepository`, `TaskRepository` interfaces (`Protocol`) | **Done** |
+| 4. Use cases | `CreateProject`, `ListProjects`, `CreateTask`, `ListTasks`, `UpdateTask`, `CompleteTask` + tests with in-memory fake repositories | **Done** |
+| 5. Infrastructure (SQLite) | `ProjectORM`/`TaskORM` models, `SQLiteProjectRepository`, `SQLiteTaskRepository`, DB session | **Done** |
+| 6. REST adapter | DTOs, dependency injection, routers for projects/tasks | **Done** |
 | 7. MCP adapter | MCP server (stdio) and tools calling the same use cases as REST | Stub |
 | 8. MVP closing | Load the full roadmap (Phases 1-7) as a Project + Tasks inside the app itself, via the agent over MCP | Pending |
 
-The domain layer (`backend/src/lifeos/domain/`) and its unit tests
-(`backend/tests/domain/`) are implemented and merged. The REST adapter has a
-minimal FastAPI app with a working `/health` endpoint (`main.py`), plus app
-settings (`infrastructure/config.py`). The application use cases, the SQLite
-infrastructure (repositories, ORM models), the REST routers for
-projects/tasks, and the MCP adapter currently exist only as placeholder/stub
-files and are not yet implemented.
+The domain layer (`backend/src/lifeos/domain/`), the application ports and
+use cases (`backend/src/lifeos/application/`), the SQLite infrastructure
+(`backend/src/lifeos/infrastructure/`), and the REST adapter
+(`backend/src/lifeos/adapters/rest/`) are implemented and merged, each with
+its own test suite under `backend/tests/`. The REST API exposes create/list
+for projects and create/list/update/complete for tasks, with structured
+error responses for domain and validation errors. Only the MCP adapter
+(`backend/src/lifeos/adapters/mcp/`) currently exists as a placeholder/stub
+file and is not yet implemented.
 
 **Definition of Done (MVP):** in a single conversation with Claude
 connected to the local MCP server, it is possible to create a project and
@@ -97,8 +99,8 @@ correctly through both the REST API and the MCP tools.
 
 1. Decide the target deployment topology (see [adr/README.md](adr/README.md)) —
    this conditions auth and network configuration.
-2. Implement Phase 1 Steps 3-7: ports, use cases, SQLite infrastructure,
-   REST adapter, and MCP adapter, in that order.
+2. Implement Phase 1 Step 7: the MCP adapter, consuming the same use cases
+   as the REST adapter.
 3. Reach the Phase 1 Definition of Done: a working end-to-end flow
    (API → MCP → agent) for Projects and Tasks.
 4. Iterate on this roadmap as phases complete and priorities shift.

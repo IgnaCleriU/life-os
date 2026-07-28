@@ -5,9 +5,10 @@ Guide for AI agents (e.g. Claude Code) working on this repo. Read it before star
 **Life OS** is a personal operating system (notes, passwords, calendar,
 projects/tasks, home inventory) accessible by AI agents through a custom
 MCP server.
-**Current status:** Phase 0 / MVP of **Projects + Tasks** — the domain
-layer is implemented, the rest is pending (see
-[docs/roadmap.md](docs/roadmap.md) for details).
+**Current status:** Phase 1 MVP of **Projects + Tasks** — domain, ports,
+use cases, SQLite infrastructure, and the REST adapter are implemented;
+the MCP adapter (Step 7) is next (see [docs/roadmap.md](docs/roadmap.md)
+for details).
 
 ## Mandatory documentation
 
