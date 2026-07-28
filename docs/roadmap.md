@@ -22,8 +22,11 @@ For architectural principles, see [../ARCHITECTURE.md](../ARCHITECTURE.md).
 - Monorepo structure with hexagonal architecture (ports and adapters). **Done.**
 - Docker Compose local environment (backend service + SQLite volume). **Done.**
 - Basic CI (commit-lint gate + ruff + pytest). **Done.**
-- Base data model (users, JWT auth). **Pending** — blocked on the deployment
-  topology decision (see [adr/README.md](adr/README.md)).
+- Base data model (users, JWT auth). **Pending** — blocked on the
+  desktop-app ADR that will supersede
+  [adr/0005-deployment-target.md](adr/0005-deployment-target.md). Whether
+  JWT still fits is itself an open question for that ADR: it was chosen for
+  a networked backend, which a local desktop app is not.
 
 ### Phase 1 — MVP: Projects + Tasks
 
@@ -100,8 +103,12 @@ correctly through both the REST API and the MCP tools.
 
 ## Immediate next steps
 
-1. Decide the target deployment topology (see [adr/README.md](adr/README.md)) —
-   this conditions auth and network configuration.
+1. Record the desktop-app direction as an ADR superseding
+   [adr/0005-deployment-target.md](adr/0005-deployment-target.md): Life OS
+   is being built as a native TUI desktop app for Omarchy that launches the
+   backend and the TUI together, rather than a hosted backend. This
+   conditions auth, packaging, and whether remote/multi-device access
+   (Phase 6) stays in scope.
 2. Reach the Phase 1 Definition of Done (Step 8): load the roadmap phases
    as a Project + Tasks in a single Claude conversation over MCP, and
    confirm the same data is visible through REST.

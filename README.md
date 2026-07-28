@@ -68,4 +68,12 @@ single source of truth for phasing and status.
 
 - **Tests:** run `pytest` from `backend/` (domain and use-case tests run
   without a database, using in-memory fake repositories).
-- **Local environment:** `docker compose up` starts the backend.
+- **Local environment:** install the backend into a virtualenv
+  (`python -m venv .venv && .venv/bin/pip install -e ".[dev]"` from
+  `backend/`), then run `uvicorn lifeos.adapters.rest.main:app` for the
+  REST API, or `lifeos-mcp` for the MCP server. Both use the shared
+  database described in [ARCHITECTURE.md](ARCHITECTURE.md#where-the-data-lives).
+- **Docker Compose** (`docker compose up`, after copying `.env.example` to
+  `.env`) still works, but is no longer the target way to run Life OS — it
+  is being built as a native TUI desktop app instead, see
+  [docs/adr/0005-deployment-target.md](docs/adr/0005-deployment-target.md).
