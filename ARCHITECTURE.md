@@ -57,13 +57,17 @@ life-os/
 │   │       │   ├── ports/              # abstract interfaces (Protocol/ABC)
 │   │       │   │   ├── project_repository.py
 │   │       │   │   └── task_repository.py
-│   │       │   └── use_cases/
-│   │       │       ├── create_project.py
-│   │       │       ├── list_projects.py
-│   │       │       ├── create_task.py
-│   │       │       ├── list_tasks.py
-│   │       │       ├── update_task.py
-│   │       │       └── complete_task.py
+│   │       │   └── use_cases/          # un caso de uso por archivo
+│   │       │       ├── create_project.py    list_projects.py
+│   │       │       ├── get_project.py       update_project.py
+│   │       │       ├── complete_project.py  archive_project.py
+│   │       │       ├── activate_project.py
+│   │       │       ├── delete_project.py    restore_project.py
+│   │       │       ├── create_task.py       list_tasks.py
+│   │       │       ├── get_task.py          update_task.py
+│   │       │       ├── complete_task.py     start_task.py
+│   │       │       ├── reopen_task.py       move_task.py
+│   │       │       └── delete_task.py       restore_task.py
 │   │       │
 │   │       ├── infrastructure/
 │   │       │   ├── config.py           # settings (pydantic-settings)
@@ -111,9 +115,32 @@ life-os/
   infrastructure, the REST adapter, and the MCP adapter — under
   `backend/src/lifeos/domain/`, `application/`, `infrastructure/`,
   `adapters/rest/`, and `adapters/mcp/` respectively, each with its own test
-  suite under `backend/tests/`.
-- **Pending:** Phase 1 Step 8 (MVP closing) — see
-  [docs/roadmap.md](docs/roadmap.md).
+  suite under `backend/tests/`. The application layer covers the full
+  Projects/Tasks lifecycle (Step 9), including soft deletion and filtered
+  listings; REST and MCP still expose only the original six operations.
+- **Pending:** Phase 1 Step 8 (MVP closing) and Steps 10-13, which build the
+  CLI and TUI adapters of
+  [docs/adr/0008-keyboard-driven-tui-adapter.md](docs/adr/0008-keyboard-driven-tui-adapter.md)
+  — see [docs/roadmap.md](docs/roadmap.md).
+
+## Soft deletion
+
+`Project` and `Task` carry a `deleted_at` timestamp; `DeleteTask` and
+`DeleteProject` stamp it instead of removing rows, and `RestoreTask` /
+`RestoreProject` clear it. Restoring a hard-deleted entity would be the one
+genuinely expensive undo case, because `Task.create()` and `Project.create()`
+generate their own identifiers — soft deletion turns it into a field flip.
+
+**The exclusion filter lives in the repositories, not in the use cases.** Every
+read path starts from a private `_live()` select that already excludes deleted
+rows, so a new query method cannot forget it; `get(..., include_deleted=True)`
+is the single escape hatch, used only by the restore use cases. A guard test in
+`backend/tests/infrastructure/test_soft_delete_contract.py` fails if a
+repository grows a public method that has not been audited for this.
+
+Deleting a project does **not** cascade: `DeleteProject` raises
+`ProjectNotEmpty` while the project still has live tasks. Cascading would make
+restore responsible for remembering exactly which tasks it took down.
 
 See [docs/roadmap.md](docs/roadmap.md) for the phased plan.
 
@@ -133,6 +160,14 @@ process, but they all read and write **one** database: by default
 outside the repository, so it does not depend on the working directory a
 process was launched from, nor on the checkout, branch or worktree it was
 launched from. `DATABASE_URL` overrides it (tests and containers do).
+
+Because every entry point converges on one file, concurrent access is the
+normal case rather than an accident: the board, an MCP server spawned by an
+agent, and a REST process can all hold it open at once. `session.py` therefore
+sets `journal_mode=WAL` and a non-zero `busy_timeout` alongside
+`foreign_keys=ON`, so contention waits instead of raising `database is locked`.
+There is still no cross-process invalidation — a long-lived client must reload
+rather than assume its view is authoritative.
 
 This matters architecturally: sharing the application layer is only half of
 the guarantee above. Two adapters running the same use cases against two

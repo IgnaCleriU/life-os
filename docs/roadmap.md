@@ -47,6 +47,22 @@ Task breakdown and current status:
 | 6. REST adapter | DTOs, dependency injection, routers for projects/tasks | **Done** |
 | 7. MCP adapter | MCP server (stdio) and tools calling the same use cases as REST | **Done** |
 | 8. MVP closing | Load the full roadmap (Phases 1-7) as a Project + Tasks inside the app itself, via the agent over MCP | Pending |
+| 9. Lifecycle use cases | Soft deletion, project mutation, `doing`, move, get-by-id, filtered listings; WAL + `busy_timeout` | **Done** |
+| 10. REST + MCP parity | Expose every Step 9 capability as routes and tools | Pending |
+| 11. CLI adapter | Typer CLI mirroring the use cases, plus the shared quick-add parser | Pending |
+| 12. TUI shell | Generic Textual shell: panes, modes, keymap registry, palette, undo | Pending |
+| 13. TUI module + desktop wiring | Projects/Tasks module, console scripts, capture prompt, Omarchy binds | Pending |
+
+Steps 9-13 implement
+[adr/0008-keyboard-driven-tui-adapter.md](adr/0008-keyboard-driven-tui-adapter.md).
+They are ordered deliberately: the ADR makes the TUI the reference client, so
+every capability it needs exists as a use case first and reaches REST and MCP
+at the same time. Step 9 is therefore pure domain/application/infrastructure
+work with no interface present.
+
+Step 9 changes the SQLite schema (`deleted_at` on both tables). There is no
+migration tooling yet, so an existing `~/.local/share/life-os/lifeos.db` must be
+deleted and recreated — `create_all` does not add columns to existing tables.
 
 The domain layer (`backend/src/lifeos/domain/`), the application ports and
 use cases (`backend/src/lifeos/application/`), the SQLite infrastructure
@@ -112,4 +128,5 @@ correctly through both the REST API and the MCP tools.
 2. Reach the Phase 1 Definition of Done (Step 8): load the roadmap phases
    as a Project + Tasks in a single Claude conversation over MCP, and
    confirm the same data is visible through REST.
-3. Iterate on this roadmap as phases complete and priorities shift.
+3. Continue Steps 10-13 in order, closing the ADR 0008 client.
+4. Iterate on this roadmap as phases complete and priorities shift.
