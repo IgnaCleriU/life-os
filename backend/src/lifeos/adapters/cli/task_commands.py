@@ -220,3 +220,40 @@ def move(
     with deps.move_task_use_case() as use_case:
         task = use_case.execute(task_id, project_id)
     _emit_task(ctx, task)
+
+
+@task_app.command("delete")
+@handle_domain_errors
+def delete(
+    ctx: typer.Context,
+    task_id: UUID = typer.Argument(..., help="Task id."),
+    yes: bool = typer.Option(
+        False, "--yes", "-y", help="Skip the confirmation prompt."
+    ),
+) -> None:
+    """Delete a task (soft delete).
+
+    The delete is soft: use `lifeos task restore` to undo it.
+    """
+    if not yes:
+        typer.confirm(
+            "This will soft-delete the task. It can be undone with "
+            "'lifeos task restore'. Continue?",
+            abort=True,
+        )
+
+    with deps.delete_task_use_case() as use_case:
+        task = use_case.execute(task_id)
+    _emit_task(ctx, task)
+
+
+@task_app.command("restore")
+@handle_domain_errors
+def restore(
+    ctx: typer.Context,
+    task_id: UUID = typer.Argument(..., help="Task id."),
+) -> None:
+    """Undo the soft delete of a task."""
+    with deps.restore_task_use_case() as use_case:
+        task = use_case.execute(task_id)
+    _emit_task(ctx, task)
