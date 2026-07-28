@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from pathlib import Path
 
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
@@ -45,11 +46,24 @@ def _make_engine():
 engine = _make_engine()
 
 
+def _ensure_sqlite_parent_dir() -> None:
+    """Crea el directorio de la DB si falta.
+
+    Por defecto la DB vive bajo `XDG_DATA_HOME` (ver `config.py`), un
+    directorio que puede no existir todavía en una máquina nueva; SQLite no
+    lo crea solo y fallaría al abrir el archivo. No aplica a bases en
+    memoria, donde `url.database` es `None`.
+    """
+    if engine.url.drivername.startswith("sqlite") and engine.url.database:
+        Path(engine.url.database).parent.mkdir(parents=True, exist_ok=True)
+
+
 def create_db_and_tables() -> None:
     """Crea las tablas declaradas en el metadata de SQLModel si no existen.
 
     Idempotente — se puede llamar varias veces sin efecto adicional.
     """
+    _ensure_sqlite_parent_dir()
     SQLModel.metadata.create_all(engine)
 
 
