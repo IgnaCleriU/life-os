@@ -8,7 +8,7 @@ camino feliz en texto plano y `--json`, más el error de dominio relevante.
 from __future__ import annotations
 
 import json
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from typer.testing import CliRunner
 
@@ -324,6 +324,130 @@ def test_activate_json(runner: CliRunner) -> None:
 
 def test_activate_not_found_exits_1(runner: CliRunner) -> None:
     result = runner.invoke(app, ["project", "activate", str(uuid4())])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("project_not_found: ")
+
+
+# --- delete/restore ------------------------------------------------------
+
+
+def _seed_task(db_session, project_id) -> None:
+    """Crea una tarea viva bajo el proyecto dado, directo por repositorio."""
+    from lifeos.domain import Task
+    from lifeos.infrastructure.db.repositories.sqlite_task_repository import (
+        SQLiteTaskRepository,
+    )
+
+    repo = SQLiteTaskRepository(db_session)
+    task = Task.create(project_id=project_id, title="Buy milk")
+    repo.add(task)
+
+
+def test_delete_confirm_accepted(runner: CliRunner) -> None:
+    project_id = _create(runner)
+
+    result = runner.invoke(app, ["project", "delete", project_id], input="y\n")
+    assert result.exit_code == 0
+    assert result.stderr == ""
+
+    show_result = runner.invoke(app, ["project", "show", project_id])
+    assert show_result.exit_code == 1
+    assert show_result.stderr.startswith("project_not_found: ")
+
+
+def test_delete_confirm_declined(runner: CliRunner) -> None:
+    project_id = _create(runner)
+
+    result = runner.invoke(app, ["project", "delete", project_id], input="n\n")
+    assert result.exit_code == 1
+
+    show_result = runner.invoke(app, ["project", "show", project_id])
+    assert show_result.exit_code == 0
+
+
+def test_delete_yes_flag_skips_prompt(runner: CliRunner) -> None:
+    project_id = _create(runner)
+
+    result = runner.invoke(app, ["project", "delete", project_id, "--yes"])
+    assert result.exit_code == 0
+
+    show_result = runner.invoke(app, ["project", "show", project_id])
+    assert show_result.exit_code == 1
+
+
+def test_delete_short_yes_flag_skips_prompt(runner: CliRunner) -> None:
+    project_id = _create(runner)
+
+    result = runner.invoke(app, ["project", "delete", project_id, "-y"])
+    assert result.exit_code == 0
+
+    show_result = runner.invoke(app, ["project", "show", project_id])
+    assert show_result.exit_code == 1
+
+
+def test_delete_empty_input_aborts(runner: CliRunner) -> None:
+    project_id = _create(runner)
+
+    result = runner.invoke(app, ["project", "delete", project_id], input="")
+    assert result.exit_code == 1
+
+    show_result = runner.invoke(app, ["project", "show", project_id])
+    assert show_result.exit_code == 0
+
+
+def test_delete_json_prints_deleted_project(runner: CliRunner) -> None:
+    project_id = _create(runner)
+
+    result = runner.invoke(
+        app, ["--json", "project", "delete", project_id, "--yes"]
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["id"] == project_id
+
+
+def test_delete_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["project", "delete", str(uuid4()), "--yes"])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("project_not_found: ")
+
+
+def test_delete_project_not_empty_exits_1(runner: CliRunner, db_session) -> None:
+    project_id = _create(runner)
+    _seed_task(db_session, UUID(project_id))
+
+    result = runner.invoke(app, ["project", "delete", project_id, "--yes"])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("project_not_empty: ")
+
+
+def test_restore_plain(runner: CliRunner) -> None:
+    project_id = _create(runner)
+    runner.invoke(app, ["project", "delete", project_id, "--yes"])
+
+    result = runner.invoke(app, ["project", "restore", project_id])
+    assert result.exit_code == 0
+    assert result.stderr == ""
+
+    show_result = runner.invoke(app, ["project", "show", project_id])
+    assert show_result.exit_code == 0
+
+
+def test_restore_json(runner: CliRunner) -> None:
+    project_id = _create(runner)
+    runner.invoke(app, ["project", "delete", project_id, "--yes"])
+
+    result = runner.invoke(app, ["--json", "project", "restore", project_id])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["id"] == project_id
+
+
+def test_restore_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["project", "restore", str(uuid4())])
     assert result.exit_code == 1
     assert result.stdout == ""
     assert result.stderr.startswith("project_not_found: ")
