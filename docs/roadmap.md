@@ -149,9 +149,9 @@ correctly through both the REST API and the MCP tools.
 
 ## Immediate next steps
 
-1. Merge the Steps 9-10 PR, then delete and recreate
-   `~/.local/share/life-os/lifeos.db` (schema change, no migration tooling
-   yet) before relying on any client.
+1. Delete and recreate `~/.local/share/life-os/lifeos.db` (the Steps 9-10
+   schema change added `deleted_at`; no migration tooling yet) before
+   relying on any client, the new CLI included.
 2. Step 12: build the generic TUI shell in `adapters/tui/` against a stub
    module, amending ADR 0008's keymap table (`d`/`dd` collision, see above)
    in the same PR.
