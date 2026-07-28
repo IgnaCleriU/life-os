@@ -40,4 +40,4 @@ def test_create_with_empty_name_raises(invalid_name):
     with pytest.raises(DomainValidationError):
         use_case.execute(name=invalid_name)
 
-    assert repo.list_all() == []
+    assert repo.list() == []
