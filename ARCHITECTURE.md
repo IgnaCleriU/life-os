@@ -107,11 +107,11 @@ life-os/
 
 ## Current implementation status
 
-- **Implemented:** domain layer (`Project`/`Task` entities, domain
-  exceptions) and domain tests, under `backend/src/lifeos/domain/` and
-  `backend/tests/domain/`.
-- **Pending (stubs):** application use cases, infrastructure (SQLite
-  repositories), REST adapter, and MCP adapter.
+- **Implemented:** domain layer, application ports and use cases, SQLite
+  infrastructure, and the REST adapter — under `backend/src/lifeos/domain/`,
+  `application/`, `infrastructure/`, and `adapters/rest/` respectively, each
+  with its own test suite under `backend/tests/`.
+- **Pending (stub):** MCP adapter (`backend/src/lifeos/adapters/mcp/`).
 
 See [docs/roadmap.md](docs/roadmap.md) for the phased plan.
 

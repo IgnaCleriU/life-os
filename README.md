@@ -9,10 +9,11 @@ CLI, or mobile app — never a workaround that talks to files or screenshots.
 
 ## Status
 
-**Phase 0 (Foundations) is in progress.** The MVP domain layer is
-implemented and merged: `Project`/`Task` entities, domain exceptions, and
-domain unit tests exist in `backend/`. The application use cases, REST/MCP
-adapters, and SQLite infrastructure are still stubs, pending implementation.
+**Phase 1 (MVP: Projects + Tasks) is in progress.** The domain layer,
+application use cases, SQLite infrastructure, and REST adapter are
+implemented and merged — a full REST API for Projects and Tasks is
+available. Only the MCP adapter remains to be implemented to reach the
+Phase 1 Definition of Done.
 
 See [docs/roadmap.md](docs/roadmap.md) for the full phase breakdown and
 current status of each step.

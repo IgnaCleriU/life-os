@@ -66,7 +66,12 @@ the dependencies between changes (see section 3):
 
 ### 5. Integrate and verify
 The orchestrator merges the subagents' results, resolves conflicts, runs tests and lint, and
-confirms the definition of "done" is met. Only then does it commit (atomically, see
+confirms the definition of "done" is met. **If the task completes or advances a roadmap step, it
+also updates [roadmap.md](roadmap.md)'s status column and, if the architecture or implementation
+status changed, [../ARCHITECTURE.md](../ARCHITECTURE.md)'s "Current implementation status" section
+— in the same PR.** A task is not done if the docs still describe the pre-change state: this is
+what keeps [roadmap.md](roadmap.md) a reliable single source of truth instead of silently drifting
+out of sync with merged work. Only then does it commit (atomically, see
 [../CONTRIBUTING.md](../CONTRIBUTING.md)) and open the PR.
 
 ---
