@@ -39,12 +39,25 @@ venv you just created:
 }
 ```
 
-The server reads `backend/.env` (or the process environment) for
-`database_url` the same way the REST adapter does (see
-`infrastructure/config.py`); by default it uses `sqlite:///./lifeos.db`
-relative to the working directory the client launches it from — set
-`database_url` explicitly (or run the client with `cwd` set to `backend/`)
-if you want it to share the same file as a locally running REST server.
+With Claude Code the same thing can be done from the CLI, without editing
+JSON by hand — `--scope user` makes it available in every project, not just
+the one you happen to be in:
+
+```bash
+claude mcp add life-os --scope user -- /absolute/path/to/life-os/backend/.venv/bin/lifeos-mcp
+```
+
+Point `command` at a **stable checkout**, not at a `.claude/worktrees/...`
+path: worktrees are temporary, and a server registered inside one stops
+working (and takes its database with it) as soon as the worktree is
+removed.
+
+No `DATABASE_URL` is needed. By default the server uses the user data
+directory — `$XDG_DATA_HOME/life-os/lifeos.db`, i.e.
+`~/.local/share/life-os/lifeos.db` — which does not depend on the working
+directory the MCP client happens to launch it from, so the REST API, the
+MCP server, and the future TUI all share one database automatically. Set
+`DATABASE_URL` only to deliberately point somewhere else.
 
 ## 3. Verify
 
