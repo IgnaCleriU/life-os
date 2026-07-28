@@ -15,6 +15,7 @@ import pytest
 from typer.testing import CliRunner
 
 from lifeos.adapters.cli.main import app
+from lifeos.domain import Project
 
 # --- helpers ---------------------------------------------------------------
 
@@ -77,3 +78,74 @@ def test_capture_all_sigil_input_is_domain_validation_error_and_no_task_created(
 
     tasks = _list_tasks(runner)
     assert len(tasks) == 0
+
+
+# --- project resolution via #name ------------------------------------------
+
+
+def test_capture_hash_token_targets_existing_project_case_insensitive(
+    runner: CliRunner,
+) -> None:
+    project_id = _create_project(runner, "Casa")
+
+    result = runner.invoke(app, ["capture", "buy", "milk", "#casa"])
+    assert result.exit_code == 0
+
+    tasks = _list_tasks(runner)
+    assert len(tasks) == 1
+    assert tasks[0]["project_id"] == project_id
+    assert tasks[0]["title"] == "buy milk"
+
+
+def test_capture_hash_token_nonexistent_project_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["capture", "buy", "milk", "#nonexistent"])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("project_name_not_found: ")
+
+    tasks = _list_tasks(runner)
+    assert len(tasks) == 0
+
+
+def test_capture_hash_token_ambiguous_project_exits_1_with_ids(
+    runner: CliRunner, db_session
+) -> None:
+    from lifeos.infrastructure.db.repositories.sqlite_project_repository import (
+        SQLiteProjectRepository,
+    )
+
+    repo = SQLiteProjectRepository(db_session)
+    project_a = Project.create("Casa")
+    project_b = Project.create("Casa")
+    repo.add(project_a)
+    repo.add(project_b)
+
+    result = runner.invoke(app, ["capture", "buy", "milk", "#casa"])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("ambiguous_project_name: ")
+    assert str(project_a.id) in result.stderr
+    assert str(project_b.id) in result.stderr
+
+
+# --- quick-add token integration -------------------------------------------
+
+
+def test_capture_priority_and_due_date_tokens_land_on_task(runner: CliRunner) -> None:
+    result = runner.invoke(
+        app, ["--json", "capture", "buy", "milk", "!high", "@2026-08-03"]
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["title"] == "buy milk"
+    assert payload["priority"] == "high"
+    assert payload["due_date"] == "2026-08-03"
+
+
+def test_capture_multi_arg_unquoted_invocation_joins_with_spaces(
+    runner: CliRunner,
+) -> None:
+    result = runner.invoke(app, ["--json", "capture", "buy", "milk", "and", "eggs"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["title"] == "buy milk and eggs"
