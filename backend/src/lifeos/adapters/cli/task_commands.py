@@ -171,3 +171,39 @@ def update(
     with deps.update_task_use_case() as use_case:
         task = use_case.execute(task_id, **kwargs)
     _emit_task(ctx, task)
+
+
+@task_app.command("complete")
+@handle_domain_errors
+def complete(
+    ctx: typer.Context,
+    task_id: UUID = typer.Argument(..., help="Task id."),
+) -> None:
+    """Mark a task as completed (idempotent)."""
+    with deps.complete_task_use_case() as use_case:
+        task = use_case.execute(task_id)
+    _emit_task(ctx, task)
+
+
+@task_app.command("start")
+@handle_domain_errors
+def start(
+    ctx: typer.Context,
+    task_id: UUID = typer.Argument(..., help="Task id."),
+) -> None:
+    """Mark a task as in progress."""
+    with deps.start_task_use_case() as use_case:
+        task = use_case.execute(task_id)
+    _emit_task(ctx, task)
+
+
+@task_app.command("reopen")
+@handle_domain_errors
+def reopen(
+    ctx: typer.Context,
+    task_id: UUID = typer.Argument(..., help="Task id."),
+) -> None:
+    """Move a task back to pending."""
+    with deps.reopen_task_use_case() as use_case:
+        task = use_case.execute(task_id)
+    _emit_task(ctx, task)
