@@ -21,11 +21,6 @@ from lifeos.adapters.cli.serializers import (
 )
 from lifeos.domain import Project, ProjectStatus
 
-# Centinela para distinguir "el usuario no mandó la opción" (no tocar el
-# campo) de "la mandó vacía" — mismo patrón que `_UNSET` en `adapters/mcp/
-# tools.py`.
-_UNSET: Any = object()
-
 project_app = typer.Typer(help="Manage projects.")
 
 
@@ -84,4 +79,41 @@ def show(
     """Show a single project by id."""
     with deps.get_project_use_case() as use_case:
         project = use_case.execute(project_id)
+    _emit_project(ctx, project)
+
+
+@project_app.command("update")
+@handle_domain_errors
+def update(
+    ctx: typer.Context,
+    project_id: UUID = typer.Argument(..., help="Project id."),
+    name: str | None = typer.Option(None, "--name", help="New project name."),
+    description: str | None = typer.Option(
+        None, "--description", help="New project description."
+    ),
+    clear_description: bool = typer.Option(
+        False,
+        "--clear-description",
+        help="Clear the project description (mutually exclusive with --description).",
+    ),
+) -> None:
+    """Update a project's name and/or description.
+
+    An omitted `--description` leaves the description untouched;
+    `--clear-description` clears it explicitly. There is no
+    `--clear-name`: the domain forbids empty names.
+    """
+    if description is not None and clear_description:
+        raise typer.BadParameter(
+            "--description and --clear-description are mutually exclusive."
+        )
+
+    kwargs: dict[str, Any] = {"name": name}
+    if description is not None:
+        kwargs["description"] = description
+    elif clear_description:
+        kwargs["description"] = None
+
+    with deps.update_project_use_case() as use_case:
+        project = use_case.execute(project_id, **kwargs)
     _emit_project(ctx, project)
