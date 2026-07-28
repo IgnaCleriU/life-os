@@ -45,15 +45,20 @@ Before designing or implementing, review these documents:
 
 ## How to run / verify
 
-- **Tests:** run `pytest` from `backend/` (domain and use-case tests run
-  without a database, using in-memory fake repositories).
+- **Tests:** run `uv run pytest` from `backend/` (domain and use-case tests
+  run without a database, using in-memory fake repositories).
 - **Commit validation:** `pre-commit install --hook-type commit-msg` (once
   per clone); validates the message format before a commit is created.
-- **Local environment:** install the backend into a virtualenv from
-  `backend/` (`python -m venv .venv && .venv/bin/pip install -e ".[dev]"`),
-  then `uvicorn lifeos.adapters.rest.main:app` (REST) or `lifeos-mcp`
-  (MCP). Both share one database, see
+- **Local environment:** `uv sync --all-extras` from `backend/` creates
+  `.venv` from the pinned versions in `backend/uv.lock`, then
+  `uv run uvicorn lifeos.adapters.rest.main:app` (REST) or
+  `uv run lifeos-mcp` (MCP). Both share one database, see
   [ARCHITECTURE.md](ARCHITECTURE.md#where-the-data-lives).
+- **Dependencies are locked.** Never add a bare, unconstrained requirement:
+  every entry in `backend/pyproject.toml` carries a version range with an
+  upper bound, and `backend/uv.lock` is committed. After touching the
+  manifest run `uv lock` and commit the result — CI installs with
+  `uv sync --locked` and fails if the two disagree.
 - **Docker Compose** still works but is no longer the target runtime; Life
   OS is being built as a native TUI desktop app. Do not treat
   [docs/adr/0005-deployment-target.md](docs/adr/0005-deployment-target.md)

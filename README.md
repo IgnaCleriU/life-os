@@ -68,11 +68,16 @@ single source of truth for phasing and status.
 
 - **Tests:** run `pytest` from `backend/` (domain and use-case tests run
   without a database, using in-memory fake repositories).
-- **Local environment:** install the backend into a virtualenv
-  (`python -m venv .venv && .venv/bin/pip install -e ".[dev]"` from
-  `backend/`), then run `uvicorn lifeos.adapters.rest.main:app` for the
-  REST API, or `lifeos-mcp` for the MCP server. Both use the shared
-  database described in [ARCHITECTURE.md](ARCHITECTURE.md#where-the-data-lives).
+- **Local environment:** run `uv sync --all-extras` from `backend/` — it
+  creates `.venv` and installs the exact versions pinned in
+  `backend/uv.lock`, the same ones CI uses. Then run
+  `uv run uvicorn lifeos.adapters.rest.main:app` for the REST API, or
+  `uv run lifeos-mcp` for the MCP server. Both use the shared database
+  described in [ARCHITECTURE.md](ARCHITECTURE.md#where-the-data-lives).
+- **Updating dependencies:** change the version range in
+  `backend/pyproject.toml`, then run `uv lock` and commit the updated
+  `uv.lock`. CI installs with `--locked`, so it fails if the lock and the
+  manifest disagree.
 - **Docker Compose** (`docker compose up`, after copying `.env.example` to
   `.env`) still works, but is no longer the target way to run Life OS — it
   is being built as a native TUI desktop app instead, see
