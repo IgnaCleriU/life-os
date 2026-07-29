@@ -1,9 +1,15 @@
 """Punto de entrada del CLI (`lifeos`), vía typer.
 
 Igual que `adapters/mcp/server.py`, garantiza que el esquema de la DB exista
-antes de atender comandos (ver `create_db_and_tables`). El callback raíz
-guarda el flag global `--json` en `ctx.obj` para que los subcomandos (que
-agregan sus propios sub-apps de typer) decidan si emiten JSON o texto plano.
+antes de atender comandos (ver `create_db_and_tables`). La llamada vive en
+el callback raíz, no en `main()`: Click resuelve `--help` en el comando raíz
+sin invocar el callback del grupo, así que `lifeos --help` (sin subcomando)
+nunca paga el costo de tocar la DB. Un `--help` en un subcomando (ej.
+`lifeos project --help`) sí lo paga, porque Click igual despacha a través
+del callback raíz antes de resolver el subgrupo — solo el caso `lifeos
+--help` desnudo se beneficia. El callback también guarda el flag global
+`--json` en `ctx.obj` para que los subcomandos (que agregan sus propios
+sub-apps de typer) decidan si emiten JSON o texto plano.
 """
 
 from __future__ import annotations
@@ -33,15 +39,13 @@ def root(
     ),
 ) -> None:
     """Life OS command-line interface."""
+    create_db_and_tables()
     ctx.ensure_object(dict)
     ctx.obj["json"] = json_output
 
 
 def main() -> None:
-    """Punto de entrada del script `lifeos`: crea las tablas si no existen
-    y despacha al app de typer.
-    """
-    create_db_and_tables()
+    """Punto de entrada del script `lifeos`: despacha al app de typer."""
     app()
 
 
