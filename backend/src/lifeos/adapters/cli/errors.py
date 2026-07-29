@@ -17,12 +17,7 @@ from uuid import UUID
 
 import typer
 
-from lifeos.domain import (
-    DomainValidationError,
-    ProjectNotEmpty,
-    ProjectNotFound,
-    TaskNotFound,
-)
+from lifeos.adapters.shared.error_codes import DOMAIN_ERROR_CODES
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -54,10 +49,7 @@ class AmbiguousProjectName(Exception):
 
 
 _DOMAIN_ERROR_CODES: dict[type[Exception], str] = {
-    DomainValidationError: "domain_validation_error",
-    ProjectNotFound: "project_not_found",
-    TaskNotFound: "task_not_found",
-    ProjectNotEmpty: "project_not_empty",
+    **DOMAIN_ERROR_CODES,
     ProjectNameNotFound: "project_name_not_found",
     AmbiguousProjectName: "ambiguous_project_name",
 }

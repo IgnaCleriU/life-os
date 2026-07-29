@@ -15,6 +15,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 
 from lifeos.adapters.mcp import deps
+from lifeos.adapters.shared.error_codes import DOMAIN_ERROR_CODES
 from lifeos.domain import (
     DomainValidationError,
     Priority,
@@ -36,12 +37,7 @@ from lifeos.domain import (
 # se omite.
 _UNSET: Any = object()
 
-_DOMAIN_ERROR_CODES: dict[type[Exception], str] = {
-    DomainValidationError: "domain_validation_error",
-    ProjectNotFound: "project_not_found",
-    TaskNotFound: "task_not_found",
-    ProjectNotEmpty: "project_not_empty",
-}
+_DOMAIN_ERROR_CODES = DOMAIN_ERROR_CODES
 
 
 def _as_tool_error(exc: Exception) -> ToolError:
