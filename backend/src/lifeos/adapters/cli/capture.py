@@ -27,7 +27,6 @@ proyectos).
 
 from __future__ import annotations
 
-import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -40,6 +39,7 @@ from lifeos.adapters.cli.errors import (
     ProjectNameNotFound,
     handle_domain_errors,
 )
+from lifeos.adapters.cli.output import emit_single
 from lifeos.adapters.cli.serializers import format_task, task_dict
 from lifeos.adapters.shared.quick_add import parse_quick_add
 from lifeos.application.use_cases.create_project import CreateProject
@@ -121,10 +121,7 @@ def _run_capture(ctx: typer.Context, text: list[str]) -> None:
             due_date=parsed.due_date,
         )
 
-    if ctx.obj["json"]:
-        typer.echo(json.dumps(task_dict(task)))
-    else:
-        typer.echo(format_task(task))
+    emit_single(ctx, task, task_dict, format_task)
 
 
 @handle_domain_errors

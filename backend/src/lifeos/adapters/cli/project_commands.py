@@ -6,7 +6,6 @@ resultado según el flag `--json` global (guardado en `ctx.obj`).
 
 from __future__ import annotations
 
-import json
 from typing import Any
 from uuid import UUID
 
@@ -14,6 +13,7 @@ import typer
 
 from lifeos.adapters.cli import deps
 from lifeos.adapters.cli.errors import handle_domain_errors
+from lifeos.adapters.cli.output import emit_many, emit_single
 from lifeos.adapters.cli.serializers import (
     format_project,
     format_projects,
@@ -25,17 +25,11 @@ project_app = typer.Typer(help="Manage projects.")
 
 
 def _emit_project(ctx: typer.Context, project: Project) -> None:
-    if ctx.obj["json"]:
-        typer.echo(json.dumps(project_dict(project)))
-    else:
-        typer.echo(format_project(project))
+    emit_single(ctx, project, project_dict, format_project)
 
 
 def _emit_projects(ctx: typer.Context, projects: list[Project]) -> None:
-    if ctx.obj["json"]:
-        typer.echo(json.dumps([project_dict(project) for project in projects]))
-    elif projects:
-        typer.echo(format_projects(projects))
+    emit_many(ctx, projects, project_dict, format_projects)
 
 
 @project_app.command("create")

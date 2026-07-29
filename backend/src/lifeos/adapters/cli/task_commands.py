@@ -6,7 +6,6 @@ resultado según el flag `--json` global (guardado en `ctx.obj`).
 
 from __future__ import annotations
 
-import json
 from datetime import date
 from typing import Any
 from uuid import UUID
@@ -15,6 +14,7 @@ import typer
 
 from lifeos.adapters.cli import deps
 from lifeos.adapters.cli.errors import handle_domain_errors
+from lifeos.adapters.cli.output import emit_many, emit_single
 from lifeos.adapters.cli.serializers import format_task, format_tasks, task_dict
 from lifeos.domain import Priority, Task, TaskStatus
 
@@ -34,17 +34,11 @@ def _parse_date(value: str | None, param_name: str) -> date | None:
 
 
 def _emit_task(ctx: typer.Context, task: Task) -> None:
-    if ctx.obj["json"]:
-        typer.echo(json.dumps(task_dict(task)))
-    else:
-        typer.echo(format_task(task))
+    emit_single(ctx, task, task_dict, format_task)
 
 
 def _emit_tasks(ctx: typer.Context, tasks: list[Task]) -> None:
-    if ctx.obj["json"]:
-        typer.echo(json.dumps([task_dict(task) for task in tasks]))
-    elif tasks:
-        typer.echo(format_tasks(tasks))
+    emit_many(ctx, tasks, task_dict, format_tasks)
 
 
 @task_app.command("create")
