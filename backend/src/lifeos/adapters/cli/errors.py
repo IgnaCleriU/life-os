@@ -30,8 +30,8 @@ F = TypeVar("F", bound=Callable[..., Any])
 class ProjectNameNotFound(Exception):
     """No existe ningún proyecto con el nombre buscado.
 
-    Usado por `capture` (y otros comandos que aceptan `--project` por
-    nombre) para resolver un nombre a id antes de llamar al caso de uso.
+    Usado por `capture` para resolver un `#nombre` (o el fallback "inbox")
+    a un id de proyecto antes de llamar al caso de uso.
     """
 
     def __init__(self, name: str) -> None:
@@ -48,7 +48,8 @@ class AmbiguousProjectName(Exception):
         candidate_ids = ", ".join(str(candidate) for candidate in candidates)
         super().__init__(
             f"Multiple projects named '{name}' found: {candidate_ids}. "
-            "Use --project-id to disambiguate."
+            "Use 'lifeos task create <project_id> ...' with an explicit "
+            "id to disambiguate."
         )
 
 
