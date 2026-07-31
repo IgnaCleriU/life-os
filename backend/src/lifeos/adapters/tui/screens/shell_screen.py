@@ -12,7 +12,7 @@ from textual.widgets import Input, OptionList
 from lifeos.adapters.tui.dispatch import KeySequenceBuffer
 from lifeos.adapters.tui.keymap import KeymapEntry, KeymapRegistry, Scope
 from lifeos.adapters.tui.modes import Mode, ModeController
-from lifeos.adapters.tui.module import TuiModule
+from lifeos.adapters.tui.module import PaneItem, TuiModule
 from lifeos.adapters.tui.screens.help_screen import HelpScreen
 from lifeos.adapters.tui.screens.palette_screen import PaletteScreen
 from lifeos.adapters.tui.undo import UndoStack
@@ -138,6 +138,14 @@ class ShellScreen(Screen[None]):
         if isinstance(focused, DetailPane):
             return Scope.DETAIL
         return Scope.GLOBAL
+
+    @property
+    def current_context_item(self) -> PaneItem | None:
+        return self.query_one("#context-pane", ContextPane).selected_item
+
+    @property
+    def current_collection_item(self) -> PaneItem | None:
+        return self.query_one("#collection-pane", CollectionPane).selected_item
 
     def _pane_index(self) -> int:
         focused = self.focused
