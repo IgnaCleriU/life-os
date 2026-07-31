@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from typing import ClassVar
+
+from textual.binding import BindingType
 from textual.widgets import OptionList, Static
 from textual.widgets.option_list import Option
 
@@ -10,7 +13,17 @@ class ItemListPane(OptionList):
     """Shared rendering for the context and collection panes: a selectable
     list built from a `PaneContents`. Not mounted directly — `ContextPane`
     and `CollectionPane` subclass it so the shell can target each by type.
+
+    Key dispatch is owned entirely by ShellScreen's keymap registry (ADR
+    0008's single-dispatch-path requirement), so OptionList's own default
+    bindings (up/down/enter/...) are cleared here - otherwise a keypress
+    could be handled twice, or by the wrong system, depending on focus.
+    Cursor movement is still driven through OptionList's own
+    action_cursor_down()/action_cursor_up()/etc., just invoked by the
+    shell's dispatch instead of Textual's binding resolution.
     """
+
+    BINDINGS: ClassVar[list[BindingType]] = []
 
     def __init__(self, **kwargs: object) -> None:
         super().__init__(**kwargs)
