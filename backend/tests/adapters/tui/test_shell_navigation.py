@@ -247,3 +247,35 @@ async def test_undo_refreshes_panes_from_current_module_state() -> None:
         await pilot.press("u")
         context_pane = app.screen.query_one("#context-pane", ContextPane)
         assert context_pane.option_count == 4
+
+
+async def test_module_gets_the_undo_stack_before_keymap_entries_is_built() -> None:
+    # Convention (see TuiModule's docstring): the shell injects its own
+    # undo_stack onto the module as a plain attribute *before* calling
+    # keymap_entries(), so a module's own action closures can capture a
+    # working reference and push writes onto the same stack u/ctrl+r drive.
+    class _UndoAwareModule:
+        def __init__(self) -> None:
+            self.undo_stack = None
+            self.seen_at_keymap_entries_time: object = "unset"
+
+        def context_pane(self) -> PaneContents:
+            return PaneContents(title="x", items=[])
+
+        def collection_pane(self, context_item: PaneItem | None) -> PaneContents:
+            return PaneContents(title="x", items=[])
+
+        def detail_pane(
+            self, collection_item: PaneItem | None
+        ) -> DetailContents | None:
+            return None
+
+        def keymap_entries(self) -> list[KeymapEntry]:
+            self.seen_at_keymap_entries_time = self.undo_stack
+            return []
+
+    module = _UndoAwareModule()
+    app = _ShellHarness(module)
+    async with app.run_test():
+        assert module.seen_at_keymap_entries_time is app.screen.undo_stack
+        assert module.seen_at_keymap_entries_time is not None
