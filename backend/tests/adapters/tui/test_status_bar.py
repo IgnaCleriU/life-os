@@ -62,3 +62,20 @@ async def test_status_bar_hints_default_to_empty_when_omitted() -> None:
         bar.show_status(mode=Mode.NORMAL)
         # Must not raise, and must still show the mode.
         assert "NORMAL" in str(bar.render())
+
+
+async def test_status_bar_shows_the_last_action_description_when_present() -> None:
+    app = _StatusBarHarness()
+    async with app.run_test():
+        bar = app.query_one("#status", StatusBar)
+        bar.show_status(mode=Mode.NORMAL, last_action="undo: delete task")
+        assert "undo: delete task" in str(bar.render())
+
+
+async def test_status_bar_omits_last_action_section_when_absent() -> None:
+    app = _StatusBarHarness()
+    async with app.run_test():
+        bar = app.query_one("#status", StatusBar)
+        bar.show_status(mode=Mode.NORMAL)
+        # Just the mode name, nothing stray left over from a default value.
+        assert str(bar.render()).strip() == "NORMAL"

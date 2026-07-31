@@ -5,6 +5,7 @@ from textual.app import App
 from lifeos.adapters.tui.keymap import KeymapEntry
 from lifeos.adapters.tui.module import DetailContents, PaneContents, PaneItem
 from lifeos.adapters.tui.screens.shell_screen import ShellScreen
+from lifeos.adapters.tui.undo import UndoableWrite
 from lifeos.adapters.tui.widgets.panes import CollectionPane, ContextPane, DetailPane
 from lifeos.adapters.tui.widgets.status_bar import StatusBar
 
@@ -179,3 +180,70 @@ async def test_status_bar_is_present_and_shows_normal_mode() -> None:
         del pilot
         status_bar = app.screen.query_one("#status-bar", StatusBar)
         assert "NORMAL" in str(status_bar.render())
+
+
+# --- undo/redo global key wiring ----------------------------------------------
+
+
+async def test_u_calls_undo_on_the_most_recent_write() -> None:
+
+    app = _ShellHarness(_FakeModule())
+    async with app.run_test() as pilot:
+        calls: list[str] = []
+        write = UndoableWrite(
+            "toggle flag",
+            undo=lambda: calls.append("undo"),
+            redo=lambda: calls.append("redo"),
+        )
+        app.screen.undo_stack.push(write)
+        await pilot.press("u")
+        assert calls == ["undo"]
+
+
+async def test_ctrl_r_calls_redo_after_an_undo() -> None:
+
+    app = _ShellHarness(_FakeModule())
+    async with app.run_test() as pilot:
+        calls: list[str] = []
+        write = UndoableWrite(
+            "toggle flag",
+            undo=lambda: calls.append("undo"),
+            redo=lambda: calls.append("redo"),
+        )
+        app.screen.undo_stack.push(write)
+        await pilot.press("u")
+        await pilot.press("ctrl+r")
+        assert calls == ["undo", "redo"]
+
+
+async def test_u_on_an_empty_undo_stack_does_not_raise() -> None:
+    app = _ShellHarness(_FakeModule())
+    async with app.run_test() as pilot:
+        await pilot.press("u")  # must not raise
+
+
+async def test_status_bar_shows_the_last_undo_description() -> None:
+
+    app = _ShellHarness(_FakeModule())
+    async with app.run_test() as pilot:
+        write = UndoableWrite("delete task", undo=lambda: None, redo=lambda: None)
+        app.screen.undo_stack.push(write)
+        await pilot.press("u")
+        status_bar = app.screen.query_one("#status-bar", StatusBar)
+        assert "undo: delete task" in str(status_bar.render())
+
+
+async def test_undo_refreshes_panes_from_current_module_state() -> None:
+
+    module = _FakeModule()
+    app = _ShellHarness(module)
+    async with app.run_test() as pilot:
+        write = UndoableWrite("noop", undo=lambda: None, redo=lambda: None)
+        app.screen.undo_stack.push(write)
+        # Mutate the module's data between the write and the undo, proving
+        # the pane is re-fetched fresh rather than restored from a snapshot
+        # taken when the write was pushed.
+        module.context_items.append(PaneItem(id="ctx-4", label="delta", payload=None))
+        await pilot.press("u")
+        context_pane = app.screen.query_one("#context-pane", ContextPane)
+        assert context_pane.option_count == 4
