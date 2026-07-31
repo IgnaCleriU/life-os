@@ -13,6 +13,8 @@ from lifeos.adapters.tui.dispatch import KeySequenceBuffer
 from lifeos.adapters.tui.keymap import KeymapEntry, KeymapRegistry, Scope
 from lifeos.adapters.tui.modes import Mode, ModeController
 from lifeos.adapters.tui.module import TuiModule
+from lifeos.adapters.tui.screens.help_screen import HelpScreen
+from lifeos.adapters.tui.screens.palette_screen import PaletteScreen
 from lifeos.adapters.tui.widgets.panes import (
     CollectionPane,
     ContextPane,
@@ -103,6 +105,15 @@ class ShellScreen(Screen[None]):
             KeymapEntry(Scope.GLOBAL, "q", "quit", self.action_quit),
             KeymapEntry(Scope.GLOBAL, "escape", "back one level", self.action_escape),
             KeymapEntry(Scope.GLOBAL, "slash", "filter", self.action_enter_filter),
+            KeymapEntry(
+                Scope.GLOBAL, "ctrl+k", "command palette", self.action_open_palette
+            ),
+            KeymapEntry(
+                Scope.GLOBAL,
+                "question_mark",
+                "keybindings overlay",
+                self.action_open_help,
+            ),
         ]
 
     # --- scope tracking (derived from focus, not separately maintained) -----
@@ -224,6 +235,24 @@ class ShellScreen(Screen[None]):
         self.mode_controller.enter(Mode.INSERT)
         self._insert_on_commit = on_commit
         self._show_prompt(placeholder=placeholder)
+
+    # --- PALETTE and HELP: independent modal Screens, not shell state --------
+
+    def action_open_palette(self) -> None:
+        self.mode_controller.enter(Mode.PALETTE)
+        self.app.push_screen(
+            PaletteScreen(self.registry), callback=self._on_overlay_closed
+        )
+
+    def action_open_help(self) -> None:
+        # No dedicated HELP mode exists in ADR 0008's 5-mode table - the
+        # overlay covers the whole screen either way, so there's nothing for
+        # the status bar underneath to usefully say while it's open.
+        self.app.push_screen(HelpScreen(self.registry))
+
+    def _on_overlay_closed(self, _result: None) -> None:
+        self.mode_controller.escape()
+        self._refresh_status_bar()
 
     # --- SELECT mode (generic selection set) ----------------------------------
 
