@@ -19,6 +19,7 @@ dependencies = [
     # mcp 2.0 eliminó FastMCP (mcp.server.fastmcp) y mcp.shared.memory; el
     # adapter sigue en la API 1.x. Migrar es tarea aparte (revisa ADR 0006).
     "mcp>=1.29.0,<2",
+    "typer>=0.27.0,<0.28",
 ]
 
 [project.optional-dependencies]
@@ -30,6 +31,7 @@ dev = [
 
 [project.scripts]
 lifeos-mcp = "lifeos.adapters.mcp.server:main"
+lifeos = "lifeos.adapters.cli.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

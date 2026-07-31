@@ -1,0 +1,637 @@
+"""Tests de `lifeos task ...`.
+
+Sigue el estilo de `test_project_commands.py`: DB en memoria vía
+`runner`/`db_session`, sin mockear casos de uso (wiring real). Cada grupo de
+comandos cubre el camino feliz en texto plano y `--json`, más el error de
+dominio relevante.
+"""
+
+from __future__ import annotations
+
+import json
+from uuid import UUID, uuid4
+
+from typer.testing import CliRunner
+
+from lifeos.adapters.cli.main import app
+
+# --- helpers ---------------------------------------------------------------
+
+
+def _create_project(runner: CliRunner, name: str = "Groceries") -> str:
+    result = runner.invoke(app, ["--json", "project", "create", name])
+    return json.loads(result.stdout)["id"]
+
+
+def _create_task(
+    runner: CliRunner, project_id: str | None = None, title: str = "Buy milk"
+) -> str:
+    if project_id is None:
+        project_id = _create_project(runner)
+    result = runner.invoke(app, ["--json", "task", "create", project_id, title])
+    return json.loads(result.stdout)["id"]
+
+
+def _seed_doing_task(db_session, project_id: UUID, title: str) -> None:
+    """Crea una tarea en curso directo por repositorio, sin pasar por el
+    comando `start` (todavía no implementado en este grupo)."""
+    from lifeos.domain import Task
+    from lifeos.infrastructure.db.repositories.sqlite_task_repository import (
+        SQLiteTaskRepository,
+    )
+
+    repo = SQLiteTaskRepository(db_session)
+    task = Task.create(project_id=project_id, title=title)
+    task.start()
+    repo.add(task)
+
+
+# --- create ------------------------------------------------------------
+
+
+def test_create_plain_prints_formatted_task(runner: CliRunner) -> None:
+    project_id = _create_project(runner)
+
+    result = runner.invoke(app, ["task", "create", project_id, "Buy milk"])
+    assert result.exit_code == 0
+    assert "Buy milk" in result.stdout
+    assert "todo" in result.stdout
+    assert result.stderr == ""
+
+
+def test_create_with_all_options(runner: CliRunner) -> None:
+    project_id = _create_project(runner)
+
+    result = runner.invoke(
+        app,
+        [
+            "--json",
+            "task",
+            "create",
+            project_id,
+            "Buy milk",
+            "--priority",
+            "high",
+            "--due",
+            "2026-08-01",
+            "--description",
+            "2%",
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["priority"] == "high"
+    assert payload["due_date"] == "2026-08-01"
+    assert payload["description"] == "2%"
+
+
+def test_create_json_prints_task_dict(runner: CliRunner) -> None:
+    project_id = _create_project(runner)
+
+    result = runner.invoke(app, ["--json", "task", "create", project_id, "Buy milk"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["title"] == "Buy milk"
+    assert payload["status"] == "todo"
+    assert payload["priority"] == "medium"
+    assert payload["project_id"] == project_id
+    assert "id" in payload
+
+
+def test_create_bad_due_date_exits_2(runner: CliRunner) -> None:
+    project_id = _create_project(runner)
+
+    result = runner.invoke(
+        app, ["task", "create", project_id, "Buy milk", "--due", "not-a-date"]
+    )
+    assert result.exit_code == 2
+    assert result.stdout == ""
+
+
+def test_create_project_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["task", "create", str(uuid4()), "Buy milk"])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("project_not_found: ")
+
+
+def test_create_domain_validation_error_exits_1(runner: CliRunner) -> None:
+    project_id = _create_project(runner)
+
+    result = runner.invoke(app, ["task", "create", project_id, ""])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("domain_validation_error: ")
+
+
+# --- list ----------------------------------------------------------------
+
+
+def test_list_plain_prints_one_line_per_task(runner: CliRunner) -> None:
+    project_id = _create_project(runner)
+    runner.invoke(app, ["task", "create", project_id, "Buy milk"])
+    runner.invoke(app, ["task", "create", project_id, "Buy eggs"])
+
+    result = runner.invoke(app, ["task", "list"])
+    assert result.exit_code == 0
+    lines = result.stdout.strip().splitlines()
+    assert len(lines) == 2
+    assert "Buy milk" in result.stdout
+    assert "Buy eggs" in result.stdout
+
+
+def test_list_json_prints_list_of_task_dicts(runner: CliRunner) -> None:
+    project_id = _create_project(runner)
+    runner.invoke(app, ["task", "create", project_id, "Buy milk"])
+
+    result = runner.invoke(app, ["--json", "task", "list"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert isinstance(payload, list)
+    assert payload[0]["title"] == "Buy milk"
+
+
+def test_list_filters_by_project(runner: CliRunner) -> None:
+    project_a = _create_project(runner, "Groceries")
+    project_b = _create_project(runner, "Chores")
+    runner.invoke(app, ["task", "create", project_a, "Buy milk"])
+    runner.invoke(app, ["task", "create", project_b, "Vacuum"])
+
+    result = runner.invoke(app, ["--json", "task", "list", "--project", project_a])
+    payload = json.loads(result.stdout)
+    assert [t["title"] for t in payload] == ["Buy milk"]
+
+
+def test_list_without_project_returns_all_projects(runner: CliRunner) -> None:
+    project_a = _create_project(runner, "Groceries")
+    project_b = _create_project(runner, "Chores")
+    runner.invoke(app, ["task", "create", project_a, "Buy milk"])
+    runner.invoke(app, ["task", "create", project_b, "Vacuum"])
+
+    result = runner.invoke(app, ["--json", "task", "list"])
+    payload = json.loads(result.stdout)
+    assert {t["title"] for t in payload} == {"Buy milk", "Vacuum"}
+
+
+def test_list_filters_by_status(runner: CliRunner, db_session) -> None:
+    project_id = _create_project(runner)
+    runner.invoke(app, ["task", "create", project_id, "Buy milk"])
+    _seed_doing_task(db_session, UUID(project_id), "Vacuum")
+
+    result = runner.invoke(app, ["--json", "task", "list", "--status", "doing"])
+    payload = json.loads(result.stdout)
+    assert [t["title"] for t in payload] == ["Vacuum"]
+
+
+def test_list_filters_by_multiple_statuses(runner: CliRunner, db_session) -> None:
+    project_id = _create_project(runner)
+    runner.invoke(app, ["task", "create", project_id, "Buy milk"])
+    _seed_doing_task(db_session, UUID(project_id), "Vacuum")
+
+    result = runner.invoke(
+        app,
+        [
+            "--json",
+            "task",
+            "list",
+            "--status",
+            "todo",
+            "--status",
+            "doing",
+        ],
+    )
+    payload = json.loads(result.stdout)
+    assert {t["title"] for t in payload} == {"Buy milk", "Vacuum"}
+
+
+def test_list_filters_by_due_before(runner: CliRunner) -> None:
+    project_id = _create_project(runner)
+    runner.invoke(
+        app,
+        ["task", "create", project_id, "Buy milk", "--due", "2026-08-01"],
+    )
+    runner.invoke(
+        app,
+        ["task", "create", project_id, "Buy eggs", "--due", "2026-09-01"],
+    )
+
+    result = runner.invoke(
+        app, ["--json", "task", "list", "--due-before", "2026-08-15"]
+    )
+    payload = json.loads(result.stdout)
+    assert [t["title"] for t in payload] == ["Buy milk"]
+
+
+def test_list_filters_by_text(runner: CliRunner) -> None:
+    project_id = _create_project(runner)
+    runner.invoke(app, ["task", "create", project_id, "Buy milk"])
+    runner.invoke(app, ["task", "create", project_id, "Vacuum"])
+
+    result = runner.invoke(app, ["--json", "task", "list", "--text", "milk"])
+    payload = json.loads(result.stdout)
+    assert [t["title"] for t in payload] == ["Buy milk"]
+
+
+def test_list_empty_prints_nothing(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["task", "list"])
+    assert result.exit_code == 0
+    assert result.stdout == ""
+
+
+# --- show ------------------------------------------------------------------
+
+
+def test_show_plain_prints_formatted_task(runner: CliRunner) -> None:
+    project_id = _create_project(runner)
+    task_id = _create_task(runner, project_id, "Buy milk")
+
+    result = runner.invoke(app, ["task", "show", task_id])
+    assert result.exit_code == 0
+    assert "Buy milk" in result.stdout
+
+
+def test_show_json_prints_task_dict(runner: CliRunner) -> None:
+    project_id = _create_project(runner)
+    task_id = _create_task(runner, project_id, "Buy milk")
+
+    result = runner.invoke(app, ["--json", "task", "show", task_id])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["id"] == task_id
+    assert payload["title"] == "Buy milk"
+
+
+def test_show_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["task", "show", str(uuid4())])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("task_not_found: ")
+
+
+def test_show_bad_uuid_exits_2(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["task", "show", "not-a-uuid"])
+    assert result.exit_code == 2
+    assert result.stdout == ""
+
+
+# --- update ------------------------------------------------------------
+
+
+def test_update_title_plain(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["task", "update", task_id, "--title", "Buy oat milk"])
+    assert result.exit_code == 0
+    assert "Buy oat milk" in result.stdout
+    assert result.stderr == ""
+
+
+def test_update_priority_json(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(
+        app, ["--json", "task", "update", task_id, "--priority", "high"]
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["priority"] == "high"
+
+
+def test_update_due_json(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(
+        app, ["--json", "task", "update", task_id, "--due", "2026-08-01"]
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["due_date"] == "2026-08-01"
+
+
+def test_update_description_json(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(
+        app,
+        ["--json", "task", "update", task_id, "--description", "New desc"],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["description"] == "New desc"
+    assert payload["title"] == "Buy milk"
+
+
+def test_update_no_fields_leaves_task_untouched(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["--json", "task", "update", task_id])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["title"] == "Buy milk"
+    assert payload["description"] is None
+    assert payload["due_date"] is None
+
+
+def test_update_clear_description(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+    runner.invoke(app, ["task", "update", task_id, "--description", "Something"])
+
+    result = runner.invoke(
+        app, ["--json", "task", "update", task_id, "--clear-description"]
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["description"] is None
+
+
+def test_update_clear_due(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+    runner.invoke(app, ["task", "update", task_id, "--due", "2026-08-01"])
+
+    result = runner.invoke(app, ["--json", "task", "update", task_id, "--clear-due"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["due_date"] is None
+
+
+def test_update_description_and_clear_description_mutually_exclusive(
+    runner: CliRunner,
+) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(
+        app,
+        [
+            "task",
+            "update",
+            task_id,
+            "--description",
+            "x",
+            "--clear-description",
+        ],
+    )
+    assert result.exit_code == 2
+    assert result.stdout == ""
+
+
+def test_update_due_and_clear_due_mutually_exclusive(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(
+        app,
+        ["task", "update", task_id, "--due", "2026-08-01", "--clear-due"],
+    )
+    assert result.exit_code == 2
+    assert result.stdout == ""
+
+
+def test_update_combined_clear_flags(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+    runner.invoke(app, ["task", "update", task_id, "--description", "Something"])
+    runner.invoke(app, ["task", "update", task_id, "--due", "2026-08-01"])
+
+    result = runner.invoke(
+        app,
+        [
+            "--json",
+            "task",
+            "update",
+            task_id,
+            "--clear-description",
+            "--clear-due",
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["description"] is None
+    assert payload["due_date"] is None
+
+
+def test_update_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["task", "update", str(uuid4()), "--title", "New"])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("task_not_found: ")
+
+
+# --- complete/start/reopen -----------------------------------------------
+
+
+def test_complete_plain(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["task", "complete", task_id])
+    assert result.exit_code == 0
+    assert "done" in result.stdout
+    assert result.stderr == ""
+
+
+def test_complete_json(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["--json", "task", "complete", task_id])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "done"
+
+
+def test_complete_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["task", "complete", str(uuid4())])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("task_not_found: ")
+
+
+def test_start_plain(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["task", "start", task_id])
+    assert result.exit_code == 0
+    assert "doing" in result.stdout
+    assert result.stderr == ""
+
+
+def test_start_json(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["--json", "task", "start", task_id])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "doing"
+
+
+def test_start_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["task", "start", str(uuid4())])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("task_not_found: ")
+
+
+def test_reopen_plain(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+    runner.invoke(app, ["task", "complete", task_id])
+
+    result = runner.invoke(app, ["task", "reopen", task_id])
+    assert result.exit_code == 0
+    assert "todo" in result.stdout
+    assert result.stderr == ""
+
+
+def test_reopen_json(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+    runner.invoke(app, ["task", "complete", task_id])
+
+    result = runner.invoke(app, ["--json", "task", "reopen", task_id])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "todo"
+
+
+def test_reopen_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["task", "reopen", str(uuid4())])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("task_not_found: ")
+
+
+# --- move ------------------------------------------------------------------
+
+
+def test_move_plain(runner: CliRunner) -> None:
+    origin = _create_project(runner, "Groceries")
+    destination = _create_project(runner, "Chores")
+    task_id = _create_task(runner, origin, "Buy milk")
+
+    result = runner.invoke(app, ["task", "move", task_id, destination])
+    assert result.exit_code == 0
+    assert "Buy milk" in result.stdout
+    assert result.stderr == ""
+
+
+def test_move_json(runner: CliRunner) -> None:
+    origin = _create_project(runner, "Groceries")
+    destination = _create_project(runner, "Chores")
+    task_id = _create_task(runner, origin, "Buy milk")
+
+    result = runner.invoke(app, ["--json", "task", "move", task_id, destination])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["project_id"] == destination
+
+
+def test_move_task_not_found_exits_1(runner: CliRunner) -> None:
+    destination = _create_project(runner)
+
+    result = runner.invoke(app, ["task", "move", str(uuid4()), destination])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("task_not_found: ")
+
+
+def test_move_destination_project_not_found_exits_1(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["task", "move", task_id, str(uuid4())])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("project_not_found: ")
+
+
+# --- delete/restore ------------------------------------------------------
+
+
+def test_delete_confirm_accepted(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["task", "delete", task_id], input="y\n")
+    assert result.exit_code == 0
+    assert result.stderr == ""
+
+    show_result = runner.invoke(app, ["task", "show", task_id])
+    assert show_result.exit_code == 1
+    assert show_result.stderr.startswith("task_not_found: ")
+
+
+def test_delete_confirm_declined(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["task", "delete", task_id], input="n\n")
+    assert result.exit_code == 1
+
+    show_result = runner.invoke(app, ["task", "show", task_id])
+    assert show_result.exit_code == 0
+
+
+def test_delete_yes_flag_skips_prompt(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["task", "delete", task_id, "--yes"])
+    assert result.exit_code == 0
+
+    show_result = runner.invoke(app, ["task", "show", task_id])
+    assert show_result.exit_code == 1
+
+
+def test_delete_short_yes_flag_skips_prompt(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["task", "delete", task_id, "-y"])
+    assert result.exit_code == 0
+
+    show_result = runner.invoke(app, ["task", "show", task_id])
+    assert show_result.exit_code == 1
+
+
+def test_delete_empty_input_aborts(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["task", "delete", task_id], input="")
+    assert result.exit_code == 1
+
+    show_result = runner.invoke(app, ["task", "show", task_id])
+    assert show_result.exit_code == 0
+
+
+def test_delete_json_prints_deleted_task(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+
+    result = runner.invoke(app, ["--json", "task", "delete", task_id, "--yes"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["id"] == task_id
+
+
+def test_delete_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["task", "delete", str(uuid4()), "--yes"])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("task_not_found: ")
+
+
+def test_restore_plain(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+    runner.invoke(app, ["task", "delete", task_id, "--yes"])
+
+    result = runner.invoke(app, ["task", "restore", task_id])
+    assert result.exit_code == 0
+    assert result.stderr == ""
+
+    show_result = runner.invoke(app, ["task", "show", task_id])
+    assert show_result.exit_code == 0
+
+
+def test_restore_json(runner: CliRunner) -> None:
+    task_id = _create_task(runner)
+    runner.invoke(app, ["task", "delete", task_id, "--yes"])
+
+    result = runner.invoke(app, ["--json", "task", "restore", task_id])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["id"] == task_id
+
+
+def test_restore_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["task", "restore", str(uuid4())])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("task_not_found: ")

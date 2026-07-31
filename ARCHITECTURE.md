@@ -36,6 +36,8 @@ infrastructure (DB) ────────────────┘ (impleme
 | `infrastructure/` | Concrete implementation of the ports (e.g. `SQLiteProjectRepository`), config, DB session | — |
 | `adapters/rest/` | FastAPI: routers, Pydantic DTOs, dependency injection | Its own business logic (delegates to `application`) |
 | `adapters/mcp/` | MCP server: each tool calls the same use case used by REST | Its own business logic (delegates to `application`) |
+| `adapters/cli/` | Typer CLI (`lifeos`): one command per use case, plus a `capture`/`add` quick-add wrapper, its own `deps.py` and `--json`/plain-text serialization | Its own business logic (delegates to `application`) |
+| `adapters/shared/` | Code shared across colocated driver adapters that is not itself a use case — currently the quick-add tokenizer (`quick_add.py`) used by the CLI and, later, the TUI | `application`, `infrastructure`, any single adapter |
 
 ## Folder structure
 
@@ -86,9 +88,19 @@ life-os/
 │   │           │   └── routers/
 │   │           │       ├── projects.py
 │   │           │       └── tasks.py
-│   │           └── mcp/
-│   │               ├── server.py       # MCP server (stdio)
-│   │               └── tools.py        # defines tools, calling the same use cases
+│   │           ├── mcp/
+│   │           │   ├── server.py       # MCP server (stdio)
+│   │           │   └── tools.py        # defines tools, calling the same use cases
+│   │           ├── cli/
+│   │           │   ├── main.py             # `lifeos` entry point, root --json flag
+│   │           │   ├── deps.py             # dependency injection (repos, use cases)
+│   │           │   ├── project_commands.py # `lifeos project ...`
+│   │           │   ├── task_commands.py    # `lifeos task ...`
+│   │           │   ├── capture.py          # `lifeos capture`/`add`, inbox get-or-create
+│   │           │   ├── errors.py           # domain errors → exit code 1, `<code>: <msg>`
+│   │           │   └── serializers.py      # entity → dict/plain-text, shared by both modes
+│   │           └── shared/
+│   │               └── quick_add.py    # `!high @sat #casa` tokenizer (CLI today, TUI later)
 │   │
 │   └── tests/
 │       ├── domain/
@@ -112,15 +124,19 @@ life-os/
 ## Current implementation status
 
 - **Implemented:** domain layer, application ports and use cases, SQLite
-  infrastructure, the REST adapter, and the MCP adapter — under
-  `backend/src/lifeos/domain/`, `application/`, `infrastructure/`,
-  `adapters/rest/`, and `adapters/mcp/` respectively, each with its own test
-  suite under `backend/tests/`. The application layer covers the full
-  Projects/Tasks lifecycle (Step 9), including soft deletion and filtered
-  listings, and both REST and MCP expose all of it (Step 10) — see
-  [docs/mcp-setup.md](docs/mcp-setup.md) for the tool list.
-- **Pending:** Phase 1 Step 8 (MVP closing) and Steps 11-13, which build the
-  CLI and TUI adapters of
+  infrastructure, the REST adapter, the MCP adapter, and the CLI adapter —
+  under `backend/src/lifeos/domain/`, `application/`, `infrastructure/`,
+  `adapters/rest/`, `adapters/mcp/`, and `adapters/cli/` respectively, each
+  with its own test suite under `backend/tests/`. The application layer
+  covers the full Projects/Tasks lifecycle (Step 9), including soft
+  deletion and filtered listings, and REST, MCP and the CLI all expose all
+  of it (Steps 10-11) — see [docs/mcp-setup.md](docs/mcp-setup.md) for the
+  MCP tool list and [docs/cli.md](docs/cli.md) for the CLI command
+  reference. The CLI's quick-add tokenizer lives in
+  `adapters/shared/quick_add.py`, colocated outside any single adapter
+  because the TUI (Step 13) will reuse it.
+- **Pending:** Phase 1 Step 8 (MVP closing) and Steps 12-13, which build the
+  TUI adapter of
   [docs/adr/0008-keyboard-driven-tui-adapter.md](docs/adr/0008-keyboard-driven-tui-adapter.md)
   — see [docs/roadmap.md](docs/roadmap.md).
 
@@ -154,7 +170,7 @@ whether the action originated from an AI agent, the frontend, or the CLI.
 
 ## Where the data lives
 
-Every entry point (REST, MCP, and the planned CLI/TUI) is a separate
+Every entry point (REST, MCP, the CLI, and the planned TUI) is a separate
 process, but they all read and write **one** database: by default
 `$XDG_DATA_HOME/life-os/lifeos.db` — in practice
 `~/.local/share/life-os/lifeos.db`. That path is deliberately absolute and
