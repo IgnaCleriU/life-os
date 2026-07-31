@@ -59,13 +59,18 @@ class ShellScreen(Screen[None]):
     def __init__(self, module: TuiModule, **kwargs: object) -> None:
         super().__init__(**kwargs)
         self.module = module
-        entries = [*self._global_entries(), *module.keymap_entries()]
-        self.registry = KeymapRegistry(entries)
-        self.buffer = KeySequenceBuffer(self.registry)
         self.mode_controller = ModeController()
         self.undo_stack = UndoStack()
         self._last_action_description = ""
         self.selected_ids: set[str] = set()
+        # Convention documented on TuiModule: the module reads this back off
+        # itself from within its own keymap_entries() action closures, so it
+        # can push writes onto the same stack u/ctrl+r drive - set before
+        # keymap_entries() runs, not after.
+        module.undo_stack = self.undo_stack  # type: ignore[attr-defined]
+        entries = [*self._global_entries(), *module.keymap_entries()]
+        self.registry = KeymapRegistry(entries)
+        self.buffer = KeySequenceBuffer(self.registry)
         self._filter_pane: ItemListPane | None = None
         self._insert_on_commit: Callable[[str], None] | None = None
         self._pane_before_prompt: Widget | None = None

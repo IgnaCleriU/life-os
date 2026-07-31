@@ -38,6 +38,17 @@ class DetailContents:
 
 @runtime_checkable
 class TuiModule(Protocol):
+    """A module supplies pane content and its own key bindings; the shell
+    calls it, never the other way around.
+
+    Undo convention (not a formal part of this Protocol, since not every
+    module performs writes): `ShellScreen.__init__` sets `module.undo_stack`
+    to its own `UndoStack` instance *before* calling `keymap_entries()`, so
+    a module wanting undo support declares `self.undo_stack: UndoStack |
+    None = None` in its own `__init__` and reads it back from within its own
+    action closures - the same stack `u`/`ctrl+r` drive, not a private copy.
+    """
+
     def context_pane(self) -> PaneContents: ...
     def collection_pane(self, context_item: PaneItem | None) -> PaneContents: ...
     def detail_pane(
