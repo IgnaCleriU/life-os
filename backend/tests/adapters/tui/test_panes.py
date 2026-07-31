@@ -1,7 +1,12 @@
 from textual.app import App, ComposeResult
 
 from lifeos.adapters.tui.module import DetailContents, PaneContents, PaneItem
-from lifeos.adapters.tui.widgets.panes import CollectionPane, ContextPane, DetailPane
+from lifeos.adapters.tui.widgets.panes import (
+    CollectionPane,
+    ContextPane,
+    DetailPane,
+    ItemListPane,
+)
 
 
 class _PanesHarness(App):
@@ -103,3 +108,12 @@ async def test_detail_pane_renders_title_and_fields() -> None:
         assert "write adr 0008" in rendered
         assert "status" in rendered and "doing" in rendered
         assert "priority" in rendered and "high" in rendered
+
+
+def test_item_list_pane_has_no_builtin_key_bindings() -> None:
+    # ShellScreen owns ALL key dispatch via the keymap registry (single
+    # dispatch path, ADR 0008's "single keymap registry" requirement) -
+    # OptionList's own default bindings (up/down/enter/...) must not
+    # compete with that, or a keypress could be handled twice or handled
+    # by the wrong system.
+    assert ItemListPane.BINDINGS == []
