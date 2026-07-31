@@ -29,6 +29,35 @@ class KeymapEntry:
     is_sequence_prefix_of: str | None = None
 
 
+def undeclared_prefix_collisions(
+    entries: list[KeymapEntry],
+) -> list[tuple[KeymapEntry, KeymapEntry]]:
+    """Pairs (shorter, longer) where shorter.key is a strict prefix of
+    longer.key and shorter.is_sequence_prefix_of != longer.key.
+
+    Empty means no undeclared collisions. This is the mechanism that makes
+    the class of bug ADR 0008 had before its Step 12 amendment (`d` due
+    date colliding with `dd` delete — `d` is simultaneously a complete
+    binding and a strict prefix of `dd`) structurally impossible to
+    reintroduce silently: any future entry whose key is a strict prefix of
+    another entry's key, without explicitly declaring that relationship,
+    is flagged.
+    """
+    collisions: list[tuple[KeymapEntry, KeymapEntry]] = []
+    for shorter in entries:
+        for longer in entries:
+            if shorter is longer:
+                continue
+            if not longer.key.startswith(shorter.key):
+                continue
+            if len(shorter.key) >= len(longer.key):
+                continue
+            if shorter.is_sequence_prefix_of == longer.key:
+                continue
+            collisions.append((shorter, longer))
+    return collisions
+
+
 class KeymapRegistry:
     def __init__(self, entries: list[KeymapEntry]) -> None:
         self._entries = list(entries)
