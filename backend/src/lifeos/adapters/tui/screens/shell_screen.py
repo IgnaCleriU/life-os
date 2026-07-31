@@ -82,6 +82,10 @@ class ShellScreen(Screen[None]):
                 Scope.GLOBAL, "ctrl+d", "half-page down", self.action_page_down
             ),
             KeymapEntry(Scope.GLOBAL, "ctrl+u", "half-page up", self.action_page_up),
+            KeymapEntry(
+                Scope.GLOBAL, "R", "reload from the database", self.action_reload
+            ),
+            KeymapEntry(Scope.GLOBAL, "q", "quit", self.action_quit),
         ]
 
     # --- scope tracking (derived from focus, not separately maintained) -----
@@ -148,6 +152,14 @@ class ShellScreen(Screen[None]):
     def action_page_up(self) -> None:
         if isinstance(self.focused, OptionList):
             self.focused.action_page_up()
+
+    def action_reload(self) -> None:
+        self._refresh_context_pane()
+        self._refresh_collection_pane()
+        self._refresh_detail_pane()
+
+    def action_quit(self) -> None:
+        self.app.exit()
 
     # --- module <-> pane sync -------------------------------------------------
 
