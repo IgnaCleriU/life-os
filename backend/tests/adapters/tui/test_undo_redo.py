@@ -8,7 +8,7 @@ poder afirmar *cuál* closure corrió, no solo que corrió alguno.
 
 from __future__ import annotations
 
-from lifeos.adapters.tui.undo import UndoableWrite, UndoStack
+from lifeos.adapters.tui.undo import UNDO_STACK_LIMIT, UndoableWrite, UndoStack
 
 
 def _make_write(log: list[str], description: str = "write") -> UndoableWrite:
@@ -82,3 +82,20 @@ def test_push_after_undo_clears_the_redo_branch():
     # El push de c debe invalidar el historial de redo de b: no debe
     # resucitarlo silenciosamente.
     assert stack.redo() is None
+
+
+def test_push_past_the_limit_silently_evicts_the_oldest_write():
+    log: list[str] = []
+    stack = UndoStack()
+
+    for i in range(UNDO_STACK_LIMIT + 1):
+        stack.push(_make_write(log, f"write-{i}"))
+
+    # Las últimas UNDO_STACK_LIMIT escrituras (write-1 .. write-N) siguen
+    # ahí: exactamente UNDO_STACK_LIMIT undo()s exitosos.
+    for _ in range(UNDO_STACK_LIMIT):
+        assert stack.undo() is not None
+
+    # La primera escrita (write-0) fue evictada silenciosamente al superar
+    # el límite: ya no es alcanzable.
+    assert stack.undo() is None
