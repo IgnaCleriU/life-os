@@ -35,6 +35,10 @@ class ItemListPane(OptionList):
         for item in contents.items:
             text = f"{item.label}  {item.meta}".rstrip()
             self.add_option(Option(text, id=item.id))
+        # ADR 0008: "no pane holds state that is invisible in the interface"
+        # - a freshly populated pane always has something highlighted (when
+        # non-empty) so the pane to its right has something to sync against.
+        self.highlighted = 0 if contents.items else None
 
     @property
     def selected_item(self) -> PaneItem | None:
@@ -54,6 +58,10 @@ class CollectionPane(ItemListPane):
 
 class DetailPane(Static):
     """The rightmost pane: a read-only preview of the selected collection item."""
+
+    can_focus = True
+    """`Static.can_focus` defaults to False, but the ADR's h/l/Tab
+    navigation moves focus across all three panes, detail included."""
 
     def update_contents(self, contents: DetailContents | None) -> None:
         if contents is None:
