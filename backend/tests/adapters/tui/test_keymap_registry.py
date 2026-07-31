@@ -12,6 +12,7 @@ from lifeos.adapters.tui.keymap import (
     KeymapEntry,
     KeymapRegistry,
     Scope,
+    undeclared_prefix_collisions,
 )
 
 
@@ -90,3 +91,81 @@ class TestIsPrefix:
         registry = KeymapRegistry([entry])
 
         assert registry.is_prefix(Scope.COLLECTION, "z") is False
+
+
+class TestUndeclaredPrefixCollisionsRegressionGuard:
+    """The mandated regression-guard test (roadmap requirement, verbatim):
+
+    "adds a keymap-registry test that makes this class of collision
+    structurally impossible to reintroduce silently" — i.e. any future
+    entry whose key is a strict prefix of another entry's key in the same
+    effective scope, without explicitly declaring that relationship via
+    `is_sequence_prefix_of`, must fail this test. This is exactly the bug
+    ADR 0008 had before its Step 12 amendment: `d` (due date) collided
+    with `dd` (delete) because `d` is simultaneously a complete binding
+    and a strict prefix of `dd`.
+    """
+
+    def test_hand_built_registry_has_no_undeclared_prefix_collisions(self) -> None:
+        # A small but non-trivial registry: one GLOBAL, one COLLECTION, one
+        # CONTEXT entry, plus a legitimate 2-char sequence ("gg") that has
+        # no colliding single-key sibling ("g" is not itself bound to
+        # anything, so it's a "waiting" prefix, not an undeclared collision).
+        entries = [
+            KeymapEntry(scope=Scope.GLOBAL, key="q", label="quit", action=_noop),
+            KeymapEntry(
+                scope=Scope.GLOBAL, key="^k", label="palette", action=_noop
+            ),
+            KeymapEntry(
+                scope=Scope.CONTEXT, key="j", label="down", action=_noop
+            ),
+            KeymapEntry(
+                scope=Scope.COLLECTION, key="a", label="add", action=_noop
+            ),
+            KeymapEntry(
+                scope=Scope.COLLECTION,
+                key="dd",
+                label="delete",
+                action=_noop,
+            ),
+            KeymapEntry(
+                scope=Scope.COLLECTION, key="gg", label="top", action=_noop
+            ),
+        ]
+        registry = KeymapRegistry(entries)
+
+        assert undeclared_prefix_collisions(registry.all()) == []
+
+
+class TestUndeclaredPrefixCollisionsHasTeeth:
+    """Proves the check actually flags a violation rather than vacuously
+    passing — does NOT rely on production data happening to contain one.
+    """
+
+    def test_flags_deliberate_undeclared_collision(self) -> None:
+        short = KeymapEntry(
+            scope=Scope.COLLECTION, key="d", label="due date", action=_noop
+        )
+        long_ = KeymapEntry(
+            scope=Scope.COLLECTION, key="dd", label="delete", action=_noop
+        )
+
+        collisions = undeclared_prefix_collisions([short, long_])
+
+        assert collisions == [(short, long_)]
+
+    def test_declaring_the_prefix_relationship_clears_the_collision(self) -> None:
+        short = KeymapEntry(
+            scope=Scope.COLLECTION,
+            key="d",
+            label="due date",
+            action=_noop,
+            is_sequence_prefix_of="dd",
+        )
+        long_ = KeymapEntry(
+            scope=Scope.COLLECTION, key="dd", label="delete", action=_noop
+        )
+
+        collisions = undeclared_prefix_collisions([short, long_])
+
+        assert collisions == []
