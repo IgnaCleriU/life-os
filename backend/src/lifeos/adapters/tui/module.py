@@ -41,12 +41,15 @@ class TuiModule(Protocol):
     """A module supplies pane content and its own key bindings; the shell
     calls it, never the other way around.
 
-    Undo convention (not a formal part of this Protocol, since not every
-    module performs writes): `ShellScreen.__init__` sets `module.undo_stack`
-    to its own `UndoStack` instance *before* calling `keymap_entries()`, so
-    a module wanting undo support declares `self.undo_stack: UndoStack |
-    None = None` in its own `__init__` and reads it back from within its own
-    action closures - the same stack `u`/`ctrl+r` drive, not a private copy.
+    Shell-access convention (not a formal part of this Protocol, since not
+    every module needs it): `ShellScreen.__init__` sets `module.shell` to
+    itself *before* calling `keymap_entries()`, so a module wanting to
+    trigger shell-level behavior from its own actions - pushing an undoable
+    write onto `shell.undo_stack`, opening a text prompt via
+    `shell.prompt_insert(...)`, or forcing a re-render via
+    `shell.action_reload()` - declares `self.shell: ShellScreen | None =
+    None` in its own `__init__` and reads it back from within its action
+    closures, built fresh each time `keymap_entries()` runs.
     """
 
     def context_pane(self) -> PaneContents: ...

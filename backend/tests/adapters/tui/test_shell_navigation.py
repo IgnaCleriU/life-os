@@ -249,14 +249,14 @@ async def test_undo_refreshes_panes_from_current_module_state() -> None:
         assert context_pane.option_count == 4
 
 
-async def test_module_gets_the_undo_stack_before_keymap_entries_is_built() -> None:
-    # Convention (see TuiModule's docstring): the shell injects its own
-    # undo_stack onto the module as a plain attribute *before* calling
-    # keymap_entries(), so a module's own action closures can capture a
-    # working reference and push writes onto the same stack u/ctrl+r drive.
-    class _UndoAwareModule:
+async def test_module_gets_the_shell_before_keymap_entries_is_built() -> None:
+    # Convention (see TuiModule's docstring): the shell injects itself onto
+    # the module as a plain attribute *before* calling keymap_entries(), so
+    # a module's own action closures can capture a working reference and
+    # reach shell.undo_stack / shell.prompt_insert / shell.action_reload.
+    class _ShellAwareModule:
         def __init__(self) -> None:
-            self.undo_stack = None
+            self.shell = None
             self.seen_at_keymap_entries_time: object = "unset"
 
         def context_pane(self) -> PaneContents:
@@ -271,11 +271,11 @@ async def test_module_gets_the_undo_stack_before_keymap_entries_is_built() -> No
             return None
 
         def keymap_entries(self) -> list[KeymapEntry]:
-            self.seen_at_keymap_entries_time = self.undo_stack
+            self.seen_at_keymap_entries_time = self.shell
             return []
 
-    module = _UndoAwareModule()
+    module = _ShellAwareModule()
     app = _ShellHarness(module)
     async with app.run_test():
-        assert module.seen_at_keymap_entries_time is app.screen.undo_stack
+        assert module.seen_at_keymap_entries_time is app.screen
         assert module.seen_at_keymap_entries_time is not None

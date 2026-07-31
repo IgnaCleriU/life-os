@@ -64,10 +64,10 @@ class ShellScreen(Screen[None]):
         self._last_action_description = ""
         self.selected_ids: set[str] = set()
         # Convention documented on TuiModule: the module reads this back off
-        # itself from within its own keymap_entries() action closures, so it
-        # can push writes onto the same stack u/ctrl+r drive - set before
+        # itself from within its own keymap_entries() action closures, to
+        # reach undo_stack / prompt_insert / action_reload etc. - set before
         # keymap_entries() runs, not after.
-        module.undo_stack = self.undo_stack  # type: ignore[attr-defined]
+        module.shell = self  # type: ignore[attr-defined]
         entries = [*self._global_entries(), *module.keymap_entries()]
         self.registry = KeymapRegistry(entries)
         self.buffer = KeySequenceBuffer(self.registry)
