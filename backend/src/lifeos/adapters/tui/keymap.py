@@ -44,3 +44,10 @@ class KeymapRegistry:
             for entry in self._entries
             if entry.scope is Scope.GLOBAL or entry.scope is scope
         ]
+
+    def resolve(self, scope: Scope, key: str) -> KeymapEntry | None:
+        """Exact match within for_scope(scope), else None."""
+        for entry in self.for_scope(scope):
+            if entry.key == key:
+                return entry
+        return None
