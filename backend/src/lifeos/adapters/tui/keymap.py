@@ -51,3 +51,11 @@ class KeymapRegistry:
             if entry.key == key:
                 return entry
         return None
+
+    def is_prefix(self, scope: Scope, key: str) -> bool:
+        """True if `key` is a strict prefix of some longer bound key in
+        for_scope(scope)."""
+        return any(
+            entry.key != key and entry.key.startswith(key)
+            for entry in self.for_scope(scope)
+        )
