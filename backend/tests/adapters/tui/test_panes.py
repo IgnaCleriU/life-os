@@ -73,8 +73,11 @@ async def test_update_contents_replaces_previous_items_rather_than_appending() -
         single_item = PaneItem(id="p3", label="learning", payload=None)
         pane.update_contents(PaneContents(title="PROJECTS", items=[single_item]))
         assert pane.option_count == 1
-        # nothing highlighted yet after a fresh render
-        assert pane.selected_item is None
+        # a fresh non-empty render highlights the first item (ADR 0008: no
+        # pane holds state invisible in the interface) - not a leftover
+        # from the previous render, which only had "p1"/"p2", never "p3"
+        assert pane.selected_item is not None
+        assert pane.selected_item.id == "p3"
 
 
 async def test_collection_pane_is_a_distinct_type_from_context_pane() -> None:
@@ -117,3 +120,15 @@ def test_item_list_pane_has_no_builtin_key_bindings() -> None:
     # compete with that, or a keypress could be handled twice or handled
     # by the wrong system.
     assert ItemListPane.BINDINGS == []
+
+
+async def test_detail_pane_can_receive_focus() -> None:
+    # DetailPane is a Static subclass, and Static.can_focus defaults to
+    # False - but the ADR's h/l/Tab navigation moves focus across all three
+    # panes including detail, so it must be focusable like the other two.
+    app = _PanesHarness()
+    async with app.run_test() as pilot:
+        pane = app.query_one("#detail", DetailPane)
+        pane.focus()
+        await pilot.pause()
+        assert app.focused is pane
