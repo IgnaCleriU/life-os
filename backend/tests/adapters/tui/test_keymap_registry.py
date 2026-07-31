@@ -49,3 +49,24 @@ class TestRegistryShape:
         # pane's scope is DETAIL.
         assert collection_entry not in effective
         assert len(effective) == 2
+
+
+class TestResolve:
+    def test_resolve_finds_exact_match_within_effective_scope(self) -> None:
+        entry = KeymapEntry(scope=Scope.COLLECTION, key="a", label="add", action=_noop)
+        registry = KeymapRegistry([entry])
+
+        assert registry.resolve(Scope.COLLECTION, "a") is entry
+
+    def test_resolve_returns_none_when_key_absent(self) -> None:
+        entry = KeymapEntry(scope=Scope.COLLECTION, key="a", label="add", action=_noop)
+        registry = KeymapRegistry([entry])
+
+        assert registry.resolve(Scope.COLLECTION, "z") is None
+
+    def test_resolve_returns_none_when_entry_out_of_effective_scope(self) -> None:
+        # Scoped to COLLECTION only, so resolving it from DETAIL must miss.
+        entry = KeymapEntry(scope=Scope.COLLECTION, key="a", label="add", action=_noop)
+        registry = KeymapRegistry([entry])
+
+        assert registry.resolve(Scope.DETAIL, "a") is None
