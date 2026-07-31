@@ -28,17 +28,34 @@ class ItemListPane(OptionList):
     def __init__(self, **kwargs: object) -> None:
         super().__init__(**kwargs)
         self._items_by_id: dict[str, PaneItem] = {}
+        self._all_items: list[PaneItem] = []
 
     def update_contents(self, contents: PaneContents) -> None:
+        self._all_items = list(contents.items)
+        self._render_items(self._all_items)
+
+    def _render_items(self, items: list[PaneItem]) -> None:
         self.clear_options()
-        self._items_by_id = {item.id: item for item in contents.items}
-        for item in contents.items:
+        self._items_by_id = {item.id: item for item in items}
+        for item in items:
             text = f"{item.label}  {item.meta}".rstrip()
             self.add_option(Option(text, id=item.id))
         # ADR 0008: "no pane holds state that is invisible in the interface"
         # - a freshly populated pane always has something highlighted (when
         # non-empty) so the pane to its right has something to sync against.
-        self.highlighted = 0 if contents.items else None
+        self.highlighted = 0 if items else None
+
+    def filter(self, text: str) -> None:
+        """Live substring filter (case-insensitive) over the full item set
+        captured at the last `update_contents()` call - not the currently
+        rendered (possibly already-filtered) subset, so filtering is never
+        cumulative across keystrokes."""
+        needle = text.casefold()
+        matches = [item for item in self._all_items if needle in item.label.casefold()]
+        self._render_items(matches)
+
+    def clear_filter(self) -> None:
+        self._render_items(self._all_items)
 
     @property
     def selected_item(self) -> PaneItem | None:
