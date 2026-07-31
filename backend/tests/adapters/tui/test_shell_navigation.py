@@ -279,3 +279,28 @@ async def test_module_gets_the_shell_before_keymap_entries_is_built() -> None:
     async with app.run_test():
         assert module.seen_at_keymap_entries_time is app.screen
         assert module.seen_at_keymap_entries_time is not None
+
+
+async def test_current_context_item_reflects_the_context_pane_selection() -> None:
+    app = _ShellHarness(_FakeModule())
+    async with app.run_test() as pilot:
+        screen = app.screen
+        assert screen.current_context_item is not None
+        assert screen.current_context_item.id == "ctx-1"
+        await pilot.press("j")
+        assert screen.current_context_item.id == "ctx-2"
+
+
+async def test_current_collection_item_reflects_the_collection_pane_selection() -> None:
+    app = _ShellHarness(_FakeModule())
+    async with app.run_test() as pilot:
+        screen = app.screen
+        # Already populated at mount, cascaded from the context pane's own
+        # auto-highlighted first item - not None just because focus hasn't
+        # moved there yet.
+        assert screen.current_collection_item is not None
+        assert screen.current_collection_item.id == "col-1"
+        await pilot.press("j")  # ctx-2 ("beta") -> its one item, "col-3"
+        assert screen.current_collection_item.id == "col-3"
+        await pilot.press("j")  # ctx-3 ("gamma") -> no items
+        assert screen.current_collection_item is None
