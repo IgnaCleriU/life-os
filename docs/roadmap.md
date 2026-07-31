@@ -50,7 +50,7 @@ Task breakdown and current status:
 | 9. Lifecycle use cases | Soft deletion, project mutation, `doing`, move, get-by-id, filtered listings; WAL + `busy_timeout` | **Done** |
 | 10. REST + MCP parity | Expose every Step 9 capability as routes and tools | **Done** |
 | 11. CLI adapter | `adapters/cli/` (Typer): one command per use case, plus `adapters/shared/quick_add.py` (the `!high @sat #casa` parser) and a `capture`/`add` wrapper | **Done** |
-| 12. TUI shell | `adapters/tui/`: generic Textual shell (panes, focus, modes, keymap registry + dispatch, palette, `?` overlay, undo/redo, status bar), built against a stub module so it stays free of Projects/Tasks code | Pending |
+| 12. TUI shell | `adapters/tui/`: generic Textual shell (panes, focus, modes, keymap registry + dispatch, palette, `?` overlay, undo/redo, status bar), built against a stub module so it stays free of Projects/Tasks code | **Done** |
 | 13. TUI module + desktop wiring | `adapters/tui/modules/projects_tasks.py` implementing the shell's module contract, `lifeos-tui`/`lifeos-capture` console scripts, `docs/tui.md` with the Hyprland/Omarchy binds | Pending |
 
 Steps 9-13 implement
@@ -107,6 +107,15 @@ structured error responses for domain and validation errors on REST and
 for the full MCP tool list and [cli.md](cli.md) for the full CLI command
 reference and quick-add syntax.
 
+Step 12 adds the generic TUI shell (`backend/src/lifeos/adapters/tui/`):
+panes, focus, the 5 modes, a single keymap registry driving dispatch, the
+command palette and `?` overlay, undo/redo, and a status bar, built and
+tested against a throwaway stub module
+(`adapters/tui/modules/stub.py`) so the shell/module boundary is real
+rather than aspirational — the shell itself imports none of `application`,
+`domain`, or `infrastructure`. ADR 0008's tasks-pane keymap was amended in
+the same PR to resolve the `d`/`dd` collision described above.
+
 **Definition of Done (MVP):** in a single conversation with Claude
 connected to the local MCP server, it is possible to create a project and
 load the roadmap phases as tasks under it, and then see those tasks
@@ -152,21 +161,19 @@ correctly through both the REST API and the MCP tools.
 1. Delete and recreate `~/.local/share/life-os/lifeos.db` (the Steps 9-10
    schema change added `deleted_at`; no migration tooling yet) before
    relying on any client, the new CLI included.
-2. Step 12: build the generic TUI shell in `adapters/tui/` against a stub
-   module, amending ADR 0008's keymap table (`d`/`dd` collision, see above)
-   in the same PR.
-3. Step 13: replace the stub with the Projects/Tasks module, add the
-   `lifeos-tui`/`lifeos-capture` console scripts, and document the Omarchy
-   keybindings.
-4. Reach the Phase 1 Definition of Done (Step 8): load the roadmap phases
+2. Step 13: replace the stub module Step 12 shipped with the real
+   Projects/Tasks module (`adapters/tui/modules/projects_tasks.py`), add
+   the `lifeos-tui`/`lifeos-capture` console scripts, and document the
+   Omarchy keybindings.
+3. Reach the Phase 1 Definition of Done (Step 8): load the roadmap phases
    as a Project + Tasks in a single Claude conversation over MCP, and
    confirm the same data is visible through REST. Independent of Steps
    9-13; can happen whenever convenient.
-5. Record the desktop-app direction as an ADR superseding
+4. Record the desktop-app direction as an ADR superseding
    [adr/0005-deployment-target.md](adr/0005-deployment-target.md): Life OS
    is being built as a native TUI desktop app for Omarchy that launches the
    backend and the TUI together, rather than a hosted backend. This
    conditions auth, packaging, and whether remote/multi-device access
    (Phase 6) stays in scope. Still deferred — Step 13 intentionally ships
    without it (console scripts and example keybinds only, no installer).
-6. Iterate on this roadmap as phases complete and priorities shift.
+5. Iterate on this roadmap as phases complete and priorities shift.

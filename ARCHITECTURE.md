@@ -37,7 +37,8 @@ infrastructure (DB) ────────────────┘ (impleme
 | `adapters/rest/` | FastAPI: routers, Pydantic DTOs, dependency injection | Its own business logic (delegates to `application`) |
 | `adapters/mcp/` | MCP server: each tool calls the same use case used by REST | Its own business logic (delegates to `application`) |
 | `adapters/cli/` | Typer CLI (`lifeos`): one command per use case, plus a `capture`/`add` quick-add wrapper, its own `deps.py` and `--json`/plain-text serialization | Its own business logic (delegates to `application`) |
-| `adapters/shared/` | Code shared across colocated driver adapters that is not itself a use case — currently the quick-add tokenizer (`quick_add.py`) used by the CLI and, later, the TUI | `application`, `infrastructure`, any single adapter |
+| `adapters/tui/` | Textual TUI: a generic shell (panes, focus, modes, keymap registry + dispatch, palette, `?` overlay, undo/redo, status bar) driving a pluggable `TuiModule`; today only a throwaway stub module exists | `application`, `domain`, `infrastructure` — the shell only knows the `TuiModule` contract, not any concrete module |
+| `adapters/shared/` | Code shared across colocated driver adapters that is not itself a use case — currently the quick-add tokenizer (`quick_add.py`) used by the CLI and, later, the TUI's real module | `application`, `infrastructure`, any single adapter |
 
 ## Folder structure
 
@@ -99,8 +100,20 @@ life-os/
 │   │           │   ├── capture.py          # `lifeos capture`/`add`, inbox get-or-create
 │   │           │   ├── errors.py           # domain errors → exit code 1, `<code>: <msg>`
 │   │           │   └── serializers.py      # entity → dict/plain-text, shared by both modes
+│   │           ├── tui/
+│   │           │   ├── app.py          # ShellApp: disables Textual's own palette, pushes ShellScreen
+│   │           │   ├── __main__.py     # dev-only: `python -m lifeos.adapters.tui`
+│   │           │   ├── keymap.py       # Scope, KeymapEntry, KeymapRegistry (+ collision check)
+│   │           │   ├── dispatch.py     # KeySequenceBuffer: chords + digit-count handling
+│   │           │   ├── module.py       # TuiModule protocol, PaneItem/PaneContents/DetailContents
+│   │           │   ├── modes.py        # Mode enum, ModeController (Esc-back-one-level)
+│   │           │   ├── undo.py         # UndoStack, UndoableWrite
+│   │           │   ├── widgets/        # ContextPane, CollectionPane, DetailPane, StatusBar
+│   │           │   ├── screens/        # ShellScreen, PaletteScreen, HelpScreen
+│   │           │   └── modules/
+│   │           │       └── stub.py     # throwaway module (Step 13 replaces it)
 │   │           └── shared/
-│   │               └── quick_add.py    # `!high @sat #casa` tokenizer (CLI today, TUI later)
+│   │               └── quick_add.py    # `!high @sat #casa` tokenizer (CLI today, TUI's real module later)
 │   │
 │   └── tests/
 │       ├── domain/
@@ -135,8 +148,16 @@ life-os/
   reference. The CLI's quick-add tokenizer lives in
   `adapters/shared/quick_add.py`, colocated outside any single adapter
   because the TUI (Step 13) will reuse it.
-- **Pending:** Phase 1 Step 8 (MVP closing) and Steps 12-13, which build the
-  TUI adapter of
+  Step 12 adds the generic TUI shell adapter under `adapters/tui/` — panes,
+  focus, the 5 modes, the keymap registry and dispatch, the command palette
+  and `?` overlay, undo/redo, and a status bar, built and tested against a
+  throwaway stub module (`adapters/tui/modules/stub.py`) so the shell
+  itself stays free of Projects/Tasks code (it imports none of
+  `application`, `domain`, or `infrastructure`). A dev-only entry point
+  (`python -m lifeos.adapters.tui`) runs it manually; there is no packaged
+  console script yet.
+- **Pending:** Phase 1 Step 8 (MVP closing) and Step 13, which replaces the
+  stub with the real Projects/Tasks module and adds the console scripts, per
   [docs/adr/0008-keyboard-driven-tui-adapter.md](docs/adr/0008-keyboard-driven-tui-adapter.md)
   — see [docs/roadmap.md](docs/roadmap.md).
 
