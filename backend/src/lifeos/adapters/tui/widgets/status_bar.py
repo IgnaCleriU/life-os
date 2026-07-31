@@ -14,10 +14,13 @@ class StatusBar(Static):
         mode: Mode,
         filter_text: str = "",
         hints: list[tuple[str, str]] | None = None,
+        last_action: str = "",
     ) -> None:
         parts = [mode.value.upper()]
         if filter_text:
             parts.append(f"/{filter_text}")
+        if last_action:
+            parts.append(last_action)
         if hints:
             parts.append("  ".join(f"{key} {label}" for key, label in hints))
         self.update("  ".join(parts))

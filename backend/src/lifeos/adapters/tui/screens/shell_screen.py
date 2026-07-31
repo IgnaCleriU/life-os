@@ -15,6 +15,7 @@ from lifeos.adapters.tui.modes import Mode, ModeController
 from lifeos.adapters.tui.module import TuiModule
 from lifeos.adapters.tui.screens.help_screen import HelpScreen
 from lifeos.adapters.tui.screens.palette_screen import PaletteScreen
+from lifeos.adapters.tui.undo import UndoStack
 from lifeos.adapters.tui.widgets.panes import (
     CollectionPane,
     ContextPane,
@@ -62,6 +63,8 @@ class ShellScreen(Screen[None]):
         self.registry = KeymapRegistry(entries)
         self.buffer = KeySequenceBuffer(self.registry)
         self.mode_controller = ModeController()
+        self.undo_stack = UndoStack()
+        self._last_action_description = ""
         self.selected_ids: set[str] = set()
         self._filter_pane: ItemListPane | None = None
         self._insert_on_commit: Callable[[str], None] | None = None
@@ -114,6 +117,8 @@ class ShellScreen(Screen[None]):
                 "keybindings overlay",
                 self.action_open_help,
             ),
+            KeymapEntry(Scope.GLOBAL, "u", "undo", self.action_undo),
+            KeymapEntry(Scope.GLOBAL, "ctrl+r", "redo", self.action_redo),
         ]
 
     # --- scope tracking (derived from focus, not separately maintained) -----
@@ -185,6 +190,22 @@ class ShellScreen(Screen[None]):
         self._refresh_context_pane()
         self._refresh_collection_pane()
         self._refresh_detail_pane()
+
+    def action_undo(self) -> None:
+        write = self.undo_stack.undo()
+        if write is None:
+            return
+        self._last_action_description = f"undo: {write.description}"
+        self.action_reload()
+        self._refresh_status_bar()
+
+    def action_redo(self) -> None:
+        write = self.undo_stack.redo()
+        if write is None:
+            return
+        self._last_action_description = f"redo: {write.description}"
+        self.action_reload()
+        self._refresh_status_bar()
 
     def action_quit(self) -> None:
         self.app.exit()
@@ -337,5 +358,7 @@ class ShellScreen(Screen[None]):
         if self.mode_controller.mode is Mode.FILTER:
             filter_text = self.query_one("#prompt-input", Input).value
         self.query_one("#status-bar", StatusBar).show_status(
-            mode=self.mode_controller.mode, filter_text=filter_text
+            mode=self.mode_controller.mode,
+            filter_text=filter_text,
+            last_action=self._last_action_description,
         )
