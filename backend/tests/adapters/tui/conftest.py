@@ -30,12 +30,22 @@ class FakeShell:
         self.current_context_item = None
         self.current_collection_item = None
         self.clipboard: list[str] = []
+        self.selected_ids: set[str] = set()
         self._pending_commit = None
         self._pending_confirm = None
         self._pending_pick: tuple[list[str], object] | None = None
 
     def copy_to_clipboard(self, text: str) -> None:
         self.clipboard.append(text)
+
+    def enter_select_mode(self) -> None:
+        pass
+
+    def toggle_selection(self, item_id: str) -> None:
+        if item_id in self.selected_ids:
+            self.selected_ids.discard(item_id)
+        else:
+            self.selected_ids.add(item_id)
 
     def prompt_insert(self, *, placeholder: str = "", on_commit) -> None:  # noqa: ANN001
         self._pending_commit = on_commit
