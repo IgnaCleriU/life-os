@@ -106,3 +106,141 @@ def test_try_call_returns_the_action_result_on_success(module, fake_shell) -> No
     result = module._try_call(lambda: 42)  # noqa: SLF001
     assert result == 42
     assert fake_shell.errors == []
+
+
+# --- the safety net actually wraps every real write action, not just itself --
+#
+# _try_call's own docstring names the trigger: "an entity deleted out from
+# under a still-open prompt". These simulate exactly that (delete via deps
+# directly, as a concurrent REST/MCP client sharing the same DB would) and
+# assert the mid-flow action degrades to a status-bar error instead of
+# raising through on_commit/on_select/on_yes and crashing the app.
+
+
+def test_renaming_a_project_deleted_out_from_under_the_prompt_shows_an_error(
+    module, fake_shell
+) -> None:
+    project = _create_project("life os")
+    fake_shell.current_context_item = module.context_pane().items[0]
+
+    _entry(module, Scope.CONTEXT, "e").action()
+    with deps.delete_project_use_case() as use_case:
+        use_case.execute(project.id)
+    fake_shell.commit_pending_prompt("renamed")
+
+    assert any("project_not_found" in e for e in fake_shell.errors)
+
+
+def test_renaming_a_task_deleted_out_from_under_the_prompt_shows_an_error(
+    module, fake_shell
+) -> None:
+    project = _create_project("life os")
+    task = _create_task(project.id, "old title")
+    fake_shell.current_context_item = module.context_pane().items[0]
+    fake_shell.current_collection_item = module.collection_pane(
+        fake_shell.current_context_item
+    ).items[0]
+
+    _entry(module, Scope.COLLECTION, "e").action()
+    with deps.delete_task_use_case() as use_case:
+        use_case.execute(task.id)
+    fake_shell.commit_pending_prompt("renamed")
+
+    assert any("task_not_found" in e for e in fake_shell.errors)
+
+
+def test_setting_priority_on_a_deleted_task_shows_an_error(module, fake_shell) -> None:
+    project = _create_project("life os")
+    task = _create_task(project.id, "task")
+    fake_shell.current_context_item = module.context_pane().items[0]
+    fake_shell.current_collection_item = module.collection_pane(
+        fake_shell.current_context_item
+    ).items[0]
+
+    _entry(module, Scope.COLLECTION, "p").action()
+    with deps.delete_task_use_case() as use_case:
+        use_case.execute(task.id)
+    fake_shell.pick("high")
+
+    assert any("task_not_found" in e for e in fake_shell.errors)
+
+
+def test_setting_due_date_on_a_deleted_task_shows_an_error(module, fake_shell) -> None:
+    project = _create_project("life os")
+    task = _create_task(project.id, "task")
+    fake_shell.current_context_item = module.context_pane().items[0]
+    fake_shell.current_collection_item = module.collection_pane(
+        fake_shell.current_context_item
+    ).items[0]
+
+    _entry(module, Scope.COLLECTION, "at").action()
+    with deps.delete_task_use_case() as use_case:
+        use_case.execute(task.id)
+    fake_shell.commit_pending_prompt("tomorrow")
+
+    assert any("task_not_found" in e for e in fake_shell.errors)
+
+
+def test_moving_a_deleted_task_shows_an_error(module, fake_shell) -> None:
+    project = _create_project("life os")
+    _create_project("other")
+    task = _create_task(project.id, "task")
+    fake_shell.current_context_item = module.context_pane().items[0]
+    fake_shell.current_collection_item = module.collection_pane(
+        fake_shell.current_context_item
+    ).items[0]
+
+    _entry(module, Scope.COLLECTION, "m").action()
+    with deps.delete_task_use_case() as use_case:
+        use_case.execute(task.id)
+    fake_shell.pick("other")
+
+    assert any("task_not_found" in e for e in fake_shell.errors)
+
+
+def test_completing_an_already_deleted_task_shows_an_error(module, fake_shell) -> None:
+    project = _create_project("life os")
+    task = _create_task(project.id, "task")
+    fake_shell.current_context_item = module.context_pane().items[0]
+    fake_shell.current_collection_item = module.collection_pane(
+        fake_shell.current_context_item
+    ).items[0]
+    with deps.delete_task_use_case() as use_case:
+        use_case.execute(task.id)
+
+    _entry(module, Scope.COLLECTION, "c").action()
+
+    assert any("task_not_found" in e for e in fake_shell.errors)
+
+
+def test_bulk_completing_tasks_when_one_was_deleted_shows_an_error(
+    module, fake_shell
+) -> None:
+    project = _create_project("life os")
+    task1 = _create_task(project.id, "task 1")
+    task2 = _create_task(project.id, "task 2")
+    fake_shell.selected_ids = {str(task1.id), str(task2.id)}
+    with deps.delete_task_use_case() as use_case:
+        use_case.execute(task2.id)
+
+    _entry(module, Scope.COLLECTION, "c").action()
+
+    assert any("task_not_found" in e for e in fake_shell.errors)
+    with deps.get_task_use_case() as use_case:
+        assert use_case.execute(task1.id).status.value == "todo"  # untouched
+
+
+def test_deleting_a_non_empty_project_still_shows_the_mapped_error(
+    module, fake_shell
+) -> None:
+    """Regression: _commit_delete_project's hand-rolled except ProjectNotEmpty
+    is being replaced by the generic _guarded/_try_call wrapper - this must
+    keep working the same way."""
+    project = _create_project("life os")
+    _create_task(project.id, "a live task")
+    fake_shell.current_context_item = module.context_pane().items[0]
+
+    _entry(module, Scope.CONTEXT, "dd").action()
+    fake_shell.confirm_yes()
+
+    assert any("project_not_empty" in e for e in fake_shell.errors)
