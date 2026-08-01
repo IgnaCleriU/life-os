@@ -113,3 +113,16 @@ async def test_edit_in_external_editor_returns_the_edited_content(monkeypatch) -
     async with app.run_test():
         result = app.screen.edit_in_external_editor("original content")
         assert result == "edited content"
+
+
+async def test_copy_to_clipboard_delegates_to_the_app(monkeypatch) -> None:  # noqa: ANN001
+    app = ShellApp(module=_EmptyModule())
+    async with app.run_test():
+        copied: list[str] = []
+
+        def fake_copy(self, text: str) -> None:  # noqa: ANN001
+            copied.append(text)
+
+        monkeypatch.setattr(App, "copy_to_clipboard", fake_copy)
+        app.screen.copy_to_clipboard("hello")
+        assert copied == ["hello"]

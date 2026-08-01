@@ -29,9 +29,13 @@ class FakeShell:
         self.errors: list[str] = []
         self.current_context_item = None
         self.current_collection_item = None
+        self.clipboard: list[str] = []
         self._pending_commit = None
         self._pending_confirm = None
         self._pending_pick: tuple[list[str], object] | None = None
+
+    def copy_to_clipboard(self, text: str) -> None:
+        self.clipboard.append(text)
 
     def prompt_insert(self, *, placeholder: str = "", on_commit) -> None:  # noqa: ANN001
         self._pending_commit = on_commit
