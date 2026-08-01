@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from textual.app import App
-from textual.widgets import Static
+from textual.widgets import Label
 
 from lifeos.adapters.tui.screens.confirm_screen import ConfirmScreen
 
@@ -14,8 +14,24 @@ class _Harness(App[None]):
 async def test_shows_the_message() -> None:
     app = _Harness()
     async with app.run_test():
-        rendered = "\n".join(str(w.render()) for w in app.screen.query(Static))
+        rendered = "\n".join(str(w.render()) for w in app.screen.query(Label))
         assert "delete this task?" in rendered
+
+
+async def test_message_is_actually_laid_out_on_screen() -> None:
+    """Regression test for a real bug: this screen used to compose with
+    `Static`, whose own DEFAULT_CSS sets `height: auto` but not `width:
+    auto` (unlike Label). Nested in this screen's `width: auto` Vertical, a
+    bare Static can't resolve its own width and collapses to Size(0, 0) -
+    the border+padding box still renders, but the text inside is invisible.
+    `.render()` alone (see test above) doesn't catch this: it returns the
+    renderable regardless of whether layout ever gave it screen space.
+    """
+    app = _Harness()
+    async with app.run_test():
+        for widget in app.screen.query(Label):
+            assert widget.size.width > 0, f"{widget!r} laid out with zero width"
+            assert widget.size.height > 0, f"{widget!r} laid out with zero height"
 
 
 async def test_y_confirms_true() -> None:
