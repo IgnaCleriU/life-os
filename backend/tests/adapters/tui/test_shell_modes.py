@@ -184,15 +184,16 @@ async def test_escape_from_select_mode_clears_the_selection_set() -> None:
         assert screen.selected_ids == set()
 
 
-def test_entering_select_mode_twice_in_a_row_does_not_raise() -> None:
+async def test_entering_select_mode_twice_in_a_row_does_not_raise() -> None:
     """Toggling selection on a second item calls enter_select_mode() while
     already in SELECT mode - this must be a no-op, not a ModeController
     ValueError (ADR: SELECT is a single mode, not a mode you re-enter)."""
     app = _ShellHarness(_FilterableModule())
-    screen = ShellScreen(module=app.module)
-    screen.enter_select_mode()
-    screen.enter_select_mode()
-    assert screen.mode_controller.mode == Mode.SELECT
+    async with app.run_test():
+        screen = app.screen
+        screen.enter_select_mode()
+        screen.enter_select_mode()
+        assert screen.mode_controller.mode == Mode.SELECT
 
 
 class _TogglingModule(_FilterableModule):

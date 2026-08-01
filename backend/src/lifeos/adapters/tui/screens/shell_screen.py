@@ -345,7 +345,8 @@ class ShellScreen(Screen[None]):
     # --- SELECT mode (generic selection set) ----------------------------------
 
     def enter_select_mode(self) -> None:
-        self.mode_controller.enter(Mode.SELECT)
+        if self.mode_controller.mode is not Mode.SELECT:
+            self.mode_controller.enter(Mode.SELECT)
         self._refresh_status_bar()
 
     def toggle_selection(self, item_id: str) -> None:
