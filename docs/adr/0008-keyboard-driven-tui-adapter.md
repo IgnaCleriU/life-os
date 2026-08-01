@@ -235,13 +235,20 @@ Tasks pane:
 | `c` `s` `r` | complete / start / reopen |
 | `e` | edit the title inline |
 | `E` | edit the description in `$EDITOR` |
-| `d` | set the due date |
+| `@` | set the due date |
 | `p` | priority picker |
 | `m` | move to another project |
 | `x` `v` | toggle selection / bulk mode |
 | `f` `S` | filter menu / cycle sort order |
 | `y` | copy the task as markdown |
 | `dd` | delete, with confirmation |
+
+`d` is not bound on its own: `dd` (delete) and a single `d` (originally due
+date) would collide, since `d` is simultaneously a complete binding and a
+strict prefix of `dd`. The due-date picker moves to `@` instead, which
+already means "due date" in the quick-add syntax below (`@sat`) — reusing
+it keeps the two surfaces teaching the same mental model instead of
+introducing a second meaning for `d`.
 
 `Space` is bound to status cycling rather than the palette because it is the
 most frequent action in the collection pane; the palette takes `^k`, the
@@ -394,6 +401,13 @@ of these use cases; at single-user data volumes this needs no dedicated query.
 - The quick-add parser is adapter-local surface area that must be tested like
   any other input parsing, and must stay in sync with the fields of `Task` as
   the entity grows.
+- **Amended in Step 12** (see [../roadmap.md](../roadmap.md)): the originally
+  accepted tasks-pane keymap bound both `d` (due date) and `dd` (delete),
+  which collide — `d` is simultaneously a complete binding and a prefix of
+  `dd`. `dd` keeps delete; due date moved to `@`. Caught by the keymap
+  registry's prefix-collision test introduced in that step, which is exactly
+  the kind of drift the registry (see "Single keymap registry" above) exists
+  to prevent.
 
 ## Alternatives considered
 
