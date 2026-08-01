@@ -51,7 +51,7 @@ Task breakdown and current status:
 | 10. REST + MCP parity | Expose every Step 9 capability as routes and tools | **Done** |
 | 11. CLI adapter | `adapters/cli/` (Typer): one command per use case, plus `adapters/shared/quick_add.py` (the `!high @sat #casa` parser) and a `capture`/`add` wrapper | **Done** |
 | 12. TUI shell | `adapters/tui/`: generic Textual shell (panes, focus, modes, keymap registry + dispatch, palette, `?` overlay, undo/redo, status bar), built against a stub module so it stays free of Projects/Tasks code | **Done** |
-| 13. TUI module + desktop wiring | `adapters/tui/modules/projects_tasks.py` implementing the shell's module contract, `lifeos-tui`/`lifeos-capture` console scripts, `docs/tui.md` with the Hyprland/Omarchy binds | Pending |
+| 13. TUI module + desktop wiring | `adapters/tui/modules/projects_tasks.py` implementing the shell's module contract, `lifeos-tui`/`lifeos-capture` console scripts, `docs/tui.md` with the Hyprland/Omarchy binds | **Done** |
 
 Steps 9-13 implement
 [adr/0008-keyboard-driven-tui-adapter.md](adr/0008-keyboard-driven-tui-adapter.md).
@@ -116,6 +116,22 @@ rather than aspirational — the shell itself imports none of `application`,
 `domain`, or `infrastructure`. ADR 0008's tasks-pane keymap was amended in
 the same PR to resolve the `d`/`dd` collision described above.
 
+Step 13 replaces the stub with the real
+`adapters/tui/modules/projects_tasks.py`, wired through its own
+`adapters/tui/deps.py` (mirroring the CLI's), and adds two module-agnostic
+shell primitives the ADR's full keymap needed that Step 12 didn't build
+yet: a yes/no confirm dialog and a pick-one-of-a-few-options picker, both
+generic `ModalScreen`s reusable by any future module. The tasks pane's
+quick-add reuses `adapters/shared/quick_add.py` verbatim, and its due-date
+picker reuses the same parser rather than a second one. `E` (edit
+description) and `y` (copy as markdown) use Textual's own `App.suspend()`
+and `App.copy_to_clipboard()` — no new dependency for either. `lifeos-tui`
+and `lifeos-capture` are now real console scripts (`lifeos-capture` is a
+thin `sys.argv` wrapper delegating to the CLI's own `capture` command, per
+the ADR); the dev-only `python -m lifeos.adapters.tui` entry point now
+runs the real module instead of the stub. See [tui.md](tui.md) for the
+full command/keymap reference.
+
 **Definition of Done (MVP):** in a single conversation with Claude
 connected to the local MCP server, it is possible to create a project and
 load the roadmap phases as tasks under it, and then see those tasks
@@ -158,22 +174,18 @@ correctly through both the REST API and the MCP tools.
 
 ## Immediate next steps
 
-1. Delete and recreate `~/.local/share/life-os/lifeos.db` (the Steps 9-10
-   schema change added `deleted_at`; no migration tooling yet) before
-   relying on any client, the new CLI included.
-2. Step 13: replace the stub module Step 12 shipped with the real
-   Projects/Tasks module (`adapters/tui/modules/projects_tasks.py`), add
-   the `lifeos-tui`/`lifeos-capture` console scripts, and document the
-   Omarchy keybindings.
-3. Reach the Phase 1 Definition of Done (Step 8): load the roadmap phases
+Steps 9-13 are now all done — the TUI (`lifeos-tui`) is a fully working
+reference client for Projects/Tasks, alongside REST, MCP, and the CLI.
+
+1. Reach the Phase 1 Definition of Done (Step 8): load the roadmap phases
    as a Project + Tasks in a single Claude conversation over MCP, and
    confirm the same data is visible through REST. Independent of Steps
    9-13; can happen whenever convenient.
-4. Record the desktop-app direction as an ADR superseding
+2. Record the desktop-app direction as an ADR superseding
    [adr/0005-deployment-target.md](adr/0005-deployment-target.md): Life OS
    is being built as a native TUI desktop app for Omarchy that launches the
    backend and the TUI together, rather than a hosted backend. This
    conditions auth, packaging, and whether remote/multi-device access
-   (Phase 6) stays in scope. Still deferred — Step 13 intentionally ships
+   (Phase 6) stays in scope. Still deferred — Step 13 intentionally shipped
    without it (console scripts and example keybinds only, no installer).
-5. Iterate on this roadmap as phases complete and priorities shift.
+3. Iterate on this roadmap as phases complete and priorities shift.
