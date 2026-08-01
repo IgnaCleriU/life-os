@@ -402,6 +402,14 @@ class ShellScreen(Screen[None]):
         context_pane = self.query_one("#context-pane", ContextPane)
         collection_pane = self.query_one("#collection-pane", CollectionPane)
         if event.option_list is context_pane:
+            # A bulk selection is scoped to the project it was made in - if
+            # it survived a context-pane move, a bulk action would silently
+            # act on the previous project's stale selection instead of the
+            # one now on screen.
+            if self.mode_controller.mode is Mode.SELECT:
+                self.mode_controller.escape()
+                self._refresh_status_bar()
+            self.selected_ids.clear()
             self._refresh_collection_pane()
             self._refresh_detail_pane()
         elif event.option_list is collection_pane:

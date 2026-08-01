@@ -197,18 +197,22 @@ async def test_entering_select_mode_twice_in_a_row_does_not_raise() -> None:
 
 
 class _TogglingModule(_FilterableModule):
-    """Bulk-select toggling as a real keymap action, mirroring
+    """Bulk-select toggling as a real keymap action on the collection pane
+    (like tasks, under a context item - projects), mirroring
     ProjectsTasksModule._toggle_select: every scoped toggle keypress calls
     enter_select_mode() unconditionally."""
 
+    def collection_pane(self, context_item: PaneItem | None) -> PaneContents:
+        return PaneContents(title="COLLECTION", items=self.items)
+
     def keymap_entries(self) -> list[KeymapEntry]:
         return [
-            KeymapEntry(Scope.CONTEXT, "x", "toggle selection", self._toggle),
+            KeymapEntry(Scope.COLLECTION, "x", "toggle selection", self._toggle),
         ]
 
     def _toggle(self) -> None:
         self.shell.enter_select_mode()
-        item = self.shell.current_context_item
+        item = self.shell.current_collection_item
         if item is not None:
             self.shell.toggle_selection(item.id)
 
@@ -219,8 +223,8 @@ async def test_pressing_toggle_selection_twice_selects_two_items_without_crashin
     app = _ShellHarness(_TogglingModule())
     async with app.run_test() as pilot:
         screen = app.screen
-        await pilot.press("j")  # move off item "1" onto item "2"
-        await pilot.press("x")
-        await pilot.press("k")  # back onto item "1"
+        await pilot.press("l")  # focus the collection pane
+        await pilot.press("x")  # select item "1"
+        await pilot.press("j")  # move onto item "2", still in the collection pane
         await pilot.press("x")
         assert screen.selected_ids == {"1", "2"}
