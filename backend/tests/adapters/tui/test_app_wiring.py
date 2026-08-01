@@ -102,3 +102,34 @@ async def test_end_to_end_nav_palette_help_insert_undo_quit() -> None:
         # quit
         await pilot.press("q")
         assert not app.is_running
+
+
+# --- end-to-end integration against the real Projects/Tasks module -----------
+
+
+async def test_end_to_end_with_the_real_projects_tasks_module(tui_env) -> None:  # noqa: ANN001
+    from lifeos.adapters.tui import deps
+    from lifeos.adapters.tui.modules.projects_tasks import ProjectsTasksModule
+
+    with deps.create_project_use_case() as use_case:
+        project = use_case.execute(name="life os")
+    with deps.create_task_use_case() as use_case:
+        use_case.execute(project.id, "write adr 0008")
+
+    app = ShellApp(module=ProjectsTasksModule())
+    async with app.run_test() as pilot:
+        context_pane = app.screen.query_one("#context-pane", ContextPane)
+        assert context_pane.option_count == 1
+
+        await pilot.press("l")  # focus the collection pane
+        detail_pane = app.screen.query_one("#detail-pane", DetailPane)
+        assert "write adr 0008" in str(detail_pane.render())
+
+        await pilot.press("space")  # cycle status: todo -> doing
+        assert "doing" in str(detail_pane.render())
+
+        await pilot.press("u")  # undo
+        assert "todo" in str(detail_pane.render())
+
+        await pilot.press("q")
+        assert not app.is_running
