@@ -27,6 +27,11 @@ _STATUS_GLYPHS = {
 
 _OPEN_TASK_STATUSES = [TaskStatus.TODO, TaskStatus.DOING]
 
+_PROJECT_FILTER_OPTIONS = ["active", "completed", "archived", "all"]
+_TASK_FILTER_OPTIONS = ["todo", "doing", "done", "all"]
+_SORT_ORDERS = ["created", "due", "priority"]
+_PRIORITY_SORT_ORDER = {Priority.HIGH: 0, Priority.MEDIUM: 1, Priority.LOW: 2}
+
 
 class ProjectsTasksModule:
     """The real Projects/Tasks TUI module, replacing Step 12's stub. Calls
@@ -37,12 +42,15 @@ class ProjectsTasksModule:
 
     def __init__(self) -> None:
         self.shell: object | None = None
+        self._project_status_filter: list[ProjectStatus] | None = None
+        self._task_status_filter: list[TaskStatus] | None = None
+        self._task_sort_order: str = "created"
 
     # --- TuiModule contract ---------------------------------------------------
 
     def context_pane(self) -> PaneContents:
         with deps.list_projects_use_case() as use_case:
-            projects = use_case.execute()
+            projects = use_case.execute(statuses=self._project_status_filter)
         items = [self._project_to_item(project) for project in projects]
         return PaneContents(title="PROJECTS", items=items)
 
@@ -51,9 +59,19 @@ class ProjectsTasksModule:
             return PaneContents(title="TASKS", items=[])
         project: Project = context_item.payload
         with deps.list_tasks_use_case() as use_case:
-            tasks = use_case.execute(project.id)
+            tasks = use_case.execute(project.id, statuses=self._task_status_filter)
+        tasks = self._sort_tasks(tasks)
         items = [self._task_to_item(task) for task in tasks]
         return PaneContents(title=f"TASKS - {project.name}", items=items)
+
+    def _sort_tasks(self, tasks: list[Task]) -> list[Task]:
+        if self._task_sort_order == "due":
+            return sorted(
+                tasks, key=lambda t: (t.due_date is None, t.due_date or date.max)
+            )
+        if self._task_sort_order == "priority":
+            return sorted(tasks, key=lambda t: _PRIORITY_SORT_ORDER[t.priority])
+        return tasks
 
     def detail_pane(self, collection_item: PaneItem | None) -> DetailContents | None:
         if collection_item is None:
@@ -92,6 +110,9 @@ class ProjectsTasksModule:
                 Scope.CONTEXT, "dd", "delete project", self._start_delete_project
             ),
             KeymapEntry(
+                Scope.CONTEXT, "f", "filter by status", self._start_filter_projects
+            ),
+            KeymapEntry(
                 Scope.COLLECTION, "a", "add a task (quick-add)", self._start_add_task
             ),
             KeymapEntry(
@@ -122,6 +143,21 @@ class ProjectsTasksModule:
             ),
             KeymapEntry(
                 Scope.COLLECTION, "dd", "delete task", self._start_delete_task
+            ),
+            KeymapEntry(
+                Scope.COLLECTION, "f", "filter menu", self._start_filter_tasks
+            ),
+            KeymapEntry(
+                Scope.COLLECTION, "S", "cycle sort order", self._cycle_sort_order
+            ),
+            KeymapEntry(
+                Scope.COLLECTION, "x", "toggle selection", self._toggle_select
+            ),
+            KeymapEntry(
+                Scope.COLLECTION, "v", "toggle selection", self._toggle_select
+            ),
+            KeymapEntry(
+                Scope.COLLECTION, "y", "copy task as markdown", self._copy_as_markdown
             ),
         ]
 
@@ -266,6 +302,21 @@ class ProjectsTasksModule:
         with deps.restore_project_use_case() as use_case:
             use_case.execute(project_id)
 
+    def _start_filter_projects(self) -> None:
+        shell = self.shell
+        assert shell is not None
+        shell.pick_option(  # type: ignore[attr-defined]
+            "filter by status",
+            _PROJECT_FILTER_OPTIONS,
+            on_select=self._set_project_filter,
+        )
+
+    def _set_project_filter(self, choice: str) -> None:
+        self._project_status_filter = (
+            None if choice == "all" else [ProjectStatus(choice)]
+        )
+        self.shell.action_reload()  # type: ignore[attr-defined]
+
     # --- tasks-pane write actions -------------------------------------------
 
     def _start_add_task(self) -> None:
@@ -319,6 +370,20 @@ class ProjectsTasksModule:
         item = shell.current_collection_item  # type: ignore[attr-defined]
         return None if item is None else item.payload
 
+    def _selected_or_current_task_ids(self) -> list[UUID]:
+        """The bulk-selected task ids if any are selected (ADR's "toggle
+        selection / bulk mode"), else just the currently-highlighted one."""
+        shell = self.shell
+        assert shell is not None
+        selected = shell.selected_ids  # type: ignore[attr-defined]
+        if selected:
+            return [UUID(item_id) for item_id in selected]
+        task = self._current_task()
+        return [] if task is None else [task.id]
+
+    def _clear_selection(self) -> None:
+        self.shell.selected_ids.clear()  # type: ignore[attr-defined]
+
     def _cycle_status(self) -> None:
         task = self._current_task()
         if task is None:
@@ -331,10 +396,36 @@ class ProjectsTasksModule:
         self._change_task_status(task.id, task.status, next_status, "cycle status")
 
     def _complete_task(self) -> None:
-        task = self._current_task()
-        if task is None:
+        task_ids = self._selected_or_current_task_ids()
+        if not task_ids:
             return
-        self._change_task_status(task.id, task.status, TaskStatus.DONE, "complete task")
+        if len(task_ids) == 1:
+            task = self._get_task(task_ids[0])
+            self._change_task_status(
+                task.id, task.status, TaskStatus.DONE, "complete task"
+            )
+            return
+        prior_statuses = {
+            task_id: self._get_task(task_id).status for task_id in task_ids
+        }
+        for task_id in task_ids:
+            self._set_task_status(task_id, TaskStatus.DONE)
+        self._push_undo(
+            f"complete {len(task_ids)} tasks",
+            undo=lambda: [
+                self._set_task_status(task_id, prior_statuses[task_id])
+                for task_id in task_ids
+            ],
+            redo=lambda: [
+                self._set_task_status(task_id, TaskStatus.DONE) for task_id in task_ids
+            ],
+        )
+        self._clear_selection()
+        self.shell.action_reload()  # type: ignore[attr-defined]
+
+    def _get_task(self, task_id: UUID) -> Task:
+        with deps.get_task_use_case() as use_case:
+            return use_case.execute(task_id)
 
     def _start_task_status(self) -> None:
         task = self._current_task()
@@ -521,21 +612,28 @@ class ProjectsTasksModule:
     def _start_delete_task(self) -> None:
         shell = self.shell
         assert shell is not None
-        task = self._current_task()
-        if task is None:
+        task_ids = self._selected_or_current_task_ids()
+        if not task_ids:
             return
-        shell.confirm(  # type: ignore[attr-defined]
-            f"delete task {task.title!r}?",
-            on_yes=lambda: self._commit_delete_task(task.id, task.title),
-        )
+        if len(task_ids) == 1:
+            title = self._get_task(task_ids[0]).title
+            message = f"delete task {title!r}?"
+        else:
+            message = f"delete {len(task_ids)} tasks?"
+        shell.confirm(message, on_yes=lambda: self._commit_delete_tasks(task_ids))  # type: ignore[attr-defined]
 
-    def _commit_delete_task(self, task_id: UUID, title: str) -> None:
-        self._delete_task(task_id)
-        self._push_undo(
-            f"delete task {title!r}",
-            undo=lambda: self._restore_task(task_id),
-            redo=lambda: self._delete_task(task_id),
+    def _commit_delete_tasks(self, task_ids: list[UUID]) -> None:
+        for task_id in task_ids:
+            self._delete_task(task_id)
+        description = (
+            "delete task" if len(task_ids) == 1 else f"delete {len(task_ids)} tasks"
         )
+        self._push_undo(
+            description,
+            undo=lambda: [self._restore_task(task_id) for task_id in task_ids],
+            redo=lambda: [self._delete_task(task_id) for task_id in task_ids],
+        )
+        self._clear_selection()
         self.shell.action_reload()  # type: ignore[attr-defined]
 
     def _delete_task(self, task_id: UUID) -> None:
@@ -545,6 +643,44 @@ class ProjectsTasksModule:
     def _restore_task(self, task_id: UUID) -> None:
         with deps.restore_task_use_case() as use_case:
             use_case.execute(task_id)
+
+    def _start_filter_tasks(self) -> None:
+        shell = self.shell
+        assert shell is not None
+        shell.pick_option(  # type: ignore[attr-defined]
+            "filter tasks by status",
+            _TASK_FILTER_OPTIONS,
+            on_select=self._set_task_filter,
+        )
+
+    def _set_task_filter(self, choice: str) -> None:
+        self._task_status_filter = None if choice == "all" else [TaskStatus(choice)]
+        self.shell.action_reload()  # type: ignore[attr-defined]
+
+    def _cycle_sort_order(self) -> None:
+        index = _SORT_ORDERS.index(self._task_sort_order)
+        self._task_sort_order = _SORT_ORDERS[(index + 1) % len(_SORT_ORDERS)]
+        self.shell.action_reload()  # type: ignore[attr-defined]
+
+    def _toggle_select(self) -> None:
+        shell = self.shell
+        assert shell is not None
+        shell.enter_select_mode()  # type: ignore[attr-defined]
+        item = shell.current_collection_item  # type: ignore[attr-defined]
+        if item is not None:
+            shell.toggle_selection(item.id)  # type: ignore[attr-defined]
+
+    def _copy_as_markdown(self) -> None:
+        shell = self.shell
+        assert shell is not None
+        task = self._current_task()
+        if task is None:
+            return
+        checkbox = "x" if task.status is TaskStatus.DONE else " "
+        line = f"- [{checkbox}] {task.title}"
+        if task.due_date is not None:
+            line += f" (due {task.due_date.isoformat()})"
+        shell.copy_to_clipboard(line)  # type: ignore[attr-defined]
 
     # --- rendering helpers ------------------------------------------------
 
