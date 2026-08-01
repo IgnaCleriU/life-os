@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
+from lifeos.adapters.shared.error_codes import DOMAIN_ERROR_CODES
 from lifeos.adapters.shared.quick_add import parse_quick_add
 from lifeos.adapters.tui import deps
 from lifeos.adapters.tui.keymap import KeymapEntry, Scope
@@ -18,6 +19,10 @@ from lifeos.domain import (
 )
 
 _PRIORITY_OPTIONS = [Priority.LOW.value, Priority.MEDIUM.value, Priority.HIGH.value]
+
+_FAILED = object()
+"""Sentinel returned by `_try_call` on a caught domain error, distinct from
+any real use-case return value (including `None`)."""
 
 _STATUS_GLYPHS = {
     TaskStatus.TODO: "·",
@@ -40,11 +45,28 @@ class ProjectsTasksModule:
     per ADR 0008: the shell never inspects them.
     """
 
+    _FAILED = _FAILED
+
     def __init__(self) -> None:
         self.shell: object | None = None
         self._project_status_filter: list[ProjectStatus] | None = None
         self._task_status_filter: list[TaskStatus] | None = None
         self._task_sort_order: str = "created"
+
+    def _try_call(self, action, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003, ANN201
+        """Runs `action`; on a domain exception mapped in DOMAIN_ERROR_CODES,
+        surfaces it via `shell.show_error()` instead of letting it crash the
+        app, and returns the `_FAILED` sentinel. Returns `action`'s own
+        result otherwise - a general safety net alongside the client-side
+        blank/whitespace-only guards on text-input commit handlers, for
+        whatever domain error those guards don't anticipate (e.g. an entity
+        deleted out from under a still-open prompt)."""
+        try:
+            return action(*args, **kwargs)
+        except tuple(DOMAIN_ERROR_CODES) as exc:
+            code = DOMAIN_ERROR_CODES.get(type(exc), "domain_error")
+            self.shell.show_error(f"{code}: {exc}")  # type: ignore[attr-defined]
+            return self._FAILED
 
     # --- TuiModule contract ---------------------------------------------------
 
@@ -176,7 +198,7 @@ class ProjectsTasksModule:
         )
 
     def _commit_create_project(self, name: str) -> None:
-        if not name:
+        if not name.strip():
             return
         with deps.create_project_use_case() as use_case:
             project = use_case.execute(name=name)
@@ -204,7 +226,7 @@ class ProjectsTasksModule:
     def _commit_rename_project(
         self, project_id: UUID, old_name: str, new_name: str
     ) -> None:
-        if not new_name:
+        if not new_name.strip():
             return
         self._rename_project(project_id, new_name)
         self._push_undo(
@@ -479,7 +501,7 @@ class ProjectsTasksModule:
     def _commit_rename_task(
         self, task_id: UUID, old_title: str, new_title: str
     ) -> None:
-        if not new_title:
+        if not new_title.strip():
             return
         self._rename_task(task_id, new_title)
         self._push_undo(
