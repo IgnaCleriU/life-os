@@ -107,6 +107,41 @@ async def test_end_to_end_nav_palette_help_insert_undo_quit() -> None:
 # --- end-to-end integration against the real Projects/Tasks module -----------
 
 
+async def test_switching_projects_clears_a_stale_bulk_selection(tui_env) -> None:  # noqa: ANN001
+    """Regression: selecting a task in one project, then navigating to a
+    different project without pressing Escape, must not leave the bulk
+    action targeting the first project's stale selection."""
+    from lifeos.adapters.tui import deps
+    from lifeos.adapters.tui.modules.projects_tasks import ProjectsTasksModule
+
+    with deps.create_project_use_case() as use_case:
+        life_os = use_case.execute(name="life os")
+    with deps.create_project_use_case() as use_case:
+        casa = use_case.execute(name="casa")
+    with deps.create_task_use_case() as use_case:
+        life_os_task = use_case.execute(life_os.id, "write adr 0008")
+    with deps.create_task_use_case() as use_case:
+        casa_task = use_case.execute(casa.id, "buy air filters")
+
+    app = ShellApp(module=ProjectsTasksModule())
+    async with app.run_test() as pilot:
+        await pilot.press("l")  # focus collection pane, still on "life os"
+        await pilot.press("x")  # select life os's task, entering SELECT mode
+
+        await pilot.press("h")  # back to context pane
+        await pilot.press("j")  # down to "casa"
+        await pilot.press("l")  # into casa's collection pane
+
+        await pilot.press("c")  # complete the currently-highlighted task
+
+        with deps.get_task_use_case() as use_case:
+            assert use_case.execute(casa_task.id).status.value == "done"
+            assert use_case.execute(life_os_task.id).status.value == "todo"
+
+        await pilot.press("q")
+        assert not app.is_running
+
+
 async def test_end_to_end_with_the_real_projects_tasks_module(tui_env) -> None:  # noqa: ANN001
     from lifeos.adapters.tui import deps
     from lifeos.adapters.tui.modules.projects_tasks import ProjectsTasksModule
