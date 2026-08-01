@@ -7,7 +7,7 @@ from textual.app import ComposeResult
 from textual.binding import BindingType
 from textual.containers import Vertical
 from textual.screen import ModalScreen
-from textual.widgets import OptionList, Static
+from textual.widgets import Label, OptionList
 from textual.widgets.option_list import Option
 
 
@@ -39,7 +39,7 @@ class OptionsPickerScreen(ModalScreen[str | None]):
 
     def compose(self) -> ComposeResult:
         with Vertical():
-            yield Static(self._title)
+            yield Label(self._title)
             yield OptionList(
                 *(Option(label, id=label) for label in self._option_labels),
                 id="picker-options",
