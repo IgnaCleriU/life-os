@@ -94,6 +94,25 @@ def test_quick_add_unresolved_hash_project_shows_an_error(module, fake_shell) ->
     assert module.collection_pane(fake_shell.current_context_item).items == []
 
 
+def test_quick_add_hash_project_ambiguous_name_shows_an_error(
+    module, fake_shell
+) -> None:
+    """Two projects can legally share a name (no uniqueness constraint) -
+    silently picking the first match would route the task into whichever
+    one happened to sort first; refuse instead, like the CLI's capture
+    command does (cli/capture.py's AmbiguousProjectName)."""
+    _create_project("casa")
+    _create_project("casa")
+    fake_shell.current_context_item = module.context_pane().items[0]
+
+    _entry(module, "a").action()
+    fake_shell.commit_pending_prompt("buy air filters #casa")
+
+    assert any("ambiguous_project_name" in e for e in fake_shell.errors)
+    for item in module.context_pane().items:
+        assert module.collection_pane(item).items == []
+
+
 def test_undo_quick_add_create_soft_deletes_and_redo_restores(
     module, fake_shell
 ) -> None:
@@ -294,6 +313,20 @@ def test_undo_move_restores_the_old_project(module, fake_shell) -> None:
     fake_shell.pick("casa")
     fake_shell.undo_stack.undo()
 
+    assert _current_task(task.id).project_id == project.id
+
+
+def test_moving_to_an_ambiguous_project_name_shows_an_error(module, fake_shell) -> None:
+    project = _create_project("life os")
+    _create_project("casa")
+    _create_project("casa")
+    task = _create_task(project.id, "a task")
+    _select(module, fake_shell, project)
+
+    _entry(module, "m").action()
+    fake_shell.pick("casa")
+
+    assert any("ambiguous_project_name" in e for e in fake_shell.errors)
     assert _current_task(task.id).project_id == project.id
 
 
