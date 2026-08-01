@@ -13,7 +13,9 @@ from lifeos.adapters.tui.dispatch import KeySequenceBuffer
 from lifeos.adapters.tui.keymap import KeymapEntry, KeymapRegistry, Scope
 from lifeos.adapters.tui.modes import Mode, ModeController
 from lifeos.adapters.tui.module import PaneItem, TuiModule
+from lifeos.adapters.tui.screens.confirm_screen import ConfirmScreen
 from lifeos.adapters.tui.screens.help_screen import HelpScreen
+from lifeos.adapters.tui.screens.options_picker_screen import OptionsPickerScreen
 from lifeos.adapters.tui.screens.palette_screen import PaletteScreen
 from lifeos.adapters.tui.undo import UndoStack
 from lifeos.adapters.tui.widgets.panes import (
@@ -62,6 +64,7 @@ class ShellScreen(Screen[None]):
         self.mode_controller = ModeController()
         self.undo_stack = UndoStack()
         self._last_action_description = ""
+        self._error_message = ""
         self.selected_ids: set[str] = set()
         # Convention documented on TuiModule: the module reads this back off
         # itself from within its own keymap_entries() action closures, to
@@ -200,9 +203,11 @@ class ShellScreen(Screen[None]):
             self.focused.action_page_up()
 
     def action_reload(self) -> None:
+        self._error_message = ""
         self._refresh_context_pane()
         self._refresh_collection_pane()
         self._refresh_detail_pane()
+        self._refresh_status_bar()
 
     def action_undo(self) -> None:
         write = self.undo_stack.undo()
@@ -210,7 +215,6 @@ class ShellScreen(Screen[None]):
             return
         self._last_action_description = f"undo: {write.description}"
         self.action_reload()
-        self._refresh_status_bar()
 
     def action_redo(self) -> None:
         write = self.undo_stack.redo()
@@ -218,7 +222,6 @@ class ShellScreen(Screen[None]):
             return
         self._last_action_description = f"redo: {write.description}"
         self.action_reload()
-        self._refresh_status_bar()
 
     def action_quit(self) -> None:
         self.app.exit()
@@ -286,6 +289,51 @@ class ShellScreen(Screen[None]):
 
     def _on_overlay_closed(self, _result: None) -> None:
         self.mode_controller.escape()
+        self._refresh_status_bar()
+
+    # --- CONFIRM and PICK_OPTION: independent modal Screens, generic --------
+
+    def confirm(self, message: str, *, on_yes: Callable[[], None]) -> None:
+        def _callback(confirmed: bool | None) -> None:
+            if confirmed:
+                on_yes()
+
+        self.app.push_screen(ConfirmScreen(message), callback=_callback)
+
+    def pick_option(
+        self, title: str, options: list[str], *, on_select: Callable[[str], None]
+    ) -> None:
+        def _callback(chosen: str | None) -> None:
+            if chosen is not None:
+                on_select(chosen)
+
+        self.app.push_screen(OptionsPickerScreen(title, options), callback=_callback)
+
+    def edit_in_external_editor(self, initial_text: str) -> str:
+        """Suspends the app, opens `$EDITOR` (falls back to `vi`) on a temp
+        file seeded with `initial_text`, and returns its contents after the
+        editor exits. Synchronous and blocking, like every other `$EDITOR`
+        integration - the app is suspended for the duration anyway."""
+        import os
+        import subprocess
+        import tempfile
+
+        editor = os.environ.get("EDITOR", "vi")
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".md", delete=False
+        ) as handle:
+            handle.write(initial_text)
+            path = handle.name
+        try:
+            with self.app.suspend():
+                subprocess.run([editor, path], check=False)
+            with open(path) as handle:
+                return handle.read()
+        finally:
+            os.unlink(path)
+
+    def show_error(self, message: str) -> None:
+        self._error_message = message
         self._refresh_status_bar()
 
     # --- SELECT mode (generic selection set) ----------------------------------
@@ -374,4 +422,5 @@ class ShellScreen(Screen[None]):
             mode=self.mode_controller.mode,
             filter_text=filter_text,
             last_action=self._last_action_description,
+            error=self._error_message,
         )
