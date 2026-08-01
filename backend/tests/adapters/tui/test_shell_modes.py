@@ -3,7 +3,7 @@ from __future__ import annotations
 from textual.app import App
 from textual.widgets import Input
 
-from lifeos.adapters.tui.keymap import KeymapEntry
+from lifeos.adapters.tui.keymap import KeymapEntry, Scope
 from lifeos.adapters.tui.modes import Mode
 from lifeos.adapters.tui.module import DetailContents, PaneContents, PaneItem
 from lifeos.adapters.tui.screens.shell_screen import ShellScreen
@@ -182,3 +182,49 @@ async def test_escape_from_select_mode_clears_the_selection_set() -> None:
         await pilot.press("escape")
         assert screen.mode_controller.mode == Mode.NORMAL
         assert screen.selected_ids == set()
+
+
+async def test_entering_select_mode_twice_in_a_row_does_not_raise() -> None:
+    """Toggling selection on a second item calls enter_select_mode() while
+    already in SELECT mode - this must be a no-op, not a ModeController
+    ValueError (ADR: SELECT is a single mode, not a mode you re-enter)."""
+    app = _ShellHarness(_FilterableModule())
+    async with app.run_test():
+        screen = app.screen
+        screen.enter_select_mode()
+        screen.enter_select_mode()
+        assert screen.mode_controller.mode == Mode.SELECT
+
+
+class _TogglingModule(_FilterableModule):
+    """Bulk-select toggling as a real keymap action on the collection pane
+    (like tasks, under a context item - projects), mirroring
+    ProjectsTasksModule._toggle_select: every scoped toggle keypress calls
+    enter_select_mode() unconditionally."""
+
+    def collection_pane(self, context_item: PaneItem | None) -> PaneContents:
+        return PaneContents(title="COLLECTION", items=self.items)
+
+    def keymap_entries(self) -> list[KeymapEntry]:
+        return [
+            KeymapEntry(Scope.COLLECTION, "x", "toggle selection", self._toggle),
+        ]
+
+    def _toggle(self) -> None:
+        self.shell.enter_select_mode()
+        item = self.shell.current_collection_item
+        if item is not None:
+            self.shell.toggle_selection(item.id)
+
+
+async def test_pressing_toggle_selection_twice_selects_two_items_without_crashing() -> (
+    None
+):
+    app = _ShellHarness(_TogglingModule())
+    async with app.run_test() as pilot:
+        screen = app.screen
+        await pilot.press("l")  # focus the collection pane
+        await pilot.press("x")  # select item "1"
+        await pilot.press("j")  # move onto item "2", still in the collection pane
+        await pilot.press("x")
+        assert screen.selected_ids == {"1", "2"}
