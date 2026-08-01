@@ -7,7 +7,7 @@ from textual.app import ComposeResult
 from textual.binding import BindingType
 from textual.containers import Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Static
+from textual.widgets import Label
 
 
 class ConfirmScreen(ModalScreen[bool]):
@@ -36,8 +36,8 @@ class ConfirmScreen(ModalScreen[bool]):
 
     def compose(self) -> ComposeResult:
         with Vertical():
-            yield Static(self._message)
-            yield Static("y / enter: yes    n / esc: no")
+            yield Label(self._message)
+            yield Label("y / enter: yes    n / esc: no")
 
     async def on_key(self, event: events.Key) -> None:
         if event.key in ("y", "enter"):
