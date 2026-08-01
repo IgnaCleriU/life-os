@@ -391,12 +391,16 @@ class ProjectsTasksModule:
         if not parsed.title:
             return
         if parsed.project_name is not None:
-            target = self._find_project_by_name(parsed.project_name)
-            if target is None:
+            matches = self._find_projects_by_name(parsed.project_name)
+            if not matches:
                 self.shell.show_error(  # type: ignore[attr-defined]
                     f"project_name_not_found: no project named {parsed.project_name!r}"
                 )
                 return
+            if len(matches) > 1:
+                self._show_ambiguous_project_error(parsed.project_name, matches)
+                return
+            target = matches[0]
         else:
             target = default_project
         with deps.create_task_use_case() as use_case:
@@ -413,11 +417,25 @@ class ProjectsTasksModule:
         )
         self.shell.action_reload()  # type: ignore[attr-defined]
 
-    def _find_project_by_name(self, name: str) -> Project | None:
+    def _find_projects_by_name(self, name: str) -> list[Project]:
+        """All active-or-not projects whose name case-folds to `name`.
+
+        Project names have no uniqueness constraint (unlike the CLI's
+        equivalent resolver in `cli/capture.py`, this doesn't live in
+        `adapters/shared/` yet - see that module's docstring), so callers
+        must handle 0, 1, and >1 matches distinctly rather than picking a
+        match silently.
+        """
         needle = name.strip().casefold()
         with deps.list_projects_use_case() as use_case:
             projects = use_case.execute()
-        return next((p for p in projects if p.name.casefold() == needle), None)
+        return [p for p in projects if p.name.casefold() == needle]
+
+    def _show_ambiguous_project_error(self, name: str, matches: list[Project]) -> None:
+        self.shell.show_error(  # type: ignore[attr-defined]
+            f"ambiguous_project_name: {len(matches)} projects named {name!r} - "
+            "rename one to disambiguate"
+        )
 
     def _current_task(self) -> Task | None:
         shell = self.shell
@@ -655,9 +673,13 @@ class ProjectsTasksModule:
     def _commit_move_task(
         self, task_id: UUID, old_project_id: UUID, choice: str
     ) -> None:
-        target = self._find_project_by_name(choice)
-        if target is None:
+        matches = self._find_projects_by_name(choice)
+        if not matches:
             return
+        if len(matches) > 1:
+            self._show_ambiguous_project_error(choice, matches)
+            return
+        target = matches[0]
         self._move_task(task_id, target.id)
         self._push_undo(
             f"move task to {choice!r}",
