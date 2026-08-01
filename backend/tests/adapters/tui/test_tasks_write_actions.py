@@ -250,6 +250,22 @@ def test_at_sign_sets_the_due_date_via_quick_add_syntax(module, fake_shell) -> N
     assert _current_task(task.id).due_date == date(2026, 8, 3)
 
 
+def test_due_date_prompt_tolerates_a_leading_at_sign(module, fake_shell) -> None:
+    """The due-date-only prompt expects bare input ("sat", no "@"), but
+    quick-add trains "@sat" everywhere else in the app - typing it here out
+    of habit must resolve the same date, not double up into "@@sat" and
+    fail to parse."""
+    project = _create_project("life os")
+    task = _create_task(project.id, "a task")
+    _select(module, fake_shell, project)
+
+    _entry(module, "at").action()
+    fake_shell.commit_pending_prompt("@2026-08-03")
+
+    assert _current_task(task.id).due_date == date(2026, 8, 3)
+    assert fake_shell.errors == []
+
+
 def test_undo_due_date_change_restores_the_old_due_date(module, fake_shell) -> None:
     project = _create_project("life os")
     task = _create_task(project.id, "a task", due_date=date(2026, 1, 1))
