@@ -104,7 +104,7 @@ they behave identically, including under `--json`.
 
 `capture`/`add` parses one line of free-form text into a task, using the
 tokenizer defined in `adapters/shared/quick_add.py` and specified by
-[adr/0008-keyboard-driven-tui-adapter.md](adr/0008-keyboard-driven-tui-adapter.md#quick-add-syntax).
+[specs/0001-keyboard-driven-tui-adapter.md](specs/0001-keyboard-driven-tui-adapter.md#quick-add-syntax).
 It splits the text on whitespace (no regex) and recognizes these token
 shapes, in any position, in any order:
 

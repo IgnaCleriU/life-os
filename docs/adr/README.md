@@ -7,6 +7,12 @@ decision is captured once it is made, kept immutable, and superseded by a
 new ADR if it later changes — rather than edited in place — so the
 history of *why* the system looks the way it does stays legible over time.
 
+**ADRs stay short — about one page.** They record the decision and why, not
+the design or the implementation plan. When a decision needs UI mockups,
+data flow, syntax, or a breakdown of implementation steps, that detail goes
+in a paired document under [../specs/](../specs/README.md), linked from the
+ADR's Status block.
+
 For background on the overall system, see [../vision.md](../vision.md) and
 [../../ARCHITECTURE.md](../../ARCHITECTURE.md). For the phased build plan,
 see [../roadmap.md](../roadmap.md).

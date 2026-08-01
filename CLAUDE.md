@@ -19,7 +19,10 @@ Before designing or implementing, review these documents:
 - [docs/roadmap.md](docs/roadmap.md) — phased roadmap, single source of truth for phasing and status.
 - [docs/agentic-workflow.md](docs/agentic-workflow.md) — how to organize work (orchestrator + subagents).
 - [CONTRIBUTING.md](CONTRIBUTING.md) — commit convention, atomic commits, and PR flow.
-- [docs/adr/README.md](docs/adr/README.md) — Architecture Decision Records index.
+- [docs/adr/README.md](docs/adr/README.md) — Architecture Decision Records
+  index. ADRs stay short (~1 page): the decision and why, not the design.
+- [docs/specs/README.md](docs/specs/README.md) — paired design/implementation
+  docs for ADRs that need more than a page (UI, data flow, task breakdown).
 
 ## Hard rules
 

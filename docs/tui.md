@@ -110,7 +110,7 @@ this table, so none of the three can silently drift from each other.
 | `dd` | delete, with confirmation |
 
 `d` is not bound on its own — see
-[adr/0008-keyboard-driven-tui-adapter.md](adr/0008-keyboard-driven-tui-adapter.md#keymap)
+[specs/0001-keyboard-driven-tui-adapter.md](specs/0001-keyboard-driven-tui-adapter.md#keymap)
 for why (it collided with `dd`, and due date moved to `@` instead, which
 already means "due date" in quick-add).
 
