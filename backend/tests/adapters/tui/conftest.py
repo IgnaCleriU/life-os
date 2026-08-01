@@ -13,8 +13,62 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from lifeos.adapters.tui import deps
+from lifeos.adapters.tui.undo import UndoStack
 from lifeos.infrastructure.db import models  # noqa: F401  (registers the tables)
 from lifeos.infrastructure.db.session import configure_sqlite_pragmas
+
+
+class FakeShell:
+    """Just enough of ShellScreen's public surface for a module's own
+    actions to call, without mounting a real Textual App - full keypress-
+    driven wiring is covered separately in test_app_wiring.py."""
+
+    def __init__(self) -> None:
+        self.undo_stack = UndoStack()
+        self.reload_count = 0
+        self.errors: list[str] = []
+        self.current_context_item = None
+        self.current_collection_item = None
+        self._pending_commit = None
+        self._pending_confirm = None
+        self._pending_pick: tuple[list[str], object] | None = None
+
+    def prompt_insert(self, *, placeholder: str = "", on_commit) -> None:  # noqa: ANN001
+        self._pending_commit = on_commit
+
+    def commit_pending_prompt(self, text: str) -> None:
+        assert self._pending_commit is not None
+        commit, self._pending_commit = self._pending_commit, None
+        commit(text)
+
+    def confirm(self, message: str, *, on_yes) -> None:  # noqa: ANN001
+        self._pending_confirm = on_yes
+
+    def confirm_yes(self) -> None:
+        assert self._pending_confirm is not None
+        on_yes, self._pending_confirm = self._pending_confirm, None
+        on_yes()
+
+    def pick_option(self, title: str, options: list[str], *, on_select) -> None:  # noqa: ANN001
+        self._pending_pick = (options, on_select)
+
+    def pick(self, option: str) -> None:
+        assert self._pending_pick is not None
+        options, on_select = self._pending_pick
+        assert option in options
+        self._pending_pick = None
+        on_select(option)
+
+    def action_reload(self) -> None:
+        self.reload_count += 1
+
+    def show_error(self, message: str) -> None:
+        self.errors.append(message)
+
+
+@pytest.fixture
+def fake_shell() -> FakeShell:
+    return FakeShell()
 
 
 @pytest.fixture
