@@ -12,7 +12,6 @@ from lifeos.adapters.tui.undo import UndoableWrite
 from lifeos.domain import (
     Priority,
     Project,
-    ProjectNotEmpty,
     ProjectStatus,
     Task,
     TaskStatus,
@@ -68,6 +67,20 @@ class ProjectsTasksModule:
             self.shell.show_error(f"{code}: {exc}")  # type: ignore[attr-defined]
             return self._FAILED
 
+    def _guarded(self, fn):  # noqa: ANN001, ANN201
+        """Wraps a keymap action or an on_commit/on_yes/on_select callback
+        so a late domain error (e.g. the target deleted out from under a
+        still-open prompt) surfaces via `_try_call` instead of crashing the
+        app. Used both directly on keymap entries' actions (synchronous
+        mutations) and on the deferred callbacks `_start_*` methods hand to
+        `shell.prompt_insert`/`confirm`/`pick_option` (the mutation doesn't
+        happen until the callback fires later)."""
+
+        def _wrapped(*args, **kwargs):  # noqa: ANN002, ANN003
+            self._try_call(fn, *args, **kwargs)
+
+        return _wrapped
+
     # --- TuiModule contract ---------------------------------------------------
 
     def context_pane(self) -> PaneContents:
@@ -112,74 +125,93 @@ class ProjectsTasksModule:
         return DetailContents(title=task.title, fields=fields)
 
     def keymap_entries(self) -> list[KeymapEntry]:
+        g = self._guarded
         return [
             KeymapEntry(
-                Scope.CONTEXT, "a", "create a project", self._start_create_project
+                Scope.CONTEXT, "a", "create a project", g(self._start_create_project)
             ),
             KeymapEntry(
-                Scope.CONTEXT, "e", "rename project", self._start_rename_project
+                Scope.CONTEXT, "e", "rename project", g(self._start_rename_project)
             ),
             KeymapEntry(
-                Scope.CONTEXT, "c", "complete project", self._complete_project
+                Scope.CONTEXT, "c", "complete project", g(self._complete_project)
             ),
             KeymapEntry(
                 Scope.CONTEXT,
                 "A",
                 "archive/activate project",
-                self._toggle_archive_project,
+                g(self._toggle_archive_project),
             ),
             KeymapEntry(
-                Scope.CONTEXT, "dd", "delete project", self._start_delete_project
+                Scope.CONTEXT, "dd", "delete project", g(self._start_delete_project)
             ),
             KeymapEntry(
-                Scope.CONTEXT, "f", "filter by status", self._start_filter_projects
+                Scope.CONTEXT,
+                "f",
+                "filter by status",
+                g(self._start_filter_projects),
             ),
             KeymapEntry(
-                Scope.COLLECTION, "a", "add a task (quick-add)", self._start_add_task
+                Scope.COLLECTION,
+                "a",
+                "add a task (quick-add)",
+                g(self._start_add_task),
             ),
             KeymapEntry(
-                Scope.COLLECTION, "o", "add a task (quick-add)", self._start_add_task
+                Scope.COLLECTION,
+                "o",
+                "add a task (quick-add)",
+                g(self._start_add_task),
             ),
-            KeymapEntry(Scope.COLLECTION, "space", "cycle status", self._cycle_status),
-            KeymapEntry(Scope.COLLECTION, "c", "complete task", self._complete_task),
-            KeymapEntry(Scope.COLLECTION, "s", "start task", self._start_task_status),
-            KeymapEntry(Scope.COLLECTION, "r", "reopen task", self._reopen_task),
-            KeymapEntry(Scope.COLLECTION, "e", "rename task", self._start_rename_task),
+            KeymapEntry(
+                Scope.COLLECTION, "space", "cycle status", g(self._cycle_status)
+            ),
+            KeymapEntry(Scope.COLLECTION, "c", "complete task", g(self._complete_task)),
+            KeymapEntry(
+                Scope.COLLECTION, "s", "start task", g(self._start_task_status)
+            ),
+            KeymapEntry(Scope.COLLECTION, "r", "reopen task", g(self._reopen_task)),
+            KeymapEntry(
+                Scope.COLLECTION, "e", "rename task", g(self._start_rename_task)
+            ),
             KeymapEntry(
                 Scope.COLLECTION,
                 "E",
                 "edit description in $EDITOR",
-                self._edit_description,
+                g(self._edit_description),
             ),
             KeymapEntry(
-                Scope.COLLECTION, "at", "set due date", self._start_set_due_date
+                Scope.COLLECTION, "at", "set due date", g(self._start_set_due_date)
             ),
             KeymapEntry(
-                Scope.COLLECTION, "p", "priority picker", self._start_set_priority
+                Scope.COLLECTION, "p", "priority picker", g(self._start_set_priority)
             ),
             KeymapEntry(
                 Scope.COLLECTION,
                 "m",
                 "move to another project",
-                self._start_move_task,
+                g(self._start_move_task),
             ),
             KeymapEntry(
-                Scope.COLLECTION, "dd", "delete task", self._start_delete_task
+                Scope.COLLECTION, "dd", "delete task", g(self._start_delete_task)
             ),
             KeymapEntry(
-                Scope.COLLECTION, "f", "filter menu", self._start_filter_tasks
+                Scope.COLLECTION, "f", "filter menu", g(self._start_filter_tasks)
             ),
             KeymapEntry(
-                Scope.COLLECTION, "S", "cycle sort order", self._cycle_sort_order
+                Scope.COLLECTION, "S", "cycle sort order", g(self._cycle_sort_order)
             ),
             KeymapEntry(
-                Scope.COLLECTION, "x", "toggle selection", self._toggle_select
+                Scope.COLLECTION, "x", "toggle selection", g(self._toggle_select)
             ),
             KeymapEntry(
-                Scope.COLLECTION, "v", "toggle selection", self._toggle_select
+                Scope.COLLECTION, "v", "toggle selection", g(self._toggle_select)
             ),
             KeymapEntry(
-                Scope.COLLECTION, "y", "copy task as markdown", self._copy_as_markdown
+                Scope.COLLECTION,
+                "y",
+                "copy task as markdown",
+                g(self._copy_as_markdown),
             ),
         ]
 
@@ -194,7 +226,8 @@ class ProjectsTasksModule:
         shell = self.shell
         assert shell is not None
         shell.prompt_insert(  # type: ignore[attr-defined]
-            placeholder="new project name", on_commit=self._commit_create_project
+            placeholder="new project name",
+            on_commit=self._guarded(self._commit_create_project),
         )
 
     def _commit_create_project(self, name: str) -> None:
@@ -218,8 +251,10 @@ class ProjectsTasksModule:
         project: Project = item.payload
         shell.prompt_insert(  # type: ignore[attr-defined]
             placeholder=project.name,
-            on_commit=lambda text: self._commit_rename_project(
-                project.id, project.name, text
+            on_commit=self._guarded(
+                lambda text: self._commit_rename_project(
+                    project.id, project.name, text
+                )
             ),
         )
 
@@ -298,17 +333,13 @@ class ProjectsTasksModule:
         project: Project = item.payload
         shell.confirm(  # type: ignore[attr-defined]
             f"delete project {project.name!r}?",
-            on_yes=lambda: self._commit_delete_project(project.id, project.name),
+            on_yes=self._guarded(
+                lambda: self._commit_delete_project(project.id, project.name)
+            ),
         )
 
     def _commit_delete_project(self, project_id: UUID, name: str) -> None:
-        try:
-            self._delete_project(project_id)
-        except ProjectNotEmpty:
-            self.shell.show_error(  # type: ignore[attr-defined]
-                f"project_not_empty: project {name!r} still has live tasks"
-            )
-            return
+        self._delete_project(project_id)
         self._push_undo(
             f"delete project {name!r}",
             undo=lambda: self._restore_project(project_id),
@@ -330,7 +361,7 @@ class ProjectsTasksModule:
         shell.pick_option(  # type: ignore[attr-defined]
             "filter by status",
             _PROJECT_FILTER_OPTIONS,
-            on_select=self._set_project_filter,
+            on_select=self._guarded(self._set_project_filter),
         )
 
     def _set_project_filter(self, choice: str) -> None:
@@ -350,7 +381,9 @@ class ProjectsTasksModule:
         default_project: Project = context_item.payload
         shell.prompt_insert(  # type: ignore[attr-defined]
             placeholder="quick-add: buy milk !high @sat #casa",
-            on_commit=lambda text: self._commit_add_task(default_project, text),
+            on_commit=self._guarded(
+                lambda text: self._commit_add_task(default_project, text)
+            ),
         )
 
     def _commit_add_task(self, default_project: Project, text: str) -> None:
@@ -495,7 +528,9 @@ class ProjectsTasksModule:
             return
         shell.prompt_insert(  # type: ignore[attr-defined]
             placeholder=task.title,
-            on_commit=lambda text: self._commit_rename_task(task.id, task.title, text),
+            on_commit=self._guarded(
+                lambda text: self._commit_rename_task(task.id, task.title, text)
+            ),
         )
 
     def _commit_rename_task(
@@ -543,8 +578,8 @@ class ProjectsTasksModule:
             return
         shell.prompt_insert(  # type: ignore[attr-defined]
             placeholder="sat, tomorrow, 2026-08-03",
-            on_commit=lambda text: self._commit_set_due_date(
-                task.id, task.due_date, text
+            on_commit=self._guarded(
+                lambda text: self._commit_set_due_date(task.id, task.due_date, text)
             ),
         )
 
@@ -576,8 +611,10 @@ class ProjectsTasksModule:
         shell.pick_option(  # type: ignore[attr-defined]
             "priority",
             _PRIORITY_OPTIONS,
-            on_select=lambda choice: self._commit_set_priority(
-                task.id, task.priority, choice
+            on_select=self._guarded(
+                lambda choice: self._commit_set_priority(
+                    task.id, task.priority, choice
+                )
             ),
         )
 
@@ -608,8 +645,10 @@ class ProjectsTasksModule:
         shell.pick_option(  # type: ignore[attr-defined]
             "move to project",
             project_names,
-            on_select=lambda choice: self._commit_move_task(
-                task.id, task.project_id, choice
+            on_select=self._guarded(
+                lambda choice: self._commit_move_task(
+                    task.id, task.project_id, choice
+                )
             ),
         )
 
@@ -642,7 +681,10 @@ class ProjectsTasksModule:
             message = f"delete task {title!r}?"
         else:
             message = f"delete {len(task_ids)} tasks?"
-        shell.confirm(message, on_yes=lambda: self._commit_delete_tasks(task_ids))  # type: ignore[attr-defined]
+        shell.confirm(  # type: ignore[attr-defined]
+            message,
+            on_yes=self._guarded(lambda: self._commit_delete_tasks(task_ids)),
+        )
 
     def _commit_delete_tasks(self, task_ids: list[UUID]) -> None:
         for task_id in task_ids:
@@ -672,7 +714,7 @@ class ProjectsTasksModule:
         shell.pick_option(  # type: ignore[attr-defined]
             "filter tasks by status",
             _TASK_FILTER_OPTIONS,
-            on_select=self._set_task_filter,
+            on_select=self._guarded(self._set_task_filter),
         )
 
     def _set_task_filter(self, choice: str) -> None:
