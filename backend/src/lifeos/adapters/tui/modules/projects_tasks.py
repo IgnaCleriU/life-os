@@ -604,7 +604,7 @@ class ProjectsTasksModule:
     def _commit_set_due_date(self, task_id: UUID, old_due_date, text: str) -> None:  # noqa: ANN001
         if not text:
             return
-        new_due_date = parse_quick_add(f"@{text}").due_date
+        new_due_date = parse_quick_add(f"@{text.removeprefix('@')}").due_date
         if new_due_date is None:
             self.shell.show_error(f"invalid date: {text!r}")  # type: ignore[attr-defined]
             return
