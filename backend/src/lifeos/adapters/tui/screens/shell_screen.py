@@ -336,6 +336,12 @@ class ShellScreen(Screen[None]):
         self._error_message = message
         self._refresh_status_bar()
 
+    def copy_to_clipboard(self, text: str) -> None:
+        """Thin wrapper over `App.copy_to_clipboard` (OSC 52, no new
+        dependency) - kept here so modules only ever talk to `shell.*`,
+        never reach past it into `shell.app`."""
+        self.app.copy_to_clipboard(text)
+
     # --- SELECT mode (generic selection set) ----------------------------------
 
     def enter_select_mode(self) -> None:
