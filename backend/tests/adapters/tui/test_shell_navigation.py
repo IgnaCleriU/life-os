@@ -281,6 +281,68 @@ async def test_module_gets_the_shell_before_keymap_entries_is_built() -> None:
         assert module.seen_at_keymap_entries_time is not None
 
 
+# --- action_reload selection preservation --------------------------------
+
+
+async def test_action_reload_preserves_the_current_context_selection() -> None:
+    app = _ShellHarness(_FakeModule())
+    async with app.run_test() as pilot:
+        await pilot.press("j")  # highlight ctx-2
+        context_pane = app.screen.query_one("#context-pane", ContextPane)
+        assert context_pane.selected_item is not None
+        assert context_pane.selected_item.id == "ctx-2"
+
+        app.screen.action_reload()
+        await pilot.pause()
+
+        assert context_pane.selected_item is not None
+        assert context_pane.selected_item.id == "ctx-2"
+
+
+async def test_action_reload_preserves_the_current_collection_selection() -> None:
+    app = _ShellHarness(_FakeModule())
+    async with app.run_test() as pilot:
+        await pilot.press("l")  # focus collection pane (ctx-1: col-1, col-2)
+        await pilot.press("j")  # highlight col-2
+        collection_pane = app.screen.query_one("#collection-pane", CollectionPane)
+        assert collection_pane.selected_item is not None
+        assert collection_pane.selected_item.id == "col-2"
+
+        app.screen.action_reload()
+        await pilot.pause()
+
+        assert collection_pane.selected_item is not None
+        assert collection_pane.selected_item.id == "col-2"
+
+
+async def test_action_reload_with_context_select_id_selects_that_item() -> None:
+    app = _ShellHarness(_FakeModule())
+    async with app.run_test() as pilot:
+        context_pane = app.screen.query_one("#context-pane", ContextPane)
+        assert context_pane.selected_item is not None
+        assert context_pane.selected_item.id == "ctx-1"
+
+        app.screen.action_reload(context_select_id="ctx-3")
+        await pilot.pause()
+
+        assert context_pane.selected_item is not None
+        assert context_pane.selected_item.id == "ctx-3"
+
+
+async def test_action_reload_with_collection_select_id_selects_that_item() -> None:
+    app = _ShellHarness(_FakeModule())
+    async with app.run_test() as pilot:
+        collection_pane = app.screen.query_one("#collection-pane", CollectionPane)
+        assert collection_pane.selected_item is not None
+        assert collection_pane.selected_item.id == "col-1"
+
+        app.screen.action_reload(collection_select_id="col-2")
+        await pilot.pause()
+
+        assert collection_pane.selected_item is not None
+        assert collection_pane.selected_item.id == "col-2"
+
+
 async def test_current_context_item_reflects_the_context_pane_selection() -> None:
     app = _ShellHarness(_FakeModule())
     async with app.run_test() as pilot:
