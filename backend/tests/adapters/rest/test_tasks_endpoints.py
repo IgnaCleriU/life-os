@@ -273,6 +273,36 @@ def test_list_tasks_across_projects_with_filters(client: TestClient) -> None:
     assert response.json()[0]["title"] == "Otra cosa"
 
 
+def test_list_tasks_includes_project_name(client: TestClient) -> None:
+    project_a = _create_project(client, "A")
+    project_b = _create_project(client, "B")
+    task_a = client.post(
+        f"/projects/{project_a['id']}/tasks", json={"title": "Pagar expensas"}
+    ).json()
+    task_b = client.post(
+        f"/projects/{project_b['id']}/tasks", json={"title": "Otra cosa"}
+    ).json()
+
+    response = client.get("/tasks")
+    by_id = {t["id"]: t for t in response.json()}
+
+    assert by_id[task_a["id"]]["project_name"] == "A"
+    assert by_id[task_b["id"]]["project_name"] == "B"
+
+
+def test_list_tasks_of_project_does_not_include_project_name(
+    client: TestClient,
+) -> None:
+    """GET /projects/{id}/tasks doesn't need project_name - the caller
+    already knows the project, since they supplied its id in the path."""
+    project = _create_project(client, "A")
+    client.post(f"/projects/{project['id']}/tasks", json={"title": "Task"})
+
+    response = client.get(f"/projects/{project['id']}/tasks")
+
+    assert "project_name" not in response.json()[0]
+
+
 def test_restore_task_under_deleted_project_returns_404(client: TestClient) -> None:
     """Regresión: borrar la única tarea de un proyecto lo deja vacío y por lo
     tanto borrable; restaurar la tarea después no debe reflotarla colgada de
