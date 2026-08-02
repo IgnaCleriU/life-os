@@ -90,6 +90,7 @@ this table, so none of the three can silently drift from each other.
 | `Enter` `l` | focus the tasks pane |
 | `c` | mark the project completed |
 | `A` | archive / activate (toggles by current status) |
+| `K` `J` | move the project up / down (no-op at the top/bottom) |
 | `f` | filter by status (active / completed / archived / all) |
 | `dd` | delete, with confirmation — fails with `project_not_empty` while the project still has live tasks |
 
