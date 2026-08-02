@@ -137,6 +137,55 @@ def test_undo_archive_toggle_restores_the_prior_status(module, fake_shell) -> No
     assert _current_projects()["life os"] is ProjectStatus.ACTIVE
 
 
+# --- K / J: reorder -----------------------------------------------------------
+
+
+def test_capital_k_moves_the_selected_project_up(module, fake_shell) -> None:
+    _create_project("first")
+    _create_project("second")
+    fake_shell.current_context_item = module.context_pane().items[1]
+
+    _entry(module, "K").action()
+
+    names = [item.label for item in module.context_pane().items]
+    assert names == ["second", "first"]
+    assert fake_shell.reload_count == 1
+
+
+def test_capital_j_moves_the_selected_project_down(module, fake_shell) -> None:
+    _create_project("first")
+    _create_project("second")
+    fake_shell.current_context_item = module.context_pane().items[0]
+
+    _entry(module, "J").action()
+
+    names = [item.label for item in module.context_pane().items]
+    assert names == ["second", "first"]
+
+
+def test_capital_k_on_the_first_project_is_a_noop(module, fake_shell) -> None:
+    _create_project("first")
+    _create_project("second")
+    fake_shell.current_context_item = module.context_pane().items[0]
+
+    _entry(module, "K").action()
+
+    names = [item.label for item in module.context_pane().items]
+    assert names == ["first", "second"]
+
+
+def test_undo_reorder_up_restores_the_prior_order(module, fake_shell) -> None:
+    _create_project("first")
+    _create_project("second")
+    fake_shell.current_context_item = module.context_pane().items[1]
+
+    _entry(module, "K").action()
+    fake_shell.undo_stack.undo()
+
+    names = [item.label for item in module.context_pane().items]
+    assert names == ["first", "second"]
+
+
 # --- dd: delete --------------------------------------------------------------
 
 
