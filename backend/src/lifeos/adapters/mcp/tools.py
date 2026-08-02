@@ -213,7 +213,12 @@ def register_tools(server: FastMCP) -> None:
             tasks = use_case.execute(
                 project_id, statuses=status, due_before=due_before, text=text
             )
-        return [_task_dict(task) for task in tasks]
+        with deps.list_projects_use_case() as list_projects_use_case:
+            project_names = {p.id: p.name for p in list_projects_use_case.execute()}
+        return [
+            {**_task_dict(task), "project_name": project_names.get(task.project_id)}
+            for task in tasks
+        ]
 
     @server.tool()
     def get_task(task_id: UUID) -> dict[str, Any]:
