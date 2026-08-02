@@ -109,3 +109,12 @@ class TaskResponse(BaseModel):
     priority: Priority
     due_date: date | None
     created_at: datetime
+
+
+class TaskWithProjectResponse(TaskResponse):
+    """`TaskResponse` plus the owning project's name - used only by the
+    cross-project `GET /tasks` listing, where the caller doesn't already
+    know which project each task belongs to (unlike
+    `GET /projects/{id}/tasks`, which stays plain `TaskResponse`)."""
+
+    project_name: str | None

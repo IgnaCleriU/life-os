@@ -473,6 +473,18 @@ class TestListTasksFilters:
         titles = {t["title"] for t in result.structuredContent["result"]}
         assert titles == {"Task A", "Task B"}
 
+    def test_includes_project_name(self, call_tool):
+        project_a = _create_project(call_tool, "A")
+        project_b = _create_project(call_tool, "B")
+        task_a = _create_task(call_tool, project_a["id"], title="Task A")
+        task_b = _create_task(call_tool, project_b["id"], title="Task B")
+
+        result = call_tool("list_tasks")
+
+        by_id = {t["id"]: t for t in result.structuredContent["result"]}
+        assert by_id[task_a["id"]]["project_name"] == "A"
+        assert by_id[task_b["id"]]["project_name"] == "B"
+
     def test_filters_by_due_before(self, call_tool):
         project = _create_project(call_tool)
         vencida = _create_task(

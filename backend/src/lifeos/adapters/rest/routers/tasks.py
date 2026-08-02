@@ -16,6 +16,7 @@ from lifeos.adapters.rest.deps import (
     get_create_task_use_case,
     get_delete_task_use_case,
     get_get_task_use_case,
+    get_list_projects_use_case,
     get_list_tasks_use_case,
     get_move_task_use_case,
     get_reopen_task_use_case,
@@ -28,11 +29,13 @@ from lifeos.adapters.rest.schemas import (
     TaskMoveRequest,
     TaskResponse,
     TaskUpdateRequest,
+    TaskWithProjectResponse,
 )
 from lifeos.application.use_cases.complete_task import CompleteTask
 from lifeos.application.use_cases.create_task import CreateTask
 from lifeos.application.use_cases.delete_task import DeleteTask
 from lifeos.application.use_cases.get_task import GetTask
+from lifeos.application.use_cases.list_projects import ListProjects
 from lifeos.application.use_cases.list_tasks import ListTasks
 from lifeos.application.use_cases.move_task import MoveTask
 from lifeos.application.use_cases.reopen_task import ReopenTask
@@ -81,19 +84,34 @@ def list_tasks_of_project(
     return [TaskResponse.model_validate(task) for task in tasks]
 
 
-@router.get("/tasks", response_model=list[TaskResponse])
+@router.get("/tasks", response_model=list[TaskWithProjectResponse])
 def list_tasks(
     use_case: Annotated[ListTasks, Depends(get_list_tasks_use_case)],
+    list_projects_use_case: Annotated[
+        ListProjects, Depends(get_list_projects_use_case)
+    ],
     project_id: UUID | None = None,
     status_filter: Annotated[list[TaskStatus] | None, Query(alias="status")] = None,
     due_before: date | None = None,
     q: str | None = None,
-) -> list[TaskResponse]:
-    """Lista tareas de todos los proyectos, con filtros opcionales."""
+) -> list[TaskWithProjectResponse]:
+    """Lista tareas de todos los proyectos, con filtros opcionales.
+
+    Incluye `project_name` por tarea - a diferencia de
+    `GET /projects/{id}/tasks`, acá quien llama no sabe de antemano a qué
+    proyecto pertenece cada tarea.
+    """
     tasks = use_case.execute(
         project_id, statuses=status_filter, due_before=due_before, text=q
     )
-    return [TaskResponse.model_validate(task) for task in tasks]
+    project_names = {p.id: p.name for p in list_projects_use_case.execute()}
+    return [
+        TaskWithProjectResponse(
+            **TaskResponse.model_validate(task).model_dump(),
+            project_name=project_names.get(task.project_id),
+        )
+        for task in tasks
+    ]
 
 
 @router.get("/tasks/{task_id}", response_model=TaskResponse)
