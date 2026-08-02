@@ -36,7 +36,9 @@ MCP server, and the CLI (see
 recreate `~/.local/share/life-os/lifeos.db` first — that schema change
 added `deleted_at` to both tables, and there is no migration tooling yet.
 An old database file will crash the board with `no such column:
-projects.deleted_at` on the very first render.
+projects.deleted_at` on the very first render. **This deletes every
+project and task currently stored in it** — back up the file first if it
+holds real data you care about.
 
 ## 2. The board: panes and modes
 

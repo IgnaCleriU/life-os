@@ -63,8 +63,10 @@ work with no interface present.
 Step 9 changes the SQLite schema (`deleted_at` on both tables). There is no
 migration tooling yet, so an existing `~/.local/share/life-os/lifeos.db` must be
 deleted and recreated — `create_all` does not add columns to existing tables.
-Do this once, after Steps 9-10 land and before using the CLI or TUI adapters
-built in the steps below.
+**This destroys every project and task currently stored in it** — back up
+the file first (or confirm with whoever owns the data) rather than treating
+this as a routine step. Do this once, after Steps 9-10 land and before
+using the CLI or TUI adapters built in the steps below.
 
 **Steps 11-13 are strictly ordered** — each is one PR, and each consumes the
 previous one's contract:

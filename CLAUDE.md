@@ -32,6 +32,14 @@ Before designing or implementing, review these documents:
   [ARCHITECTURE.md](ARCHITECTURE.md).
 - **MCP never accesses the DB directly:** it consumes the same use cases as
   the REST adapter.
+- **Never delete or reset the local database**
+  (`~/.local/share/life-os/lifeos.db`) without explicit confirmation from
+  the user. It holds real personal data, not scratch/test data. The
+  "delete it and let the app recreate it" remedy mentioned in
+  [docs/roadmap.md](docs/roadmap.md) and [docs/tui.md](docs/tui.md) for
+  schema changes is destructive — it erases every project and task
+  currently stored. Confirm with the user first (and suggest a backup)
+  rather than running it as a routine fix.
 - **Agentic workflow:** understand → investigate (subagents in parallel) →
   plan (except for very small tasks) → implement (in parallel or in series
   depending on dependencies) → integrate and verify. See
