@@ -26,6 +26,7 @@ class ProjectModel(SQLModel, table=True):
     status: str
     created_at: datetime
     deleted_at: datetime | None = Field(default=None, index=True)
+    position: int = Field(default=0)
 
 
 class TaskModel(SQLModel, table=True):

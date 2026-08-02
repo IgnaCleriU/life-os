@@ -19,7 +19,11 @@ def _live() -> Any:
     Toda lectura arranca de acá, por el mismo motivo que en
     `sqlite_task_repository`: el filtro de borrado vive en un solo lugar.
     """
-    return select(ProjectModel).where(ProjectModel.deleted_at.is_(None))  # type: ignore[union-attr]
+    return (
+        select(ProjectModel)
+        .where(ProjectModel.deleted_at.is_(None))  # type: ignore[union-attr]
+        .order_by(ProjectModel.position)
+    )
 
 
 class SQLiteProjectRepository:
@@ -83,6 +87,7 @@ def _to_model(project: Project) -> ProjectModel:
         status=project.status.value,
         created_at=project.created_at,
         deleted_at=project.deleted_at,
+        position=project.position,
     )
 
 
@@ -98,4 +103,5 @@ def _to_domain(model: ProjectModel) -> Project:
             if model.deleted_at is not None
             else None
         ),
+        position=model.position,
     )
