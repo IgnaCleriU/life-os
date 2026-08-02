@@ -30,9 +30,12 @@ class ItemListPane(OptionList):
         self._items_by_id: dict[str, PaneItem] = {}
         self._all_items: list[PaneItem] = []
 
-    def update_contents(self, contents: PaneContents) -> None:
+    def update_contents(
+        self, contents: PaneContents, select_id: str | None = None
+    ) -> None:
         self._all_items = list(contents.items)
         self._render_items(self._all_items)
+        self.select_by_id(select_id)
 
     def _render_items(self, items: list[PaneItem]) -> None:
         self.clear_options()
@@ -44,6 +47,18 @@ class ItemListPane(OptionList):
         # - a freshly populated pane always has something highlighted (when
         # non-empty) so the pane to its right has something to sync against.
         self.highlighted = 0 if items else None
+
+    def select_by_id(self, item_id: str | None) -> None:
+        """Move the highlight to the option with the given item id, if one
+        is currently rendered. No-ops (keeping `_render_items`' index-0
+        default) when `item_id` is `None` or no longer present - the case
+        after e.g. a delete, where the previously selected id is gone."""
+        if item_id is None:
+            return
+        for index in range(self.option_count):
+            if self.get_option_at_index(index).id == item_id:
+                self.highlighted = index
+                return
 
     def filter(self, text: str) -> None:
         """Live substring filter (case-insensitive) over the full item set
