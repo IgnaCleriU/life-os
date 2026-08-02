@@ -80,6 +80,24 @@ async def test_update_contents_replaces_previous_items_rather_than_appending() -
         assert pane.selected_item.id == "p3"
 
 
+async def test_update_contents_with_select_id_highlights_that_item() -> None:
+    app = _PanesHarness()
+    async with app.run_test():
+        pane = app.query_one("#context", ContextPane)
+        pane.update_contents(_two_item_contents(), select_id="p2")
+        assert pane.selected_item is not None
+        assert pane.selected_item.id == "p2"
+
+
+async def test_update_contents_with_unknown_select_id_falls_back_to_first_item() -> None:
+    app = _PanesHarness()
+    async with app.run_test():
+        pane = app.query_one("#context", ContextPane)
+        pane.update_contents(_two_item_contents(), select_id="does-not-exist")
+        assert pane.selected_item is not None
+        assert pane.selected_item.id == "p1"
+
+
 async def test_collection_pane_is_a_distinct_type_from_context_pane() -> None:
     app = _PanesHarness()
     async with app.run_test():
