@@ -21,7 +21,14 @@ class CreateProject:
 
         La validación del nombre vive en el dominio: si es inválido,
         `Project.create` lanza `DomainValidationError`, que se propaga.
+
+        `position` se calcula acá (no en el dominio, que no conoce a los
+        demás proyectos) como `max(posiciones existentes) + 1`, para que el
+        proyecto nuevo quede al final. Se usa `max` en vez de `len` para no
+        chocar con huecos que dejan los proyectos borrados lógicamente.
         """
-        project = Project.create(name, description)
+        existing = self._project_repo.list()
+        position = max((p.position for p in existing), default=-1) + 1
+        project = Project.create(name, description, position=position)
         self._project_repo.add(project)
         return project

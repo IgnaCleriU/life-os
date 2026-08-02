@@ -41,13 +41,14 @@ class InMemoryProjectRepository:
         statuses: Sequence[ProjectStatus] | None = None,
         text: str | None = None,
     ) -> list[Project]:
-        return [
+        projects = [
             project
             for project in self._projects.values()
             if not project.is_deleted
             and (statuses is None or project.status in statuses)
             and (text is None or text.lower() in project.name.lower())
         ]
+        return sorted(projects, key=lambda project: project.position)
 
     def update(self, project: Project) -> None:
         self._projects[project.id] = project
