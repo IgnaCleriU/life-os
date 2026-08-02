@@ -62,6 +62,7 @@ class ProjectResponse(BaseModel):
     description: str | None
     status: ProjectStatus
     created_at: datetime
+    position: int
 
 
 # --- Task ------------------------------------------------------------
