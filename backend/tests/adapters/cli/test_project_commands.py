@@ -302,6 +302,43 @@ def test_archive_not_found_exits_1(runner: CliRunner) -> None:
     assert result.stderr.startswith("project_not_found: ")
 
 
+def test_reorder_up_json(runner: CliRunner) -> None:
+    _create(runner, "First")
+    second_id = _create(runner, "Second")
+
+    result = runner.invoke(app, ["--json", "project", "reorder-up", second_id])
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["position"] == 0
+
+
+def test_reorder_down_json(runner: CliRunner) -> None:
+    first_id = _create(runner, "First")
+    _create(runner, "Second")
+
+    result = runner.invoke(app, ["--json", "project", "reorder-down", first_id])
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["position"] == 1
+
+
+def test_reorder_up_on_first_project_is_a_noop(runner: CliRunner) -> None:
+    first_id = _create(runner, "First")
+    _create(runner, "Second")
+
+    result = runner.invoke(app, ["--json", "project", "reorder-up", first_id])
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["position"] == 0
+
+
+def test_reorder_up_not_found_exits_1(runner: CliRunner) -> None:
+    result = runner.invoke(app, ["project", "reorder-up", str(uuid4())])
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert result.stderr.startswith("project_not_found: ")
+
+
 def test_activate_plain(runner: CliRunner) -> None:
     project_id = _create(runner)
     runner.invoke(app, ["project", "archive", project_id])
