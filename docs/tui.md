@@ -47,6 +47,12 @@ project narrows the tasks pane; selecting a task fills the detail pane.
 Nothing is ever true only in your head: changing a selection always
 updates the pane to its right.
 
+Every write reloads the affected panes from the database, but never resets
+your place: the current selection survives by id, not by row position.
+Creating a project or task is the one case that moves the cursor on
+purpose — it lands on the thing you just created instead of merely staying
+put.
+
 Five modes, one always active: **NORMAL** (navigation, single-key
 actions), **INSERT** (a text prompt is open — quick-add, rename, due
 date), **FILTER** (`/`, live substring filter), **SELECT** (`x`/`v`, bulk
