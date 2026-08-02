@@ -240,7 +240,9 @@ class ProjectsTasksModule:
             undo=lambda: self._delete_project(project.id),
             redo=lambda: self._restore_project(project.id),
         )
-        self.shell.action_reload()  # type: ignore[attr-defined]
+        self.shell.action_reload(  # type: ignore[attr-defined]
+            context_select_id=str(project.id)
+        )
 
     def _start_rename_project(self) -> None:
         shell = self.shell
@@ -415,7 +417,9 @@ class ProjectsTasksModule:
             undo=lambda: self._delete_task(task.id),
             redo=lambda: self._restore_task(task.id),
         )
-        self.shell.action_reload()  # type: ignore[attr-defined]
+        self.shell.action_reload(  # type: ignore[attr-defined]
+            collection_select_id=str(task.id)
+        )
 
     def _find_projects_by_name(self, name: str) -> list[Project]:
         """All active-or-not projects whose name case-folds to `name`.

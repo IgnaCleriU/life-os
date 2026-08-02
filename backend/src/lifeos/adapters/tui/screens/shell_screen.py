@@ -202,10 +202,15 @@ class ShellScreen(Screen[None]):
         if isinstance(self.focused, OptionList):
             self.focused.action_page_up()
 
-    def action_reload(self) -> None:
+    def action_reload(
+        self,
+        *,
+        context_select_id: str | None = None,
+        collection_select_id: str | None = None,
+    ) -> None:
         self._error_message = ""
-        self._refresh_context_pane()
-        self._refresh_collection_pane()
+        self._refresh_context_pane(select_id=context_select_id)
+        self._refresh_collection_pane(select_id=collection_select_id)
         self._refresh_detail_pane()
         self._refresh_status_bar()
 
@@ -415,14 +420,21 @@ class ShellScreen(Screen[None]):
         elif event.option_list is collection_pane:
             self._refresh_detail_pane()
 
-    def _refresh_context_pane(self) -> None:
+    def _refresh_context_pane(self, select_id: str | None = None) -> None:
         context_pane = self.query_one("#context-pane", ContextPane)
-        context_pane.update_contents(self.module.context_pane())
+        if select_id is None:
+            current = context_pane.selected_item
+            select_id = None if current is None else current.id
+        context_pane.update_contents(self.module.context_pane(), select_id=select_id)
 
-    def _refresh_collection_pane(self) -> None:
+    def _refresh_collection_pane(self, select_id: str | None = None) -> None:
         context_item = self.query_one("#context-pane", ContextPane).selected_item
+        collection_pane = self.query_one("#collection-pane", CollectionPane)
+        if select_id is None:
+            current = collection_pane.selected_item
+            select_id = None if current is None else current.id
         contents = self.module.collection_pane(context_item)
-        self.query_one("#collection-pane", CollectionPane).update_contents(contents)
+        collection_pane.update_contents(contents, select_id=select_id)
 
     def _refresh_detail_pane(self) -> None:
         collection_pane = self.query_one("#collection-pane", CollectionPane)
