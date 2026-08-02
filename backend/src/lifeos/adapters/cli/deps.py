@@ -25,6 +25,10 @@ from lifeos.application.use_cases.list_projects import ListProjects
 from lifeos.application.use_cases.list_tasks import ListTasks
 from lifeos.application.use_cases.move_task import MoveTask
 from lifeos.application.use_cases.reopen_task import ReopenTask
+from lifeos.application.use_cases.reorder_project import (
+    ReorderProjectDown,
+    ReorderProjectUp,
+)
 from lifeos.application.use_cases.restore_project import RestoreProject
 from lifeos.application.use_cases.restore_task import RestoreTask
 from lifeos.application.use_cases.start_task import StartTask
@@ -81,6 +85,18 @@ def archive_project_use_case() -> Iterator[ArchiveProject]:
 def activate_project_use_case() -> Iterator[ActivateProject]:
     with get_session() as session:
         yield ActivateProject(SQLiteProjectRepository(session))
+
+
+@contextmanager
+def reorder_project_up_use_case() -> Iterator[ReorderProjectUp]:
+    with get_session() as session:
+        yield ReorderProjectUp(SQLiteProjectRepository(session))
+
+
+@contextmanager
+def reorder_project_down_use_case() -> Iterator[ReorderProjectDown]:
+    with get_session() as session:
+        yield ReorderProjectDown(SQLiteProjectRepository(session))
 
 
 @contextmanager

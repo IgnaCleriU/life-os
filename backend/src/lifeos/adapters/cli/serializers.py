@@ -29,6 +29,7 @@ def project_dict(project: Project) -> dict[str, Any]:
         "description": project.description,
         "status": project.status.value,
         "created_at": project.created_at.isoformat(),
+        "position": project.position,
     }
 
 
