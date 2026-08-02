@@ -31,3 +31,4 @@ it the next free number.
 | Number | Title | ADR |
 |---|---|---|
 | [0001](0001-keyboard-driven-tui-adapter.md) | Keyboard-driven TUI adapter | [adr/0008](../adr/0008-keyboard-driven-tui-adapter.md) |
+| [0003](0003-manual-project-ordering.md) | Manual project ordering | [adr/0009](../adr/0009-sqlite-migration-strategy.md) |
