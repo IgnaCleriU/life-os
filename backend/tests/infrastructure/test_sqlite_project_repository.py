@@ -70,6 +70,18 @@ def test_update_persists_rename_and_status(session):
     assert reloaded.status is ProjectStatus.ARCHIVED
 
 
+def test_list_orders_by_position_not_insertion_order(session):
+    repo = SQLiteProjectRepository(session)
+    first = Project.create(name="First", position=2)
+    second = Project.create(name="Second", position=0)
+    third = Project.create(name="Third", position=1)
+    repo.add(first)
+    repo.add(second)
+    repo.add(third)
+
+    assert [p.id for p in repo.list()] == [second.id, third.id, first.id]
+
+
 def test_list_filters_by_status_and_text(session):
     repo = SQLiteProjectRepository(session)
     casa = Project.create(name="Casa de campo")
