@@ -119,6 +119,40 @@ def test_complete_archive_activate_project(client: TestClient) -> None:
     )
 
 
+def test_reorder_up_and_down_swap_with_the_neighbor(client: TestClient) -> None:
+    first = client.post("/projects", json={"name": "First"}).json()
+    second = client.post("/projects", json={"name": "Second"}).json()
+    assert (first["position"], second["position"]) == (0, 1)
+
+    up = client.post(f"/projects/{second['id']}/reorder-up")
+    assert up.status_code == 200
+    assert up.json()["position"] == 0
+
+    response = client.get("/projects")
+    assert [p["id"] for p in response.json()] == [second["id"], first["id"]]
+
+    down = client.post(f"/projects/{second['id']}/reorder-down")
+    assert down.status_code == 200
+    assert down.json()["position"] == 1
+
+
+def test_reorder_up_on_the_first_project_is_a_noop(client: TestClient) -> None:
+    first = client.post("/projects", json={"name": "First"}).json()
+    client.post("/projects", json={"name": "Second"})
+
+    response = client.post(f"/projects/{first['id']}/reorder-up")
+
+    assert response.status_code == 200
+    assert response.json()["position"] == 0
+
+
+def test_reorder_missing_project_returns_404(client: TestClient) -> None:
+    response = client.post(f"/projects/{uuid4()}/reorder-up")
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "project_not_found"
+
+
 def test_list_projects_filters_by_status(client: TestClient) -> None:
     client.post("/projects", json={"name": "Active"})
     archived = client.post("/projects", json={"name": "Archived"}).json()
