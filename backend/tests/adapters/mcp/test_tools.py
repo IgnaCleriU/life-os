@@ -293,6 +293,45 @@ class TestProjectStatusTransitions:
         assert "project_not_found" in result.content[0].text
 
 
+class TestReorderProject:
+    def test_reorder_up_and_down_swap_with_the_neighbor(self, call_tool):
+        first = _create_project(call_tool, "First")
+        second = _create_project(call_tool, "Second")
+        assert (first["position"], second["position"]) == (0, 1)
+
+        up = call_tool("reorder_project_up", {"project_id": second["id"]})
+        assert up.isError is False
+        assert up.structuredContent["position"] == 0
+
+        listed = call_tool("list_projects")
+        assert [p["id"] for p in listed.structuredContent["result"]] == [
+            second["id"],
+            first["id"],
+        ]
+
+        down = call_tool("reorder_project_down", {"project_id": second["id"]})
+        assert down.isError is False
+        assert down.structuredContent["position"] == 1
+
+    def test_reorder_up_on_the_first_project_is_a_noop(self, call_tool):
+        first = _create_project(call_tool, "First")
+        _create_project(call_tool, "Second")
+
+        result = call_tool("reorder_project_up", {"project_id": first["id"]})
+
+        assert result.isError is False
+        assert result.structuredContent["position"] == 0
+
+    def test_reorder_unknown_project_is_project_not_found(self, call_tool):
+        result = call_tool(
+            "reorder_project_up",
+            {"project_id": "00000000-0000-0000-0000-000000000000"},
+        )
+
+        assert result.isError is True
+        assert "project_not_found" in result.content[0].text
+
+
 class TestDeleteAndRestoreProject:
     def test_delete_empty_project_hides_it(self, call_tool):
         project = _create_project(call_tool)
