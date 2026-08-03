@@ -53,6 +53,10 @@ class InMemoryProjectRepository:
     def update(self, project: Project) -> None:
         self._projects[project.id] = project
 
+    def update_many(self, projects: Sequence[Project]) -> None:
+        for project in projects:
+            self._projects[project.id] = project
+
     def next_position(self) -> int:
         if not self._projects:
             return 0

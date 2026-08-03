@@ -53,6 +53,16 @@ class ProjectRepository(Protocol):
         """Persiste los cambios de un proyecto existente."""
         ...
 
+    def update_many(self, projects: Sequence[Project]) -> None:
+        """Persiste varios proyectos existentes en una sola transacción.
+
+        Para escrituras que deben ser todo-o-nada, como el intercambio de
+        `position` en `ReorderProjectUp`/`Down`: dos `update()` separados
+        commitean por separado, y una falla entre el primero y el segundo
+        deja un `position` duplicado sin forma de repararlo.
+        """
+        ...
+
     def next_position(self) -> int:
         """Devuelve la posición que le corresponde al próximo proyecto que
         entre a la lista viva (uno nuevo, o uno que vuelve por `restore`).

@@ -33,8 +33,7 @@ def _swap_with_neighbor(
     if 0 <= neighbor_index < len(projects):
         neighbor = projects[neighbor_index]
         project.position, neighbor.position = neighbor.position, project.position
-        project_repo.update(project)
-        project_repo.update(neighbor)
+        project_repo.update_many([project, neighbor])
     return project
 
 

@@ -84,6 +84,13 @@ class SQLiteProjectRepository:
         self._session.merge(_to_model(project))
         self._session.commit()
 
+    def update_many(self, projects: Sequence[Project]) -> None:
+        """Persiste varios proyectos en una sola transacción - ver el
+        puerto para por qué esto importa (el swap de `ReorderProject*`)."""
+        for project in projects:
+            self._session.merge(_to_model(project))
+        self._session.commit()
+
     def next_position(self) -> int:
         """`max(position) + 1` sobre *todos* los proyectos, borrados
         incluidos (0 si no hay ninguno) - un scalar query, no un
