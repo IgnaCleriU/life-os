@@ -47,11 +47,16 @@ project narrows the tasks pane; selecting a task fills the detail pane.
 Nothing is ever true only in your head: changing a selection always
 updates the pane to its right.
 
-Every write reloads the affected panes from the database, but never resets
-your place: the current selection survives by id, not by row position.
-Creating a project or task is the one case that moves the cursor on
-purpose — it lands on the thing you just created instead of merely staying
-put.
+Every pane re-render — a write's reload, or entering/leaving a filter —
+preserves your place by id, not by row position. If the id it was asked to
+land on isn't actually rendered (a task quick-added to a different
+project, a project created under a status filter that hides it), it falls
+back to wherever you already were rather than resetting; if your own prior
+selection is also gone (e.g. after a delete), it holds the same row
+position instead of jumping to row 1. Creating a project or task is the
+one case that moves the cursor on purpose, and only when the new item is
+actually visible in the current view — it lands on the thing you just
+created instead of merely staying put.
 
 Five modes, one always active: **NORMAL** (navigation, single-key
 actions), **INSERT** (a text prompt is open — quick-add, rename, due
