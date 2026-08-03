@@ -23,6 +23,24 @@ def test_project_repo_get_missing_returns_none():
     assert repo.get(uuid4()) is None
 
 
+def test_project_repo_next_position_is_one_past_the_max_including_deleted():
+    repo = InMemoryProjectRepository()
+    first = Project.create(name="First", position=0)
+    second = Project.create(name="Second", position=1)
+    repo.add(first)
+    repo.add(second)
+    second.delete()
+    repo.update(second)
+
+    assert repo.next_position() == 2
+
+
+def test_project_repo_next_position_is_zero_when_empty():
+    repo = InMemoryProjectRepository()
+
+    assert repo.next_position() == 0
+
+
 def test_task_repo_add_get_and_list_filtered_by_project():
     repo = InMemoryTaskRepository()
     project_id = uuid4()

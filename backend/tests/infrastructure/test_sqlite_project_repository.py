@@ -82,6 +82,24 @@ def test_list_orders_by_position_not_insertion_order(session):
     assert [p.id for p in repo.list()] == [second.id, third.id, first.id]
 
 
+def test_next_position_is_one_past_the_max_including_deleted(session):
+    repo = SQLiteProjectRepository(session)
+    first = Project.create(name="First", position=0)
+    second = Project.create(name="Second", position=1)
+    repo.add(first)
+    repo.add(second)
+    second.delete()
+    repo.update(second)
+
+    assert repo.next_position() == 2
+
+
+def test_next_position_is_zero_when_the_table_is_empty(session):
+    repo = SQLiteProjectRepository(session)
+
+    assert repo.next_position() == 0
+
+
 def test_list_filters_by_status_and_text(session):
     repo = SQLiteProjectRepository(session)
     casa = Project.create(name="Casa de campo")

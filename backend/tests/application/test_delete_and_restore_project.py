@@ -10,6 +10,7 @@ from uuid import uuid4
 
 import pytest
 
+from lifeos.application.use_cases.create_project import CreateProject
 from lifeos.application.use_cases.delete_project import DeleteProject
 from lifeos.application.use_cases.delete_task import DeleteTask
 from lifeos.application.use_cases.list_projects import ListProjects
@@ -86,3 +87,24 @@ def test_restore_brings_the_project_back():
 def test_restore_missing_project_raises():
     with pytest.raises(ProjectNotFound):
         RestoreProject(InMemoryProjectRepository()).execute(uuid4())
+
+
+def test_restore_never_collides_position_with_a_project_created_after_the_delete():
+    """A(0), B(1); delete B; create C (would land at position 1 if computed
+    only from live projects); restore B - B and C must not both end up at
+    position 1, or the swap in ReorderProjectUp/Down would be a permanent
+    no-op between them."""
+    project_repo = InMemoryProjectRepository()
+    task_repo = InMemoryTaskRepository()
+    a = Project.create(name="A", position=0)
+    b = Project.create(name="B", position=1)
+    project_repo.add(a)
+    project_repo.add(b)
+
+    DeleteProject(project_repo, task_repo).execute(b.id)
+    c = CreateProject(project_repo).execute(name="C")
+    restored_b = RestoreProject(project_repo).execute(b.id)
+
+    live_positions = [p.position for p in ListProjects(project_repo).execute()]
+    assert len(live_positions) == len(set(live_positions))
+    assert restored_b.position != c.position
