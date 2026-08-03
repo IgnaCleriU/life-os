@@ -17,9 +17,13 @@ undoable immediately, no confirmation step.
 `Project` gets a new field, `position: int`. No new domain *method* for
 swapping — that needs two entities at once (the moved project and its
 neighbor), which is an application-layer concern, not a single entity's.
-`Project.create()` takes `position` as a required argument (the entity
-doesn't know how many other projects exist, so it can't default it
-itself).
+`Project.create()` takes `position` as a keyword argument defaulting to
+`0` — a dataclass-field convenience (it follows `deleted_at`, which also
+defaults) for the ~30 existing test call sites that don't care about
+ordering, not an invitation to omit it. The entity itself doesn't know how
+many other projects exist, so it can't compute a correct value; every real
+caller (`CreateProject`, and `RestoreProject` — see below) always passes
+one explicitly, computed from `ProjectRepository.next_position()`.
 
 ### Application
 
@@ -32,9 +36,15 @@ existing one-verb-per-transition convention (`CompleteTask`, `StartTask`,
 - Load all live projects via `ProjectRepository.list()` (now ordered by
   `position`), find the given project's index.
 - If there's a neighbor in the requested direction, swap `position`
-  between the two and persist both via `repo.update()`.
+  between the two and persist both in one transaction via
+  `repo.update_many([project, neighbor])` — not two separate `update()`
+  calls, which would commit independently and leave a duplicate position
+  if the process died between them.
 - If already at the boundary (first project moving up, last moving down),
-  no-op — idempotent, consistent with `CompleteTask`/etc.
+  no-op — idempotent, consistent with `CompleteTask`/etc. The returned
+  `Project`'s `position` is unchanged from the caller's own pre-call copy
+  in that case, which the TUI adapter uses to decide whether to push an
+  undo entry (see below).
 - Raise `ProjectNotFound` if the id doesn't resolve, same as every other
   single-project use case.
 
@@ -43,13 +53,17 @@ and means "change which project a task belongs to." Reusing "move" for
 "change position within the list" would collide in meaning even though the
 routes/tools don't collide in name.
 
-`CreateProject.execute()` (`application/use_cases/create_project.py`)
-computes the new project's position — `max(existing positions, default=-1)
-+ 1` (append at the end) — before calling `Project.create(name,
-description, position=...)`. Using max+1 rather than a live count avoids
-any issue from soft-deleted projects leaving gaps in the position
-sequence; gaps are fine, `position` only needs to sort correctly, not be
-contiguous.
+`CreateProject.execute()` (`application/use_cases/create_project.py`) and
+`RestoreProject.execute()` (`application/use_cases/restore_project.py`)
+both compute the project's position via
+`ProjectRepository.next_position()` — `max(position) + 1` over *every*
+project, deleted ones included, so a project created while another is
+soft-deleted can never collide with that project's position once it's
+restored. `RestoreProject` reassigns `position` on every restore (the
+project re-enters the live list at the end, not at its stale position);
+without this, a project created after a delete and the later-restored
+project could end up sharing one `position`, permanently stuck adjacent
+since swapping two equal values is itself a no-op.
 
 ### Infrastructure
 
@@ -61,7 +75,9 @@ contiguous.
 - `models.py`'s `ProjectModel` gains a `position: int` column.
 - `session.py`'s `create_db_and_tables()` gains the one migration ADR 0009
   describes: check `PRAGMA table_info(projects)` for a `position` column;
-  if absent, `ALTER TABLE projects ADD COLUMN position INTEGER`, then
+  if absent, `ALTER TABLE projects ADD COLUMN position INTEGER NOT NULL
+  DEFAULT 0` (not nullable — the column must be valid the instant it
+  exists, in case the process dies before the backfill below runs), then
   backfill it in Python from each row's current `created_at` order
   (enumerate projects ordered by `created_at`, `UPDATE` each row's
   `position` to its index).
@@ -92,11 +108,24 @@ Two endpoints/tools/commands each, no request body/parameter beyond the id
 | TUI | Capital `K` (up) / `J` (down) in the CONTEXT (projects) scope keymap — free today, no collision with the existing lowercase `j`/`k` global cursor bindings or `gg`/`G` |
 
 TUI action shape (`modules/projects_tasks.py`), mirroring
-`_complete_project`'s no-prompt immediate-action pattern exactly: read
-`shell.current_context_item`, call the use case, `_push_undo` (undo = call
-the opposite-direction use case on the same id — a swap is its own
-inverse, no need to snapshot/restore raw position values), then
-`shell.action_reload()`.
+`_complete_project`'s no-prompt immediate-action pattern: read
+`shell.current_context_item`, call the use case, and only if the returned
+project's `position` actually changed — i.e. the use case didn't no-op at
+a list boundary — `_push_undo` (undo = call the opposite-direction use
+case on the same id; a real swap is its own inverse, no need to
+snapshot/restore raw position values). Either way, `shell.action_reload()`
+runs after. A boundary no-op must not push undo: it would make undo
+perform a real move in the wrong direction for an action the user never
+actually took.
+
+`action_reload()` rebuilds the pane from scratch, and a freshly-built
+`ItemListPane` always highlights something (ADR 0008: "no pane holds state
+invisible in the interface") — by default index 0. `ItemListPane.
+update_contents()` re-selects the previously-highlighted item by id when
+it's still present in the new contents, so the cursor follows the moved
+project across the reload instead of snapping back to the top; this is a
+general reload fix, not reorder-specific, so it also benefits rename and
+status-toggle reloads.
 
 ### Known simplification (not fixed here)
 
@@ -115,7 +144,7 @@ view state); deferred rather than solved speculatively.
 | 1 | `docs/adr/0009-sqlite-migration-strategy.md`, this spec (+ both READMEs' indexes) | Done as part of landing this spec. |
 | 2 | `Project.position: int`; `Project.create()` takes `position` | Domain. |
 | 3 | Fake `ProjectRepository` in `tests/application/fakes.py`: add `position`, order `list()` by it | Needed before use-case tests can run. |
-| 4 | `CreateProject.execute()` computes `max(positions)+1` | Application. |
+| 4 | `CreateProject.execute()`/`RestoreProject.execute()` use `ProjectRepository.next_position()` | Application. |
 | 5 | `ReorderProjectUp`, `ReorderProjectDown` use cases | Application — new files under `application/use_cases/`. |
 | 6 | `ProjectModel.position` column; SQLite repo `_live()` adds `ORDER BY position`; migration in `create_db_and_tables()` | Infrastructure. |
 | 7 | REST: `ProjectResponse.position`, two new routes, deps wiring | `adapters/rest/`. |
