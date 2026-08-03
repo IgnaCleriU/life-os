@@ -60,13 +60,15 @@ every capability it needs exists as a use case first and reaches REST and MCP
 at the same time. Step 9 is therefore pure domain/application/infrastructure
 work with no interface present.
 
-Step 9 changes the SQLite schema (`deleted_at` on both tables). There is no
-migration tooling yet, so an existing `~/.local/share/life-os/lifeos.db` must be
-deleted and recreated — `create_all` does not add columns to existing tables.
-**This destroys every project and task currently stored in it** — back up
-the file first (or confirm with whoever owns the data) rather than treating
-this as a routine step. Do this once, after Steps 9-10 land and before
-using the CLI or TUI adapters built in the steps below.
+Step 9 changed the SQLite schema (`deleted_at` on both tables). At the time
+there was no migration tooling, so this originally required deleting and
+recreating an existing `~/.local/share/life-os/lifeos.db` — `create_all`
+does not add columns to existing tables. That gap is closed as of ADR 0009
+(`docs/adr/0009-sqlite-migration-strategy.md`): schema changes from that
+point on (starting with the `position` column) apply in place via
+idempotent, guarded migrations run from `create_db_and_tables()` on every
+startup. **Never delete the local database to pick up a schema change; it
+holds real data.** See CLAUDE.md's hard rule on this.
 
 **Steps 11-13 are strictly ordered** — each is one PR, and each consumes the
 previous one's contract:
