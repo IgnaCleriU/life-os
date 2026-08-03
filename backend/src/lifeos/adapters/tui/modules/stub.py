@@ -84,7 +84,9 @@ class StubModule:
         bucket_id = f"b{self._next_bucket_number}"
         self._next_bucket_number += 1
         self._buckets[bucket_id] = {"label": name, "items": []}
-        self.shell.action_reload()  # type: ignore[attr-defined]
+        self.shell.action_reload(  # type: ignore[attr-defined]
+            context_select_id=bucket_id
+        )
 
     # --- add an item to the selected bucket (exercises INSERT mode) ----------
 
@@ -106,8 +108,11 @@ class StubModule:
         bucket = self._buckets.get(bucket_id)
         if bucket is None:
             return
+        item_id = f"{bucket_id}:{len(bucket['items'])}"  # type: ignore[arg-type]
         bucket["items"].append(text)  # type: ignore[attr-defined]
-        self.shell.action_reload()  # type: ignore[attr-defined]
+        self.shell.action_reload(  # type: ignore[attr-defined]
+            collection_select_id=item_id
+        )
 
     # --- toggle flagged on the selected item (exercises write + undo) --------
 
