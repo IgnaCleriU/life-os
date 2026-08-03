@@ -174,6 +174,26 @@ def test_capital_k_on_the_first_project_is_a_noop(module, fake_shell) -> None:
     assert names == ["first", "second"]
 
 
+def test_capital_k_on_the_first_project_pushes_no_undo_entry(module, fake_shell) -> None:
+    _create_project("first")
+    _create_project("second")
+    fake_shell.current_context_item = module.context_pane().items[0]
+
+    _entry(module, "K").action()
+
+    assert fake_shell.undo_stack.undo() is None
+
+
+def test_capital_j_on_the_last_project_pushes_no_undo_entry(module, fake_shell) -> None:
+    _create_project("first")
+    _create_project("second")
+    fake_shell.current_context_item = module.context_pane().items[1]
+
+    _entry(module, "J").action()
+
+    assert fake_shell.undo_stack.undo() is None
+
+
 def test_undo_reorder_up_restores_the_prior_order(module, fake_shell) -> None:
     _create_project("first")
     _create_project("second")
