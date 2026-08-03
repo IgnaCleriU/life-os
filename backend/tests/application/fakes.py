@@ -53,6 +53,11 @@ class InMemoryProjectRepository:
     def update(self, project: Project) -> None:
         self._projects[project.id] = project
 
+    def next_position(self) -> int:
+        if not self._projects:
+            return 0
+        return max(project.position for project in self._projects.values()) + 1
+
 
 class InMemoryTaskRepository:
     """`TaskRepository` en memoria para tests."""

@@ -52,3 +52,16 @@ class ProjectRepository(Protocol):
     def update(self, project: Project) -> None:
         """Persiste los cambios de un proyecto existente."""
         ...
+
+    def next_position(self) -> int:
+        """Devuelve la posición que le corresponde al próximo proyecto que
+        entre a la lista viva (uno nuevo, o uno que vuelve por `restore`).
+
+        Es `max(position) + 1` sobre *todos* los proyectos, borrados
+        incluidos (0 si no hay ninguno) - a diferencia de `list()`, que
+        nunca expone los borrados. Si se calculara sólo sobre los vivos,
+        un proyecto creado después de un borrado podría terminar con la
+        misma `position` que el borrado, y `RestoreProject` produciría dos
+        proyectos vivos con la misma posición al traerlo de vuelta.
+        """
+        ...

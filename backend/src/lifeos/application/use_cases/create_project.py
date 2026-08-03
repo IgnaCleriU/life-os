@@ -23,12 +23,12 @@ class CreateProject:
         `Project.create` lanza `DomainValidationError`, que se propaga.
 
         `position` se calcula acá (no en el dominio, que no conoce a los
-        demás proyectos) como `max(posiciones existentes) + 1`, para que el
-        proyecto nuevo quede al final. Se usa `max` en vez de `len` para no
-        chocar con huecos que dejan los proyectos borrados lógicamente.
+        demás proyectos) vía `ProjectRepository.next_position()`, para que
+        el proyecto nuevo quede al final - y nunca choque con un proyecto
+        borrado lógicamente que después se restaure (`next_position()`
+        cuenta también los borrados; ver su docstring en el puerto).
         """
-        existing = self._project_repo.list()
-        position = max((p.position for p in existing), default=-1) + 1
+        position = self._project_repo.next_position()
         project = Project.create(name, description, position=position)
         self._project_repo.add(project)
         return project
