@@ -88,6 +88,29 @@ def test_migration_is_idempotent():
     assert rows == [("a", 0)]
 
 
+def test_migration_adds_position_as_not_null_with_a_default():
+    """Guards against a version of the migration that could ever leave
+    `position` NULL if the process died between `ADD COLUMN` and the
+    backfill loop: the column itself must be self-completing (NOT NULL
+    DEFAULT 0) from the instant it's added, before the backfill even
+    runs."""
+    engine, table = _engine_with_old_schema()
+    _insert(engine, table, "a", "First", datetime(2026, 1, 1, tzinfo=timezone.utc))
+
+    migrate_project_position_column(engine)
+
+    with engine.connect() as connection:
+        columns = {
+            row[1]: row
+            for row in connection.exec_driver_sql(
+                "PRAGMA table_info(projects)"
+            ).fetchall()
+        }
+    _cid, _name, _type, notnull, default_value, _pk = columns["position"]
+    assert notnull == 1
+    assert default_value is not None
+
+
 def test_migration_is_a_noop_when_the_table_does_not_exist_yet():
     engine = create_engine(
         "sqlite://",
