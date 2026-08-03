@@ -1,4 +1,5 @@
 from textual.app import App, ComposeResult
+from textual.widgets import OptionList
 
 from lifeos.adapters.tui.module import DetailContents, PaneContents, PaneItem
 from lifeos.adapters.tui.widgets.panes import (
@@ -10,10 +11,19 @@ from lifeos.adapters.tui.widgets.panes import (
 
 
 class _PanesHarness(App):
+    def __init__(self) -> None:
+        super().__init__()
+        self.highlighted_events = 0
+
     def compose(self) -> ComposeResult:
         yield ContextPane(id="context")
         yield CollectionPane(id="collection")
         yield DetailPane(id="detail")
+
+    def on_option_list_option_highlighted(
+        self, event: OptionList.OptionHighlighted
+    ) -> None:
+        self.highlighted_events += 1
 
 
 def _two_item_contents() -> PaneContents:
@@ -96,6 +106,99 @@ async def test_update_contents_with_unknown_select_id_falls_back_to_first_item()
         pane.update_contents(_two_item_contents(), select_id="does-not-exist")
         assert pane.selected_item is not None
         assert pane.selected_item.id == "p1"
+
+
+async def test_update_contents_with_unreachable_select_id_preserves_prior_selection() -> (
+    None
+):
+    # The real-world trigger: a quick-added task routed to a different
+    # project (or a project created while a non-matching status filter is
+    # active) passes a select_id for an item this pane never renders. That
+    # must not be worse than passing no id at all - it should leave the
+    # pane exactly where the user was, not snap to row 0.
+    app = _PanesHarness()
+    async with app.run_test():
+        pane = app.query_one("#context", ContextPane)
+        pane.update_contents(_two_item_contents())
+        pane.highlighted = 1  # p2
+        pane.update_contents(_two_item_contents(), select_id="not-rendered-here")
+        assert pane.selected_item is not None
+        assert pane.selected_item.id == "p2"
+
+
+async def test_removing_the_selected_item_falls_back_to_the_nearest_row_not_row_zero() -> (
+    None
+):
+    app = _PanesHarness()
+    async with app.run_test():
+        pane = app.query_one("#context", ContextPane)
+        three_items = PaneContents(
+            title="PROJECTS",
+            items=[
+                PaneItem(id="p1", label="alpha", payload=None),
+                PaneItem(id="p2", label="beta", payload=None),
+                PaneItem(id="p3", label="gamma", payload=None),
+            ],
+        )
+        pane.update_contents(three_items)
+        pane.highlighted = 2  # p3
+        pane.update_contents(
+            PaneContents(
+                title="PROJECTS",
+                items=[
+                    PaneItem(id="p1", label="alpha", payload=None),
+                    PaneItem(id="p2", label="beta", payload=None),
+                ],
+            )
+        )
+        assert pane.selected_item is not None
+        assert pane.selected_item.id == "p2"
+
+
+async def test_update_contents_posts_at_most_one_option_highlighted_message() -> None:
+    app = _PanesHarness()
+    async with app.run_test() as pilot:
+        pane = app.query_one("#context", ContextPane)
+        pane.update_contents(_two_item_contents())
+        await pilot.pause()
+        app.highlighted_events = 0
+        pane.update_contents(_two_item_contents(), select_id="p2")
+        await pilot.pause()
+        assert app.highlighted_events <= 1
+
+
+def _three_item_contents() -> PaneContents:
+    return PaneContents(
+        title="PROJECTS",
+        items=[
+            PaneItem(id="p1", label="write adr", payload=None),
+            PaneItem(id="p2", label="write tests", payload=None),
+            PaneItem(id="p3", label="casa", payload=None),
+        ],
+    )
+
+
+async def test_filter_preserves_the_highlighted_item_by_id() -> None:
+    app = _PanesHarness()
+    async with app.run_test():
+        pane = app.query_one("#context", ContextPane)
+        pane.update_contents(_three_item_contents())
+        pane.highlighted = 1  # p2 ("write tests")
+        pane.filter("write")  # matches p1 and p2, p2 is index 1 of the matches
+        assert pane.selected_item is not None
+        assert pane.selected_item.id == "p2"
+
+
+async def test_clear_filter_preserves_the_highlighted_item_by_id() -> None:
+    app = _PanesHarness()
+    async with app.run_test():
+        pane = app.query_one("#context", ContextPane)
+        pane.update_contents(_three_item_contents())
+        pane.highlighted = 1  # p2 ("write tests")
+        pane.filter("write")
+        pane.clear_filter()
+        assert pane.selected_item is not None
+        assert pane.selected_item.id == "p2"
 
 
 async def test_collection_pane_is_a_distinct_type_from_context_pane() -> None:
