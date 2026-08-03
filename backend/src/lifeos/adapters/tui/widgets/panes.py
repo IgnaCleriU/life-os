@@ -31,10 +31,18 @@ class ItemListPane(OptionList):
         self._all_items: list[PaneItem] = []
 
     def update_contents(self, contents: PaneContents) -> None:
+        # Every reload rebuilds the option list from scratch, so the
+        # highlighted item's identity would otherwise always reset to
+        # index 0 - re-select the same item by id if it's still present,
+        # so a reload (e.g. after a reorder) doesn't move the cursor out
+        # from under the user.
+        previous_id = self.selected_item.id if self.selected_item else None
         self._all_items = list(contents.items)
-        self._render_items(self._all_items)
+        self._render_items(self._all_items, keep_selected_id=previous_id)
 
-    def _render_items(self, items: list[PaneItem]) -> None:
+    def _render_items(
+        self, items: list[PaneItem], *, keep_selected_id: str | None = None
+    ) -> None:
         self.clear_options()
         self._items_by_id = {item.id: item for item in items}
         for item in items:
@@ -43,7 +51,12 @@ class ItemListPane(OptionList):
         # ADR 0008: "no pane holds state that is invisible in the interface"
         # - a freshly populated pane always has something highlighted (when
         # non-empty) so the pane to its right has something to sync against.
-        self.highlighted = 0 if items else None
+        if keep_selected_id is not None and keep_selected_id in self._items_by_id:
+            self.highlighted = next(
+                i for i, item in enumerate(items) if item.id == keep_selected_id
+            )
+        else:
+            self.highlighted = 0 if items else None
 
     def filter(self, text: str) -> None:
         """Live substring filter (case-insensitive) over the full item set
