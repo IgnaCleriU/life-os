@@ -18,6 +18,8 @@ from lifeos.adapters.rest.deps import (
     get_delete_project_use_case,
     get_get_project_use_case,
     get_list_projects_use_case,
+    get_reorder_project_down_use_case,
+    get_reorder_project_up_use_case,
     get_restore_project_use_case,
     get_update_project_use_case,
 )
@@ -33,6 +35,10 @@ from lifeos.application.use_cases.create_project import CreateProject
 from lifeos.application.use_cases.delete_project import DeleteProject
 from lifeos.application.use_cases.get_project import GetProject
 from lifeos.application.use_cases.list_projects import ListProjects
+from lifeos.application.use_cases.reorder_project import (
+    ReorderProjectDown,
+    ReorderProjectUp,
+)
 from lifeos.application.use_cases.restore_project import RestoreProject
 from lifeos.application.use_cases.update_project import UpdateProject
 from lifeos.domain import ProjectStatus
@@ -112,6 +118,28 @@ def activate_project(
     use_case: Annotated[ActivateProject, Depends(get_activate_project_use_case)],
 ) -> ProjectResponse:
     """Reactiva un proyecto (idempotente)."""
+    return ProjectResponse.model_validate(use_case.execute(project_id))
+
+
+@router.post("/{project_id}/reorder-up", response_model=ProjectResponse)
+def reorder_project_up(
+    project_id: UUID,
+    use_case: Annotated[ReorderProjectUp, Depends(get_reorder_project_up_use_case)],
+) -> ProjectResponse:
+    """Sube un proyecto un lugar, intercambiando su posición con el
+    anterior (no hace nada si ya es el primero)."""
+    return ProjectResponse.model_validate(use_case.execute(project_id))
+
+
+@router.post("/{project_id}/reorder-down", response_model=ProjectResponse)
+def reorder_project_down(
+    project_id: UUID,
+    use_case: Annotated[
+        ReorderProjectDown, Depends(get_reorder_project_down_use_case)
+    ],
+) -> ProjectResponse:
+    """Baja un proyecto un lugar, intercambiando su posición con el
+    siguiente (no hace nada si ya es el último)."""
     return ProjectResponse.model_validate(use_case.execute(project_id))
 
 

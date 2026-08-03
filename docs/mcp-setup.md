@@ -68,6 +68,8 @@ same use case as its REST equivalent (ADR 0002):
 - **Projects:** `create_project`, `list_projects` (optional `status`, `text`
   filters), `get_project`, `update_project` (partial; `description: null`
   clears it), `complete_project`, `archive_project`, `activate_project`,
+  `reorder_project_up`/`reorder_project_down` (swap position with the
+  previous/next project; no-op at the top/bottom of the list),
   `delete_project` (fails if the project still has live tasks),
   `restore_project`.
 - **Tasks:** `create_task`, `list_tasks` (optional `project_id`, `status`,

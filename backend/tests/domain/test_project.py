@@ -31,6 +31,18 @@ def test_create_with_empty_name_raises(invalid_name):
         Project.create(name=invalid_name)
 
 
+def test_create_defaults_position_to_zero():
+    project = Project.create(name="Life OS")
+
+    assert project.position == 0
+
+
+def test_create_accepts_explicit_position():
+    project = Project.create(name="Life OS", position=3)
+
+    assert project.position == 3
+
+
 def test_rename_changes_name():
     project = Project.create(name="Viejo")
 

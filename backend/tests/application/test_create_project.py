@@ -32,6 +32,17 @@ def test_create_without_description_defaults_to_none():
     assert project.description is None
 
 
+def test_create_assigns_sequential_positions():
+    repo = InMemoryProjectRepository()
+    use_case = CreateProject(repo)
+
+    first = use_case.execute(name="First")
+    second = use_case.execute(name="Second")
+    third = use_case.execute(name="Third")
+
+    assert (first.position, second.position, third.position) == (0, 1, 2)
+
+
 @pytest.mark.parametrize("invalid_name", ["", "   "])
 def test_create_with_empty_name_raises(invalid_name):
     repo = InMemoryProjectRepository()

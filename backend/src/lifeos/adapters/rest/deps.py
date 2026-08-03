@@ -29,6 +29,10 @@ from lifeos.application.use_cases.list_projects import ListProjects
 from lifeos.application.use_cases.list_tasks import ListTasks
 from lifeos.application.use_cases.move_task import MoveTask
 from lifeos.application.use_cases.reopen_task import ReopenTask
+from lifeos.application.use_cases.reorder_project import (
+    ReorderProjectDown,
+    ReorderProjectUp,
+)
 from lifeos.application.use_cases.restore_project import RestoreProject
 from lifeos.application.use_cases.restore_task import RestoreTask
 from lifeos.application.use_cases.start_task import StartTask
@@ -98,6 +102,14 @@ def get_archive_project_use_case(project_repo: ProjectRepo) -> ArchiveProject:
 
 def get_activate_project_use_case(project_repo: ProjectRepo) -> ActivateProject:
     return ActivateProject(project_repo)
+
+
+def get_reorder_project_up_use_case(project_repo: ProjectRepo) -> ReorderProjectUp:
+    return ReorderProjectUp(project_repo)
+
+
+def get_reorder_project_down_use_case(project_repo: ProjectRepo) -> ReorderProjectDown:
+    return ReorderProjectDown(project_repo)
 
 
 def get_delete_project_use_case(

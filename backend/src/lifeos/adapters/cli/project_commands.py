@@ -149,6 +149,30 @@ def activate(
     _emit_project(ctx, project)
 
 
+@project_app.command("reorder-up")
+@handle_domain_errors
+def reorder_up(
+    ctx: typer.Context,
+    project_id: UUID = typer.Argument(..., help="Project id."),
+) -> None:
+    """Move a project up one place (no-op if it's already first)."""
+    with deps.reorder_project_up_use_case() as use_case:
+        project = use_case.execute(project_id)
+    _emit_project(ctx, project)
+
+
+@project_app.command("reorder-down")
+@handle_domain_errors
+def reorder_down(
+    ctx: typer.Context,
+    project_id: UUID = typer.Argument(..., help="Project id."),
+) -> None:
+    """Move a project down one place (no-op if it's already last)."""
+    with deps.reorder_project_down_use_case() as use_case:
+        project = use_case.execute(project_id)
+    _emit_project(ctx, project)
+
+
 @project_app.command("delete")
 @handle_domain_errors
 def delete(

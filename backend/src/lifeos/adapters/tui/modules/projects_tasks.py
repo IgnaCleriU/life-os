@@ -143,6 +143,12 @@ class ProjectsTasksModule:
                 g(self._toggle_archive_project),
             ),
             KeymapEntry(
+                Scope.CONTEXT, "K", "move project up", g(self._move_project_up)
+            ),
+            KeymapEntry(
+                Scope.CONTEXT, "J", "move project down", g(self._move_project_down)
+            ),
+            KeymapEntry(
                 Scope.CONTEXT, "dd", "delete project", g(self._start_delete_project)
             ),
             KeymapEntry(
@@ -323,6 +329,51 @@ class ProjectsTasksModule:
         else:
             with deps.activate_project_use_case() as use_case:
                 use_case.execute(project_id)
+
+    def _move_project_up(self) -> None:
+        shell = self.shell
+        assert shell is not None
+        item = shell.current_context_item  # type: ignore[attr-defined]
+        if item is None:
+            return
+        project: Project = item.payload
+        moved = self._reorder_project(project.id, "up")
+        if moved.position != project.position:
+            self._push_undo(
+                "move project up",
+                undo=lambda: self._reorder_project(project.id, "down"),
+                redo=lambda: self._reorder_project(project.id, "up"),
+            )
+        self.shell.action_reload()  # type: ignore[attr-defined]
+
+    def _move_project_down(self) -> None:
+        shell = self.shell
+        assert shell is not None
+        item = shell.current_context_item  # type: ignore[attr-defined]
+        if item is None:
+            return
+        project: Project = item.payload
+        moved = self._reorder_project(project.id, "down")
+        if moved.position != project.position:
+            self._push_undo(
+                "move project down",
+                undo=lambda: self._reorder_project(project.id, "up"),
+                redo=lambda: self._reorder_project(project.id, "down"),
+            )
+        self.shell.action_reload()  # type: ignore[attr-defined]
+
+    def _reorder_project(self, project_id: UUID, direction: str) -> Project:
+        """A swap is its own inverse, so undo/redo above just call this
+        again with the opposite direction on the same id - no need to
+        snapshot/restore raw position values. Callers compare the returned
+        project's `position` against the pre-call value to detect a
+        boundary no-op (nothing to undo)."""
+        if direction == "up":
+            with deps.reorder_project_up_use_case() as use_case:
+                return use_case.execute(project_id)
+        else:
+            with deps.reorder_project_down_use_case() as use_case:
+                return use_case.execute(project_id)
 
     def _start_delete_project(self) -> None:
         shell = self.shell

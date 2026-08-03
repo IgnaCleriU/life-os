@@ -69,13 +69,58 @@ def _ensure_sqlite_parent_dir() -> None:
         Path(engine.url.database).parent.mkdir(parents=True, exist_ok=True)
 
 
+def migrate_project_position_column(engine: Engine) -> None:
+    """Migración ADR 0009: agrega `position` a `projects` si falta.
+
+    `create_all()` no agrega columnas a tablas existentes, así que una DB
+    creada antes de este cambio se queda sin `position` para siempre si
+    nada más la agrega. Chequea `PRAGMA table_info` (vacío si la tabla
+    todavía no existe — `create_all()`, llamado antes, ya la crea completa
+    en ese caso) y, si la columna falta, la agrega y la rellena en el orden
+    actual de `created_at`. Idempotente: si la columna ya está, no hace nada.
+
+    La columna se agrega `NOT NULL DEFAULT 0` a propósito, no nullable: si
+    el proceso muere entre el `ALTER TABLE` y el loop de relleno de abajo,
+    ninguna fila queda con `position` en NULL (el guard de arriba sólo
+    chequea que la columna exista, así que un relleno interrumpido nunca
+    se reintenta). Con el tiebreaker por `created_at` que `_live()` agrega
+    a su `ORDER BY`, un relleno que no llegó a correr igual ordena
+    correctamente en las lecturas — no rompe nada, sólo no optimiza el
+    valor real de `position` hasta la próxima escritura.
+    """
+    with engine.connect() as connection:
+        columns = {
+            row[1]
+            for row in connection.exec_driver_sql(
+                "PRAGMA table_info(projects)"
+            ).fetchall()
+        }
+        if not columns or "position" in columns:
+            return
+
+        connection.exec_driver_sql(
+            "ALTER TABLE projects ADD COLUMN position INTEGER NOT NULL DEFAULT 0"
+        )
+        rows = connection.exec_driver_sql(
+            "SELECT id FROM projects ORDER BY created_at"
+        ).fetchall()
+        for index, (project_id,) in enumerate(rows):
+            connection.exec_driver_sql(
+                "UPDATE projects SET position = ? WHERE id = ?",
+                (index, project_id),
+            )
+        connection.commit()
+
+
 def create_db_and_tables() -> None:
-    """Crea las tablas declaradas en el metadata de SQLModel si no existen.
+    """Crea las tablas declaradas en el metadata de SQLModel si no existen,
+    y aplica las migraciones de esquema pendientes (ADR 0009).
 
     Idempotente — se puede llamar varias veces sin efecto adicional.
     """
     _ensure_sqlite_parent_dir()
     SQLModel.metadata.create_all(engine)
+    migrate_project_position_column(engine)
 
 
 @contextmanager

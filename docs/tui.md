@@ -32,13 +32,11 @@ TUI shares the same `~/.local/share/life-os/lifeos.db` as the REST API, the
 MCP server, and the CLI (see
 [../ARCHITECTURE.md](../ARCHITECTURE.md#where-the-data-lives)).
 
-**If you're upgrading from before Steps 9-10**, delete and let `lifeos-tui`
-recreate `~/.local/share/life-os/lifeos.db` first — that schema change
-added `deleted_at` to both tables, and there is no migration tooling yet.
-An old database file will crash the board with `no such column:
-projects.deleted_at` on the very first render. **This deletes every
-project and task currently stored in it** — back up the file first if it
-holds real data you care about.
+Schema changes no longer require any manual step: `create_db_and_tables()`
+migrates an existing database in place on startup (ADR 0009,
+`docs/adr/0009-sqlite-migration-strategy.md`). **Never delete the local
+database to pick up a schema change; it holds real data.** See CLAUDE.md's
+hard rule on this.
 
 ## 2. The board: panes and modes
 
@@ -90,6 +88,7 @@ this table, so none of the three can silently drift from each other.
 | `Enter` `l` | focus the tasks pane |
 | `c` | mark the project completed |
 | `A` | archive / activate (toggles by current status) |
+| `K` `J` | move the project up / down (no-op at the top/bottom) |
 | `f` | filter by status (active / completed / archived / all) |
 | `dd` | delete, with confirmation — fails with `project_not_empty` while the project still has live tasks |
 

@@ -32,3 +32,4 @@ it the next available number, and open a pull request.
 | [0006](0006-tech-stack.md) | Technology stack | Accepted |
 | [0007](0007-shared-database-location.md) | One shared database in the user data directory | Accepted |
 | [0008](0008-keyboard-driven-tui-adapter.md) | Keyboard-driven TUI adapter | Accepted |
+| [0009](0009-sqlite-migration-strategy.md) | Ad-hoc idempotent migrations for local SQLite schema changes | Accepted |

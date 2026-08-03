@@ -52,6 +52,7 @@ def _project_dict(project: Project) -> dict[str, Any]:
         "description": project.description,
         "status": project.status.value,
         "created_at": project.created_at.isoformat(),
+        "position": project.position,
     }
 
 
@@ -150,6 +151,26 @@ def register_tools(server: FastMCP) -> None:
         """Reactiva un proyecto (idempotente)."""
         try:
             with deps.activate_project_use_case() as use_case:
+                project = use_case.execute(project_id)
+        except ProjectNotFound as exc:
+            raise _as_tool_error(exc) from exc
+        return _project_dict(project)
+
+    @server.tool()
+    def reorder_project_up(project_id: UUID) -> dict[str, Any]:
+        """Sube un proyecto un lugar (no hace nada si ya es el primero)."""
+        try:
+            with deps.reorder_project_up_use_case() as use_case:
+                project = use_case.execute(project_id)
+        except ProjectNotFound as exc:
+            raise _as_tool_error(exc) from exc
+        return _project_dict(project)
+
+    @server.tool()
+    def reorder_project_down(project_id: UUID) -> dict[str, Any]:
+        """Baja un proyecto un lugar (no hace nada si ya es el último)."""
+        try:
+            with deps.reorder_project_down_use_case() as use_case:
                 project = use_case.execute(project_id)
         except ProjectNotFound as exc:
             raise _as_tool_error(exc) from exc

@@ -221,6 +221,7 @@ def test_project_dict_matches_mcp_field_set() -> None:
         "description": project.description,
         "status": project.status.value,
         "created_at": project.created_at.isoformat(),
+        "position": project.position,
     }
 
 

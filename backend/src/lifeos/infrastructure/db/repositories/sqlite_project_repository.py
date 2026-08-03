@@ -7,6 +7,7 @@ from datetime import timezone
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from lifeos.domain import Project, ProjectStatus
@@ -18,8 +19,17 @@ def _live() -> Any:
 
     Toda lectura arranca de acá, por el mismo motivo que en
     `sqlite_task_repository`: el filtro de borrado vive en un solo lugar.
+
+    `position` no tiene restricción de unicidad; el `order_by` secundario
+    en `created_at` sólo evita que un duplicado (de existir) se muestre en
+    orden no determinístico entre lecturas - no reemplaza a
+    `next_position()`, que es lo que evita el duplicado en primer lugar.
     """
-    return select(ProjectModel).where(ProjectModel.deleted_at.is_(None))  # type: ignore[union-attr]
+    return (
+        select(ProjectModel)
+        .where(ProjectModel.deleted_at.is_(None))  # type: ignore[union-attr]
+        .order_by(ProjectModel.position, ProjectModel.created_at)
+    )
 
 
 class SQLiteProjectRepository:
@@ -74,6 +84,20 @@ class SQLiteProjectRepository:
         self._session.merge(_to_model(project))
         self._session.commit()
 
+    def update_many(self, projects: Sequence[Project]) -> None:
+        """Persiste varios proyectos en una sola transacción - ver el
+        puerto para por qué esto importa (el swap de `ReorderProject*`)."""
+        for project in projects:
+            self._session.merge(_to_model(project))
+        self._session.commit()
+
+    def next_position(self) -> int:
+        """`max(position) + 1` sobre *todos* los proyectos, borrados
+        incluidos (0 si no hay ninguno) - un scalar query, no un
+        list-and-hydrate completo."""
+        max_position = self._session.exec(select(func.max(ProjectModel.position))).one()
+        return 0 if max_position is None else max_position + 1
+
 
 def _to_model(project: Project) -> ProjectModel:
     return ProjectModel(
@@ -83,6 +107,7 @@ def _to_model(project: Project) -> ProjectModel:
         status=project.status.value,
         created_at=project.created_at,
         deleted_at=project.deleted_at,
+        position=project.position,
     )
 
 
@@ -98,4 +123,5 @@ def _to_domain(model: ProjectModel) -> Project:
             if model.deleted_at is not None
             else None
         ),
+        position=model.position,
     )

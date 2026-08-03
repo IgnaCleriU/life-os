@@ -70,6 +70,60 @@ def test_update_persists_rename_and_status(session):
     assert reloaded.status is ProjectStatus.ARCHIVED
 
 
+def test_list_orders_by_position_not_insertion_order(session):
+    repo = SQLiteProjectRepository(session)
+    first = Project.create(name="First", position=2)
+    second = Project.create(name="Second", position=0)
+    third = Project.create(name="Third", position=1)
+    repo.add(first)
+    repo.add(second)
+    repo.add(third)
+
+    assert [p.id for p in repo.list()] == [second.id, third.id, first.id]
+
+
+def test_update_many_persists_all_changes_in_a_single_commit(session):
+    repo = SQLiteProjectRepository(session)
+    first = Project.create(name="First", position=0)
+    second = Project.create(name="Second", position=1)
+    repo.add(first)
+    repo.add(second)
+
+    original_commit = session.commit
+    commit_calls: list[None] = []
+
+    def spy_commit() -> None:
+        commit_calls.append(None)
+        original_commit()
+
+    session.commit = spy_commit  # type: ignore[method-assign]
+
+    first.position, second.position = second.position, first.position
+    repo.update_many([first, second])
+
+    assert len(commit_calls) == 1
+    assert repo.get(first.id).position == 1
+    assert repo.get(second.id).position == 0
+
+
+def test_next_position_is_one_past_the_max_including_deleted(session):
+    repo = SQLiteProjectRepository(session)
+    first = Project.create(name="First", position=0)
+    second = Project.create(name="Second", position=1)
+    repo.add(first)
+    repo.add(second)
+    second.delete()
+    repo.update(second)
+
+    assert repo.next_position() == 2
+
+
+def test_next_position_is_zero_when_the_table_is_empty(session):
+    repo = SQLiteProjectRepository(session)
+
+    assert repo.next_position() == 0
+
+
 def test_list_filters_by_status_and_text(session):
     repo = SQLiteProjectRepository(session)
     casa = Project.create(name="Casa de campo")

@@ -45,6 +45,7 @@ class Project:
     status: ProjectStatus
     created_at: datetime
     deleted_at: datetime | None = None
+    position: int = 0
 
     @property
     def is_deleted(self) -> bool:
@@ -52,14 +53,23 @@ class Project:
         return self.deleted_at is not None
 
     @classmethod
-    def create(cls, name: str, description: str | None = None) -> Project:
-        """Crea un proyecto nuevo, generando id y timestamp en el dominio."""
+    def create(
+        cls, name: str, description: str | None = None, position: int = 0
+    ) -> Project:
+        """Crea un proyecto nuevo, generando id y timestamp en el dominio.
+
+        `position` no tiene forma de auto-calcularse acá: la entidad no sabe
+        cuántos otros proyectos existen. Por defecto es `0`; `CreateProject`
+        (capa de aplicación) pasa el valor real calculado contra el
+        repositorio.
+        """
         return cls(
             id=uuid4(),
             name=_validate_name(name),
             description=description,
             status=ProjectStatus.ACTIVE,
             created_at=datetime.now(timezone.utc),
+            position=position,
         )
 
     def rename(self, new_name: str) -> None:

@@ -21,7 +21,14 @@ class CreateProject:
 
         La validación del nombre vive en el dominio: si es inválido,
         `Project.create` lanza `DomainValidationError`, que se propaga.
+
+        `position` se calcula acá (no en el dominio, que no conoce a los
+        demás proyectos) vía `ProjectRepository.next_position()`, para que
+        el proyecto nuevo quede al final - y nunca choque con un proyecto
+        borrado lógicamente que después se restaure (`next_position()`
+        cuenta también los borrados; ver su docstring en el puerto).
         """
-        project = Project.create(name, description)
+        position = self._project_repo.next_position()
+        project = Project.create(name, description, position=position)
         self._project_repo.add(project)
         return project
