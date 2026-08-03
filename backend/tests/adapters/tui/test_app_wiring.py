@@ -89,6 +89,11 @@ async def test_end_to_end_nav_palette_help_insert_undo_quit() -> None:
         await pilot.press("z", "z", "z")
         await pilot.press("enter")
         assert context_pane.option_count == before + 1
+        # creating a bucket selects it, and a fresh bucket has no items -
+        # jump back to the first bucket (has items) before exercising the
+        # toggle, a separate concern from the create-selects-new behaviour
+        # just asserted above.
+        await pilot.press("g", "g")
 
         # toggle + undo on a collection item
         await pilot.press("h", "l")

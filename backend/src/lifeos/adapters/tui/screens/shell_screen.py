@@ -202,11 +202,28 @@ class ShellScreen(Screen[None]):
         if isinstance(self.focused, OptionList):
             self.focused.action_page_up()
 
-    def action_reload(self) -> None:
+    def action_reload(
+        self,
+        *,
+        context_select_id: str | None = None,
+        collection_select_id: str | None = None,
+    ) -> None:
         self._error_message = ""
-        self._refresh_context_pane()
-        self._refresh_collection_pane()
-        self._refresh_detail_pane()
+        context_pane = self.query_one("#context-pane", ContextPane)
+        previous_item = context_pane.selected_item
+        previous_context_id = None if previous_item is None else previous_item.id
+        self._refresh_context_pane(select_id=context_select_id)
+        new_item = context_pane.selected_item
+        new_context_id = None if new_item is None else new_item.id
+        # A changed context highlight already posts OptionHighlighted, whose
+        # handler (on_option_list_option_highlighted) refreshes the
+        # collection and detail panes - refreshing them again here would
+        # requery the module (and its DB-backed use cases) a second time
+        # for no reason. Only do it explicitly when the context selection
+        # didn't move, since then nothing else will.
+        if new_context_id == previous_context_id:
+            self._refresh_collection_pane(select_id=collection_select_id)
+            self._refresh_detail_pane()
         self._refresh_status_bar()
 
     def action_undo(self) -> None:
@@ -415,14 +432,17 @@ class ShellScreen(Screen[None]):
         elif event.option_list is collection_pane:
             self._refresh_detail_pane()
 
-    def _refresh_context_pane(self) -> None:
+    def _refresh_context_pane(self, select_id: str | None = None) -> None:
+        # select_id=None means "no explicit override" - ItemListPane itself
+        # defaults that to preserving its own current selection.
         context_pane = self.query_one("#context-pane", ContextPane)
-        context_pane.update_contents(self.module.context_pane())
+        context_pane.update_contents(self.module.context_pane(), select_id=select_id)
 
-    def _refresh_collection_pane(self) -> None:
+    def _refresh_collection_pane(self, select_id: str | None = None) -> None:
         context_item = self.query_one("#context-pane", ContextPane).selected_item
+        collection_pane = self.query_one("#collection-pane", CollectionPane)
         contents = self.module.collection_pane(context_item)
-        self.query_one("#collection-pane", CollectionPane).update_contents(contents)
+        collection_pane.update_contents(contents, select_id=select_id)
 
     def _refresh_detail_pane(self) -> None:
         collection_pane = self.query_one("#collection-pane", CollectionPane)

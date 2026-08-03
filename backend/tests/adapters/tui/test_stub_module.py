@@ -68,13 +68,22 @@ class _FakeShell:
     def __init__(self) -> None:
         self.undo_stack = UndoStack()
         self.reload_count = 0
+        self.last_context_select_id: str | None = None
+        self.last_collection_select_id: str | None = None
         self._pending_commit: object = None
 
     def prompt_insert(self, *, placeholder: str, on_commit) -> None:  # noqa: ANN001
         self._pending_commit = on_commit
 
-    def action_reload(self) -> None:
+    def action_reload(
+        self,
+        *,
+        context_select_id: str | None = None,
+        collection_select_id: str | None = None,
+    ) -> None:
         self.reload_count += 1
+        self.last_context_select_id = context_select_id
+        self.last_collection_select_id = collection_select_id
 
     def commit_pending_prompt(self, text: str) -> None:
         assert self._pending_commit is not None
@@ -102,6 +111,17 @@ def test_add_bucket_action_opens_an_insert_prompt_and_commits_a_new_bucket() -> 
     assert module.shell.reload_count == 1
 
 
+def test_add_bucket_action_selects_the_new_bucket() -> None:
+    module = StubModule()
+    module.shell = _FakeShell()
+
+    _entry(module, Scope.CONTEXT, "a").action()
+    module.shell.commit_pending_prompt("a whole new bucket")
+
+    new_bucket = module.context_pane().items[-1]
+    assert module.shell.last_context_select_id == new_bucket.id
+
+
 def test_add_item_action_adds_to_the_currently_selected_bucket() -> None:
     module = StubModule()
     module.shell = _FakeShell()
@@ -115,6 +135,19 @@ def test_add_item_action_adds_to_the_currently_selected_bucket() -> None:
     after = module.collection_pane(bucket).items
     assert len(after) == before + 1
     assert after[-1].label == "a whole new item"
+
+
+def test_add_item_action_selects_the_new_item() -> None:
+    module = StubModule()
+    module.shell = _FakeShell()
+    bucket = module.context_pane().items[0]
+    module.shell.current_context_item = bucket  # type: ignore[attr-defined]
+
+    _entry(module, Scope.COLLECTION, "a").action()
+    module.shell.commit_pending_prompt("a whole new item")
+
+    new_item = module.collection_pane(bucket).items[-1]
+    assert module.shell.last_collection_select_id == new_item.id
 
 
 def test_toggle_flag_action_pushes_an_undoable_write() -> None:

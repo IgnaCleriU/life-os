@@ -26,6 +26,8 @@ class FakeShell:
     def __init__(self) -> None:
         self.undo_stack = UndoStack()
         self.reload_count = 0
+        self.last_context_select_id: str | None = None
+        self.last_collection_select_id: str | None = None
         self.errors: list[str] = []
         self.current_context_item = None
         self.current_collection_item = None
@@ -73,8 +75,15 @@ class FakeShell:
         self._pending_pick = None
         on_select(option)
 
-    def action_reload(self) -> None:
+    def action_reload(
+        self,
+        *,
+        context_select_id: str | None = None,
+        collection_select_id: str | None = None,
+    ) -> None:
         self.reload_count += 1
+        self.last_context_select_id = context_select_id
+        self.last_collection_select_id = collection_select_id
 
     def show_error(self, message: str) -> None:
         self.errors.append(message)
