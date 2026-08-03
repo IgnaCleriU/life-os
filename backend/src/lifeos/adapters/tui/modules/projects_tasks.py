@@ -337,12 +337,13 @@ class ProjectsTasksModule:
         if item is None:
             return
         project: Project = item.payload
-        self._reorder_project(project.id, "up")
-        self._push_undo(
-            "move project up",
-            undo=lambda: self._reorder_project(project.id, "down"),
-            redo=lambda: self._reorder_project(project.id, "up"),
-        )
+        moved = self._reorder_project(project.id, "up")
+        if moved.position != project.position:
+            self._push_undo(
+                "move project up",
+                undo=lambda: self._reorder_project(project.id, "down"),
+                redo=lambda: self._reorder_project(project.id, "up"),
+            )
         self.shell.action_reload()  # type: ignore[attr-defined]
 
     def _move_project_down(self) -> None:
@@ -352,24 +353,27 @@ class ProjectsTasksModule:
         if item is None:
             return
         project: Project = item.payload
-        self._reorder_project(project.id, "down")
-        self._push_undo(
-            "move project down",
-            undo=lambda: self._reorder_project(project.id, "up"),
-            redo=lambda: self._reorder_project(project.id, "down"),
-        )
+        moved = self._reorder_project(project.id, "down")
+        if moved.position != project.position:
+            self._push_undo(
+                "move project down",
+                undo=lambda: self._reorder_project(project.id, "up"),
+                redo=lambda: self._reorder_project(project.id, "down"),
+            )
         self.shell.action_reload()  # type: ignore[attr-defined]
 
-    def _reorder_project(self, project_id: UUID, direction: str) -> None:
+    def _reorder_project(self, project_id: UUID, direction: str) -> Project:
         """A swap is its own inverse, so undo/redo above just call this
         again with the opposite direction on the same id - no need to
-        snapshot/restore raw position values."""
+        snapshot/restore raw position values. Callers compare the returned
+        project's `position` against the pre-call value to detect a
+        boundary no-op (nothing to undo)."""
         if direction == "up":
             with deps.reorder_project_up_use_case() as use_case:
-                use_case.execute(project_id)
+                return use_case.execute(project_id)
         else:
             with deps.reorder_project_down_use_case() as use_case:
-                use_case.execute(project_id)
+                return use_case.execute(project_id)
 
     def _start_delete_project(self) -> None:
         shell = self.shell
