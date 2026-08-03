@@ -68,6 +68,8 @@ per entity, whitespace-column-aligned, with no colors or box drawing — see
 | `project complete` | `project_id` | — | idempotent |
 | `project archive` | `project_id` | — | idempotent |
 | `project activate` | `project_id` | — | idempotent (reactivates) |
+| `project reorder-up` | `project_id` | — | swaps position with the previous project in the list; no-op if already first |
+| `project reorder-down` | `project_id` | — | swaps position with the next project in the list; no-op if already last |
 | `project delete` | `project_id` | `--yes`/`-y` | soft delete; prompts for confirmation unless `--yes`; fails with `project_not_empty` if the project still has live tasks |
 | `project restore` | `project_id` | — | undoes `delete` |
 
