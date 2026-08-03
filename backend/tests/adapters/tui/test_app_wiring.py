@@ -142,6 +142,38 @@ async def test_switching_projects_clears_a_stale_bulk_selection(tui_env) -> None
         assert not app.is_running
 
 
+async def test_reorder_reload_keeps_the_moved_project_selected(tui_env) -> None:  # noqa: ANN001
+    """Regression: action_reload() rebuilds the context pane from scratch,
+    and a freshly-rebuilt pane always highlights index 0 - without
+    re-selecting the moved project by id, a project can only ever move one
+    slot before the cursor snaps back to the top and a second K/J silently
+    acts on the wrong project."""
+    from lifeos.adapters.tui import deps
+    from lifeos.adapters.tui.modules.projects_tasks import ProjectsTasksModule
+
+    for name in ["a", "b", "c", "d"]:
+        with deps.create_project_use_case() as use_case:
+            use_case.execute(name=name)
+
+    app = ShellApp(module=ProjectsTasksModule())
+    async with app.run_test() as pilot:
+        context_pane = app.screen.query_one("#context-pane", ContextPane)
+        await pilot.press("j", "j", "j")  # move cursor down to "d"
+        assert context_pane.highlighted == 3
+
+        await pilot.press("K")
+        await pilot.press("K")
+
+        names = [
+            str(context_pane.get_option_at_index(i).prompt).split()[0]
+            for i in range(context_pane.option_count)
+        ]
+        assert names == ["a", "d", "b", "c"]
+
+        await pilot.press("q")
+        assert not app.is_running
+
+
 async def test_end_to_end_with_the_real_projects_tasks_module(tui_env) -> None:  # noqa: ANN001
     from lifeos.adapters.tui import deps
     from lifeos.adapters.tui.modules.projects_tasks import ProjectsTasksModule
