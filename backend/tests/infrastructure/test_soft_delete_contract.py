@@ -23,12 +23,16 @@ from lifeos.infrastructure.db.repositories.sqlite_task_repository import (
 )
 
 _EXPECTED_PUBLIC_METHODS = {"add", "get", "list", "update"}
-_EXPECTED_PUBLIC_METHODS_INCLUDING_DELETED = {"next_position"}
-"""`next_position()` is the deliberate exception to this file's rule: it
-must count deleted projects too (see its docstring on the port and
+_EXPECTED_PUBLIC_METHODS_INCLUDING_DELETED = {"next_position", "update_many"}
+"""`next_position()` and `update_many()` are the deliberate exceptions to
+this file's rule: `next_position()` must count deleted projects too (see
+its docstring on the port and
 `test_next_position_is_one_past_the_max_including_deleted` in
 `test_sqlite_project_repository.py`), or a project restored after another
-was created in its place would collide positions with it."""
+was created in its place would collide positions with it. `update_many()`
+is a write path (not a read), so the soft-delete filter this file audits
+doesn't apply to it - it persists whatever `Project` instances it's
+given, deleted or not, same as `update()`."""
 
 
 @pytest.mark.parametrize(
