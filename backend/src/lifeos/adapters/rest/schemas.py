@@ -111,6 +111,37 @@ class TaskResponse(BaseModel):
     created_at: datetime
 
 
+# --- Quick-add ---------------------------------------------------------
+
+
+class QuickAddRequest(BaseModel):
+    """Body de `POST /quick-add` y `POST /quick-add/preview`.
+
+    `text` usa la sintaxis quick-add (`!high @sat #casa`). Sin `#nombre`, la
+    tarea va a `default_project_id` si se manda, y si no al proyecto "inbox".
+    """
+
+    text: str
+    default_project_id: UUID | None = None
+
+
+class QuickAddProject(BaseModel):
+    """Proyecto destino resuelto. `id` nulo: el "inbox" se crearía al guardar."""
+
+    id: UUID | None
+    name: str
+
+
+class QuickAddPreviewResponse(BaseModel):
+    """Cómo se interpretaría el texto, sin escribir nada."""
+
+    title: str
+    priority: Priority
+    due_date: date | None
+    project: QuickAddProject | None
+    error: ErrorDetail | None
+
+
 # --- Sync --------------------------------------------------------------
 
 
