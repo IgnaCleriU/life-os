@@ -1,0 +1,16 @@
+# Unidad systemd --user del daemon REST de Life OS (ADR 0009, spec 0002).
+# Plantilla: desktop/install.sh reemplaza @LIFEOS_DAEMON@ por la ruta absoluta
+# al console script del venv del backend y la instala en
+# ~/.config/systemd/user/.
+[Unit]
+Description=Life OS REST daemon (local API for the Quickshell board)
+Documentation=file://@REPO@/docs/desktop.md
+
+[Service]
+Type=simple
+ExecStart=@LIFEOS_DAEMON@
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
