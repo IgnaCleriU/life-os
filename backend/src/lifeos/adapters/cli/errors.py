@@ -13,39 +13,18 @@ from __future__ import annotations
 from collections.abc import Callable
 from functools import wraps
 from typing import Any, TypeVar
-from uuid import UUID
 
 import typer
 
+from lifeos.adapters.shared.capture_target import (
+    AmbiguousProjectName,
+    ProjectNameNotFound,
+)
 from lifeos.adapters.shared.error_codes import DOMAIN_ERROR_CODES
 
 F = TypeVar("F", bound=Callable[..., Any])
 
-
-class ProjectNameNotFound(Exception):
-    """No existe ningún proyecto con el nombre buscado.
-
-    Usado por `capture` para resolver un `#nombre` (o el fallback "inbox")
-    a un id de proyecto antes de llamar al caso de uso.
-    """
-
-    def __init__(self, name: str) -> None:
-        self.name = name
-        super().__init__(f"No project found with name '{name}'")
-
-
-class AmbiguousProjectName(Exception):
-    """Más de un proyecto activo comparte el nombre buscado."""
-
-    def __init__(self, name: str, candidates: list[UUID]) -> None:
-        self.name = name
-        self.candidates = candidates
-        candidate_ids = ", ".join(str(candidate) for candidate in candidates)
-        super().__init__(
-            f"Multiple projects named '{name}' found: {candidate_ids}. "
-            "Use 'lifeos task create <project_id> ...' with an explicit "
-            "id to disambiguate."
-        )
+__all__ = ["AmbiguousProjectName", "ProjectNameNotFound", "handle_domain_errors"]
 
 
 _DOMAIN_ERROR_CODES: dict[type[Exception], str] = {
