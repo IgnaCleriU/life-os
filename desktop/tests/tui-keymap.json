@@ -1,0 +1,207 @@
+[
+  {
+    "scope": "collection",
+    "key": "E",
+    "label": "edit description in $EDITOR"
+  },
+  {
+    "scope": "collection",
+    "key": "S",
+    "label": "cycle sort order"
+  },
+  {
+    "scope": "collection",
+    "key": "a",
+    "label": "add a task (quick-add)"
+  },
+  {
+    "scope": "collection",
+    "key": "at",
+    "label": "set due date"
+  },
+  {
+    "scope": "collection",
+    "key": "c",
+    "label": "complete task"
+  },
+  {
+    "scope": "collection",
+    "key": "dd",
+    "label": "delete task"
+  },
+  {
+    "scope": "collection",
+    "key": "e",
+    "label": "rename task"
+  },
+  {
+    "scope": "collection",
+    "key": "f",
+    "label": "filter menu"
+  },
+  {
+    "scope": "collection",
+    "key": "m",
+    "label": "move to another project"
+  },
+  {
+    "scope": "collection",
+    "key": "o",
+    "label": "add a task (quick-add)"
+  },
+  {
+    "scope": "collection",
+    "key": "p",
+    "label": "priority picker"
+  },
+  {
+    "scope": "collection",
+    "key": "r",
+    "label": "reopen task"
+  },
+  {
+    "scope": "collection",
+    "key": "s",
+    "label": "start task"
+  },
+  {
+    "scope": "collection",
+    "key": "space",
+    "label": "cycle status"
+  },
+  {
+    "scope": "collection",
+    "key": "v",
+    "label": "toggle selection"
+  },
+  {
+    "scope": "collection",
+    "key": "x",
+    "label": "toggle selection"
+  },
+  {
+    "scope": "collection",
+    "key": "y",
+    "label": "copy task as markdown"
+  },
+  {
+    "scope": "context",
+    "key": "A",
+    "label": "archive/activate project"
+  },
+  {
+    "scope": "context",
+    "key": "a",
+    "label": "create a project"
+  },
+  {
+    "scope": "context",
+    "key": "c",
+    "label": "complete project"
+  },
+  {
+    "scope": "context",
+    "key": "dd",
+    "label": "delete project"
+  },
+  {
+    "scope": "context",
+    "key": "e",
+    "label": "rename project"
+  },
+  {
+    "scope": "context",
+    "key": "f",
+    "label": "filter by status"
+  },
+  {
+    "scope": "global",
+    "key": "G",
+    "label": "last item"
+  },
+  {
+    "scope": "global",
+    "key": "R",
+    "label": "reload from the database"
+  },
+  {
+    "scope": "global",
+    "key": "ctrl+d",
+    "label": "half-page down"
+  },
+  {
+    "scope": "global",
+    "key": "ctrl+k",
+    "label": "command palette"
+  },
+  {
+    "scope": "global",
+    "key": "ctrl+r",
+    "label": "redo"
+  },
+  {
+    "scope": "global",
+    "key": "ctrl+u",
+    "label": "half-page up"
+  },
+  {
+    "scope": "global",
+    "key": "escape",
+    "label": "back one level"
+  },
+  {
+    "scope": "global",
+    "key": "gg",
+    "label": "first item"
+  },
+  {
+    "scope": "global",
+    "key": "h",
+    "label": "focus previous pane"
+  },
+  {
+    "scope": "global",
+    "key": "j",
+    "label": "cursor down"
+  },
+  {
+    "scope": "global",
+    "key": "k",
+    "label": "cursor up"
+  },
+  {
+    "scope": "global",
+    "key": "l",
+    "label": "focus next pane"
+  },
+  {
+    "scope": "global",
+    "key": "q",
+    "label": "quit"
+  },
+  {
+    "scope": "global",
+    "key": "question_mark",
+    "label": "keybindings overlay"
+  },
+  {
+    "scope": "global",
+    "key": "shift+tab",
+    "label": "focus previous pane"
+  },
+  {
+    "scope": "global",
+    "key": "slash",
+    "label": "filter"
+  },
+  {
+    "scope": "global",
+    "key": "tab",
+    "label": "focus next pane"
+  },
+  {
+    "scope": "global",
+    "key": "u",
+    "label": "undo"
+  }
+]
