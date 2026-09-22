@@ -52,7 +52,7 @@ Task breakdown and current status:
 | 11. CLI adapter | `adapters/cli/` (Typer): one command per use case, plus `adapters/shared/quick_add.py` (the `!high @sat #casa` parser) and a `capture`/`add` wrapper | **Done** |
 | 12. TUI shell | `adapters/tui/`: generic Textual shell (panes, focus, modes, keymap registry + dispatch, palette, `?` overlay, undo/redo, status bar), built against a stub module so it stays free of Projects/Tasks code | **Done** |
 | 13. TUI module + desktop wiring | `adapters/tui/modules/projects_tasks.py` implementing the shell's module contract, `lifeos-tui`/`lifeos-capture` console scripts, `docs/tui.md` with the Hyprland/Omarchy binds | **Done** |
-| 14. REST as a local product surface | Token auth + `Host` check, `lifeos-daemon` (systemd `--user`), `GET /revision`, quick-add over REST with shared `#project` resolution | Pending |
+| 14. REST as a local product surface | Token auth + `Host` check, `lifeos-daemon` (systemd `--user`), `GET /revision`, quick-add over REST with shared `#project` resolution | **Done** |
 | 15. Quickshell board | `desktop/quickshell/lifeos/`: overlay with the TUI's panes, modes and keymap, plus mouse, live quick-add preview, live refresh and notifications | Pending |
 
 Steps 9-13 implement
@@ -195,8 +195,6 @@ superseding 0005.
    as a Project + Tasks in a single Claude conversation over MCP, and
    confirm the same data is visible through REST. Independent of Steps
    14-15; can happen whenever convenient.
-2. Step 14: make the REST adapter a local product surface (spec 0002,
-   tasks 1-6).
-3. Step 15: build the Quickshell board (spec 0002, tasks 7-13). The bar
+2. Step 15: build the Quickshell board (spec 0002, tasks 7-13). The bar
    widget and a standalone quick-capture popup follow in their own specs.
-4. Iterate on this roadmap as phases complete and priorities shift.
+3. Iterate on this roadmap as phases complete and priorities shift.
