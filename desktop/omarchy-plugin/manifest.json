@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "lifeos.board",
+  "name": "Life OS",
+  "version": "0.1.0",
+  "author": "Life OS",
+  "description": "Projects and tasks board for Life OS, driven by the local lifeos-daemon",
+  "kinds": [
+    "overlay"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "overlay": "Board.qml"
+  }
+}
