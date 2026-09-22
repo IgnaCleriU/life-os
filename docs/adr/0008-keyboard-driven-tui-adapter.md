@@ -1,6 +1,6 @@
 # 0008. Keyboard-driven TUI adapter
 
-- Status: Accepted
+- Status: Accepted — amended by [0009](0009-quickshell-desktop-client.md)
 - Date: 2026-07
 - Spec: [specs/0001-keyboard-driven-tui-adapter.md](../specs/0001-keyboard-driven-tui-adapter.md)
 
@@ -54,6 +54,10 @@ syntax, undo, DB configuration) and the implementation task breakdown.
   must apply — forgetting it surfaces deleted records.
 - A modal, vim-style interface trades discoverability for speed; the
   command palette and `?` overlay are the mandatory mitigation.
+- **Amended by ADR 0009:** the TUI is no longer the reference client — a
+  Quickshell overlay reaching the use cases over a local REST daemon is
+  the primary interface, and the TUI stays as an in-process fallback. The
+  rule that every capability is a use case first still holds.
 - **Amended in Step 12:** the originally accepted tasks-pane keymap bound
   both `d` (due date) and `dd` (delete), which collide. `dd` keeps delete;
   due date moved to `@`. See the spec for the corrected table.
