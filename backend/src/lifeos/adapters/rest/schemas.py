@@ -109,3 +109,12 @@ class TaskResponse(BaseModel):
     priority: Priority
     due_date: date | None
     created_at: datetime
+
+
+# --- Sync --------------------------------------------------------------
+
+
+class RevisionResponse(BaseModel):
+    """Body de `GET /revision`: token opaco, comparable solo por igualdad."""
+
+    revision: str

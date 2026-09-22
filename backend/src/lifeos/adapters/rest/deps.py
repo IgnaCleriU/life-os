@@ -14,7 +14,11 @@ from typing import Annotated
 from fastapi import Depends
 from sqlmodel import Session
 
-from lifeos.application.ports import ProjectRepository, TaskRepository
+from lifeos.application.ports import (
+    ProjectRepository,
+    RevisionSource,
+    TaskRepository,
+)
 from lifeos.application.use_cases.activate_project import ActivateProject
 from lifeos.application.use_cases.archive_project import ArchiveProject
 from lifeos.application.use_cases.complete_project import CompleteProject
@@ -24,6 +28,7 @@ from lifeos.application.use_cases.create_task import CreateTask
 from lifeos.application.use_cases.delete_project import DeleteProject
 from lifeos.application.use_cases.delete_task import DeleteTask
 from lifeos.application.use_cases.get_project import GetProject
+from lifeos.application.use_cases.get_revision import GetRevision
 from lifeos.application.use_cases.get_task import GetTask
 from lifeos.application.use_cases.list_projects import ListProjects
 from lifeos.application.use_cases.list_tasks import ListTasks
@@ -39,6 +44,9 @@ from lifeos.infrastructure.db.repositories.sqlite_project_repository import (
 )
 from lifeos.infrastructure.db.repositories.sqlite_task_repository import (
     SQLiteTaskRepository,
+)
+from lifeos.infrastructure.db.revision import (
+    get_revision_source as _get_process_revision_source,
 )
 from lifeos.infrastructure.db.session import get_session
 
@@ -155,3 +163,17 @@ def get_restore_task_use_case(
     task_repo: TaskRepo, project_repo: ProjectRepo
 ) -> RestoreTask:
     return RestoreTask(task_repo, project_repo)
+
+
+# --- Sync --------------------------------------------------------------
+
+
+def get_revision_source() -> RevisionSource:
+    """Fuente única del proceso: su conexión dedicada no debe multiplicarse."""
+    return _get_process_revision_source()
+
+
+def get_get_revision_use_case(
+    revision_source: Annotated[RevisionSource, Depends(get_revision_source)],
+) -> GetRevision:
+    return GetRevision(revision_source)

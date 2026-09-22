@@ -12,9 +12,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
-from lifeos.adapters.rest.deps import get_db_session
+from lifeos.adapters.rest.deps import get_db_session, get_revision_source
 from lifeos.adapters.rest.main import create_app
 from lifeos.infrastructure.db import models  # noqa: F401  (registra las tablas)
+from lifeos.infrastructure.db.revision import SQLiteRevisionSource
 from lifeos.infrastructure.db.session import configure_sqlite_pragmas
 
 
@@ -38,7 +39,9 @@ def make_client(engine, **app_kwargs) -> TestClient:
         with Session(engine) as session:
             yield session
 
+    revision_source = SQLiteRevisionSource.for_engine(engine)
     app.dependency_overrides[get_db_session] = _get_test_session
+    app.dependency_overrides[get_revision_source] = lambda: revision_source
     return TestClient(app, base_url="http://127.0.0.1:8000")
 
 

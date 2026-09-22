@@ -15,7 +15,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from lifeos.adapters.rest.auth import install_local_guard
-from lifeos.adapters.rest.routers import projects, tasks
+from lifeos.adapters.rest.routers import projects, sync, tasks
 from lifeos.domain import (
     DomainValidationError,
     ProjectNotEmpty,
@@ -110,6 +110,7 @@ def create_app(
 
     app.include_router(projects.router)
     app.include_router(tasks.router)
+    app.include_router(sync.router)
 
     return app
 
