@@ -35,9 +35,9 @@ multi-device access, and distro packaging.
 ### Processes
 
 ```
-Hyprland ── bind SUPER+T ──► qs -c lifeos ipc call board toggle
+Hyprland ── bind SUPER+SHIFT+T ──► omarchy-shell shell toggle lifeos.board
                                    │
-                    Quickshell (qs -c lifeos)            MCP client (Claude)
+            omarchy-shell (Quickshell) + plugin lifeos.board   MCP client (Claude)
                     overlay: PROJECTS · TASKS · TASK          │ stdio
                                    │ HTTP 127.0.0.1           ▼
                                    ▼                      lifeos-mcp
@@ -113,23 +113,34 @@ TUI module and the REST routes all call it, so the three can't drift.
 
 ### Client layout
 
+Omarchy 4 runs its desktop as one long-lived Quickshell process
+(`omarchy-shell`) whose bar, panels and overlays are plugins, and asks not
+to start extra Quickshell instances. The board is therefore a third-party
+**Omarchy shell plugin**, `lifeos.board`, of kind `overlay` with
+`keepLoaded: true` (selection, filters and undo history survive hiding it,
+and polling keeps running for notifications):
+
 ```
 desktop/
-├── quickshell/lifeos/            # symlinked to ~/.config/quickshell/lifeos
-│   ├── shell.qml                 # ShellRoot, IpcHandler "board" (toggle/show/hide)
-│   ├── Board.qml                 # PanelWindow on WlrLayer.Overlay, exclusive keyboard focus while shown
-│   ├── panes/                    # ProjectsPane, TasksPane, DetailPane
-│   ├── modals/                   # Prompt, Picker, Confirm, Palette, Help
+├── omarchy-plugin/               # linked to ~/.config/omarchy/plugins/lifeos.board
+│   ├── manifest.json             # id lifeos.board, kinds ["overlay"], keepLoaded
+│   ├── Board.qml                 # entry point: open()/close(), layer-shell PanelWindow
+│   ├── BoardView.qml             # everything visible; no Quickshell.Wayland import
+│   ├── Theme.qml  Api.qml        # qs.Commons + colors.toml; daemon.json + XHR
 │   ├── StatusBar.qml  Toasts.qml
-│   ├── services/                 # Api (XHR + token), Sync (revision polling), Theme
-│   ├── lib/                      # .pragma library JS, no Qt imports
-│   │   ├── keymap.js  dispatch.js  undo.js  format.js
-│   └── tests/                    # node harness for lib/ (strips the pragma, runs in vm)
-└── systemd/lifeos-daemon.service
+│   ├── panes/                    # PaneFrame, ProjectsPane, TasksPane, DetailPane
+│   ├── modals/                   # Prompt, Picker, Confirm, Palette, Help
+│   └── lib/                      # .pragma library JS, no Qt imports
+│       └── keymap.js  dispatch.js  undo.js  format.js
+├── tests/                        # node tests for lib/, TUI keymap fixture
+│   └── qml/                      # headless harness: BoardView against a real daemon
+├── systemd/lifeos-daemon.service
+└── install.sh
 ```
 
-`services/Api` reads `daemon.json` at startup and again after any `401`
-or connection error, because the token rotates when the daemon restarts.
+`Api.qml` reads `daemon.json` at startup, watches it, and reads it again
+after any `401` or connection error, because the token rotates when the
+daemon restarts.
 
 ### User interface
 
@@ -141,9 +152,10 @@ The browser prototype approved with ADR 0009 is the visual reference:
 - Priority and due-date markers, with overdue shown in the theme's red.
 - A done/total progress bar per project.
 
-`SUPER+T` toggles the overlay through IPC. `q`, or `Esc` from the leftmost
-pane, *hides* the overlay without quitting, so the next toggle is instant
-and state such as the selection, filters and undo history survives.
+A key bound to `omarchy-shell shell toggle lifeos.board` toggles the
+overlay. `q`, or `Esc` from the leftmost pane, *hides* it without
+unloading, so the next toggle is instant and state such as the selection,
+filters and undo history survives.
 
 **Modes, keymap, quick-add, destructive actions:** identical to
 [0001](0001-keyboard-driven-tui-adapter.md#keymap) and
@@ -152,9 +164,8 @@ truth. The JS registry (`lib/keymap.js`) drives dispatch, the palette
 and the `?` overlay, as the TUI's registry does. Two tests guard it:
 
 - a test that no binding is a strict prefix of another;
-- a parity test against `desktop/quickshell/lifeos/tests/keymap.json`,
-  a fixture that a Python test exports from the TUI registry and keeps
-  current.
+- a parity test against `desktop/tests/tui-keymap.json`, a fixture that a
+  Python test exports from the TUI registry and keeps current.
 
 Two keys behave differently: `E` edits the description inline in the
 detail pane instead of suspending the board for `$EDITOR`, and `y` copies
@@ -182,7 +193,7 @@ edits, the transition routes for status, and `move` for moves.
 
 ### Live updates and notifications
 
-`services/Sync` polls `GET /revision`: every 1 s while the overlay is
+`BoardView.qml` polls `GET /revision`: every 1 s while the overlay is
 shown, every 5 s while it's hidden. When the value changes it refetches
 the projects and the current project's tasks, then diffs by id.
 
@@ -203,27 +214,31 @@ If a request fails to connect, or `daemon.json` is missing:
 - The status bar shows a red `daemon unreachable`, together with the hint
   `systemctl --user status lifeos-daemon`.
 - Writes are disabled and the last loaded data stays visible, dimmed.
-- Sync retries with backoff until the daemon answers.
+- Polling keeps retrying (every 3 s) until the daemon answers, then
+  reloads with the new token.
 
 ### Theme
 
-Colors come from the active Omarchy theme under
-`~/.config/omarchy/current/theme/`. `services/Theme` watches it with a
-`FileView` and falls back to a built-in Tokyo Night palette. Only
-semantic roles are used: background, foreground, dim, accent, secondary
-accent, green, yellow and red.
+The board uses the shell's own theme singletons from `qs.Commons`
+(`Color.background`, `foreground`, `accent`, `urgent`, the `Color.menu.*`
+surface roles, `Style.font.*`, `Style.spacing.*`, `Style.cornerRadius`), so
+it switches with the rest of the desktop. The semantic colors those
+singletons don't expose (green, yellow, bright magenta, bright cyan) are
+read from the active theme's `colors.toml`, which `Theme.qml` watches, with
+Tokyo Night values as a fallback.
 
 ### Hyprland bindings
 
-```
-exec-once = qs -c lifeos
-bind = SUPER, T, exec, qs -c lifeos ipc call board toggle
-bind = SUPER SHIFT, T, exec, omarchy-launch-or-focus-tui "lifeos-tui" lifeos-tui
+Omarchy 4 configures Hyprland in Lua. In `~/.config/hypr/bindings.lua`:
+
+```lua
+o.bind("SUPER + SHIFT + T", "Life OS", "omarchy-shell shell toggle lifeos.board")
+o.bind("SUPER + ALT + T", "Life OS (terminal)", { tui = "lifeos-tui" })
 ```
 
-These replace the `SUPER, T` example in [../tui.md](../tui.md): the TUI
-moves to `SUPER SHIFT, T`. Check both against the local Omarchy binds
-before using them.
+`SUPER + T` is already Omarchy's float toggle and `SUPER + CTRL + T` opens
+btop, so the board takes `SUPER + SHIFT + T`. Check both against
+`omarchy menu keybindings --print`.
 
 ## Implementation tasks
 
@@ -235,12 +250,12 @@ before using them.
 | 4 | `adapters/shared/capture_target.py`; CLI `capture` and the TUI module switched to it | Pure refactor: the existing CLI and TUI tests must pass unchanged. |
 | 5 | `POST /quick-add/preview`, `POST /quick-add` | Reuses tasks 4 and the shared parser. |
 | 6 | `desktop/systemd/lifeos-daemon.service`, `desktop/install.sh` (links the QML config and the unit), `docs/desktop.md` | No distro package. |
-| 7 | QML skeleton: `shell.qml` + IPC toggle, overlay window, `Api`/`Sync` services, daemon-down state | Manual check on Omarchy. |
+| 7 | Omarchy plugin skeleton: `manifest.json`, `Board.qml` (open/close, overlay window), `Api`, `Theme`, daemon-down state | Manual check on Omarchy. |
 | 8 | `lib/` JS: keymap registry + dispatch, undo, formatting; node test harness; keymap fixture exported from the TUI and a parity test | These are the only automated tests on the QML side. |
 | 9 | Panes, modes, modals (prompt with live preview, picker, confirm, palette, help), status bar | Keyboard parity with [../tui.md](../tui.md). |
 | 10 | Mouse interactions, inline description editing, drag-to-move | |
 | 11 | Live refresh diffing, pulses and toasts, `notify-send` while hidden | |
-| 12 | Omarchy theme reader with fallback | |
+| 12 | Theme from `qs.Commons` plus `colors.toml`, with fallback | |
 | 13 | Docs: ARCHITECTURE (daemon, `desktop/`, the shared helper), tui.md binds, roadmap status | |
 
 Tasks 1-5 are backend-only and land first; each is useful without the
@@ -249,13 +264,9 @@ dependency and can run in parallel with 7.
 
 ## Open questions
 
-- **Which Omarchy theme file to parse.** The theme directory holds
-  per-app files (terminal, Waybar, Hyprland), not one palette file. The
-  choice needs checking on a real install. The fallback palette keeps
-  this non-blocking.
-- **Quickshell version.** Quickshell is pre-1.0 and its QML API still
-  moves. Pin the version the client is built against in
-  `docs/desktop.md`.
+- **Omarchy plugin API version.** The plugin targets the Omarchy 4 shell
+  plugin contract (`schemaVersion: 1`), still in alpha; `docs/desktop.md`
+  records the version it was built against.
 - **Change attribution.** Showing "added by Claude" needs a `source` or
   audit field, which is a schema change. It waits for Alembic
   ([0003](../adr/0003-sqlite-for-mvp-postgres-later.md)) and Phase 7
