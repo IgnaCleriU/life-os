@@ -85,11 +85,14 @@ function resolve(entries, scope, key) {
   return null
 }
 
+// Solo una secuencia tecleada ("gg", "dd") puede estar "a medio escribir":
+// un nombre de tecla ("slash", "shift+tab", "tab") no se forma letra por
+// letra, así que "s" o "t" sueltos no deben quedar esperando.
 function isPrefix(entries, scope, key) {
   var list = forScope(entries, scope)
   for (var i = 0; i < list.length; i++) {
     var k = list[i].key
-    if (k !== key && k.indexOf(key) === 0) return true
+    if (k !== key && isTypedSequence(k) && k.indexOf(key) === 0) return true
   }
   return false
 }

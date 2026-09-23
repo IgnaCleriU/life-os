@@ -45,3 +45,13 @@ test("a leading digit is swallowed, like the TUI's count", () => {
 test("unbound keys do not match", () => {
   assert.equal(feedAll("context", ["space"])[0].kind, "no_match");
 });
+
+test("an unbound letter that starts a key name does not swallow the next key", () => {
+  // "s" no está en PROJECTS pero "slash"/"shift+tab" empiezan con "s".
+  const [s, j] = feedAll("context", ["s", "j"]);
+  assert.equal(s.kind, "no_match");
+  assert.equal(j.entry.action, "cursorDown");
+  const [t, k] = feedAll("collection", ["t", "k"]);
+  assert.equal(t.kind, "no_match");
+  assert.equal(k.entry.action, "cursorUp");
+});
