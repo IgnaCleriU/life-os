@@ -499,6 +499,28 @@ def main() -> int:
         wait_for(lambda: board.property("api").property("status") == "unreachable", timeout=8000, what="unreachable")
         shot("11-daemon-down")
         check(True, "the status bar reports an unreachable daemon")
+        # Un "daemon" que acepta conexiones pero nunca responde: el watchdog
+        # de Api.qml tiene que cortar los pedidos, o el sondeo quedaría
+        # trabado para siempre.
+        import socket as _socket
+
+        hung = _socket.socket()
+        hung.bind(("127.0.0.1", 0))
+        hung.listen(16)
+        hung_port = hung.getsockname()[1]
+        info = daemon.runtime / "life-os"
+        info.mkdir(parents=True, exist_ok=True)
+        (info / "daemon.json").write_text(
+            json.dumps({"base_url": f"http://127.0.0.1:{hung_port}", "port": hung_port, "token": "x"})
+        )
+        board.property("api").setProperty("requestTimeoutMs", 1500)
+        wait_for(lambda: board.property("api").property("baseUrl").endswith(str(hung_port)), timeout=8000, what="hung daemon discovered")
+        pump(1500)
+        wait_for(lambda: board.property("api").property("status") == "unreachable" and not board.property("refreshing"), timeout=10000, what="watchdog")
+        check(True, "a daemon that never answers is reported instead of stalling the board")
+        (info / "daemon.json").unlink()
+        hung.close()
+
         daemon.start()
         wait_for(lambda: board.property("api").property("status") == "ok", timeout=10000, what="reconnect")
         check(True, "the board reconnects after the daemon restarts (new token)")
