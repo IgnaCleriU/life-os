@@ -84,5 +84,6 @@ single source of truth for phasing and status.
   manifest disagree.
 - **Docker Compose** (`docker compose up`, after copying `.env.example` to
   `.env`) still works, but is no longer the target way to run Life OS — it
-  is being built as a native TUI desktop app instead, see
-  [docs/adr/0005-deployment-target.md](docs/adr/0005-deployment-target.md).
+  is being built as a local desktop app instead (a Quickshell client over a
+  local REST daemon), see
+  [docs/adr/0009-quickshell-desktop-client.md](docs/adr/0009-quickshell-desktop-client.md).

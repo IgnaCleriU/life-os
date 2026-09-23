@@ -1,8 +1,9 @@
 # 0005. Deployment target
 
-- Status: Deprecated
+- Status: Superseded by [0009](0009-quickshell-desktop-client.md)
 - Date: 2026-07
 - Deprecated: 2026-07
+- Superseded: 2026-09
 
 > **Deprecated.** Life OS is being built as a **native TUI desktop
 > application for Omarchy**, launching the backend and the TUI together on
@@ -25,7 +26,9 @@
 > Remote access and multi-device use (e.g. the Android app in Phase 6, see
 > [../roadmap.md](../roadmap.md)) are *not* settled by this deprecation —
 > they become open questions for the desktop-app ADR that supersedes this
-> one. Update this Status to `Superseded by 000X` once that ADR exists.
+> one. That ADR is [0009](0009-quickshell-desktop-client.md): a local
+> REST daemon plus a Quickshell client, loopback-only, with remote access
+> still deferred.
 >
 > The text below is kept unedited as the record of what was believed at the
 > time; see [README.md](README.md) for why ADRs are not rewritten in place.
