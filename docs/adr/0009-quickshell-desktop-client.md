@@ -26,16 +26,18 @@ the desktop and what auth it needs (the Phase 0 "users, JWT" item).
 ## Decision
 
 Make a **Quickshell client the primary human interface**. It lives in
-`desktop/quickshell/`, outside the Python package. It reaches the
+`desktop/omarchy-plugin/`, outside the Python package. It reaches the
 application layer **only through the existing REST adapter**, served by a
 **long-running local daemon**. It has no business logic of its own,
 exactly as in ADR 0002.
 
 - **Runtime:** the REST adapter runs as a `systemd --user` service bound
-  to `127.0.0.1` only. The Quickshell config runs as its own instance
-  (`qs -c lifeos`), and Hyprland binds toggle it over Quickshell IPC.
-  This is the desktop-app shape that replaces ADR 0005: everything runs
-  locally, with nothing hosted and no remote access.
+  to `127.0.0.1` only. The board ships as an **Omarchy shell plugin**
+  (`lifeos.board`, an `overlay`) hosted by Omarchy's single long-running
+  Quickshell process, and a Hyprland bind toggles it with
+  `omarchy-shell shell toggle lifeos.board`. This is the desktop-app shape
+  that replaces ADR 0005: everything runs locally, with nothing hosted and
+  no remote access.
 - **Auth:** there is one local user and no user accounts. Every request
   carries a random per-install token, read from a file with `0600`
   permissions, so other local users and web pages in a browser cannot
@@ -55,7 +57,11 @@ exactly as in ADR 0002.
 
 - The board lives on the desktop: it opens as an overlay, gets mouse and
   drag-and-drop support, live quick-add parsing, notifications even while
-  hidden, and it follows the Omarchy theme.
+  hidden, and it follows the Omarchy theme through the shell's own theme
+  tokens (`qs.Commons`).
+- It depends on Omarchy 4's plugin contract (manifest, `open`/`close`,
+  `qs.Commons`), which is still young; a desktop without Omarchy's shell
+  would need a small standalone host around the same `BoardView.qml`.
 - A background process is now required for the primary UI. If the daemon
   is down, the client has to show that clearly. The TUI, CLI and MCP keep
   working without it.
@@ -70,10 +76,11 @@ exactly as in ADR 0002.
   (Phase 7).
 - The keymap now has two implementations (Python for the TUI, JS for
   Quickshell). The keymap table in spec 0001 remains the single source
-  of truth, and each registry is tested against it.
+  of truth, and the JS registry is tested against an export of the TUI's.
 - A second toolchain (QML/Qt) enters the repo. It can't run in CI without
-  a Wayland session, so testable logic is kept in plain `.js` libraries,
-  and the visual check stays manual.
+  a Wayland session, so testable logic is kept in plain `.js` libraries
+  that CI tests with node; a headless harness drives the QML against a
+  real daemon locally, and the on-desktop check stays manual.
 - The Phase 0 auth item is resolved for the local case (a token, no
   accounts). ADR 0006's JWT choice stays dormant rather than deleted.
 
@@ -87,6 +94,10 @@ exactly as in ADR 0002.
 - **Unix socket instead of TCP:** better isolation, but QML's
   `XMLHttpRequest` can't reach it without a native plugin. The token plus
   the loopback-only bind covers the same threat for a single-user machine.
+- **A standalone Quickshell instance (`qs -c lifeos`):** works on any
+  Hyprland, but Omarchy 4 runs one shell process and asks everything to be
+  a plugin inside it; a second instance would duplicate theming and
+  summoning instead of reusing them.
 - **A web frontend or Electron app:** it needs the same daemon, but it
   doesn't live on the desktop the way a layer-shell overlay does, and it
   adds a heavier runtime.

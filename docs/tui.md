@@ -153,8 +153,19 @@ over SSH too, with no extra clipboard tooling required.
 
 ## 9. Omarchy keybindings
 
-These are a starting point, not a verified config — check them against
-your actual Hyprland setup before relying on them.
+The primary interface is now the Omarchy board, not this TUI (see
+[desktop.md](desktop.md) and
+[adr/0009-quickshell-desktop-client.md](adr/0009-quickshell-desktop-client.md)).
+The TUI stays as the terminal/SSH fallback. On Omarchy 4, whose Hyprland
+config is Lua, bind it next to the board:
+
+```lua
+o.bind("SUPER + ALT + T", "Life OS (terminal)", { tui = "lifeos-tui" })
+```
+
+The examples below are for Omarchy 3's `hyprland.conf` syntax. They are a
+starting point, not a verified config, so check them against your actual
+Hyprland setup before relying on them.
 
 `~/.config/hypr/bindings.conf` (or wherever your custom binds live):
 

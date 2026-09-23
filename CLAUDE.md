@@ -6,10 +6,11 @@ Guide for AI agents (e.g. Claude Code) working on this repo. Read it before star
 projects/tasks, home inventory) accessible by AI agents through a custom
 MCP server.
 **Current status:** Phase 1 MVP of **Projects + Tasks** — domain, ports,
-use cases, SQLite infrastructure, and the REST, MCP, CLI, and TUI adapters
-are implemented. Next is the Quickshell desktop client
-([ADR 0009](docs/adr/0009-quickshell-desktop-client.md), roadmap Steps
-14-15); see [docs/roadmap.md](docs/roadmap.md) for details.
+use cases, SQLite infrastructure, the REST (as `lifeos-daemon`), MCP, CLI,
+and TUI adapters, and the Omarchy board (`desktop/omarchy-plugin/`,
+[ADR 0009](docs/adr/0009-quickshell-desktop-client.md)) are implemented.
+Next is closing the MVP (Step 8); see [docs/roadmap.md](docs/roadmap.md)
+for details.
 
 ## Mandatory documentation
 
@@ -58,7 +59,10 @@ Before designing or implementing, review these documents:
 ## How to run / verify
 
 - **Tests:** run `uv run pytest` from `backend/` (domain and use-case tests
-  run without a database, using in-memory fake repositories).
+  run without a database, using in-memory fake repositories), and
+  `node --test desktop/tests/*.test.mjs` for the board's JS libraries. The
+  board's QML has a headless harness, see
+  [docs/desktop.md](docs/desktop.md#4-testing-the-board).
 - **Commit validation:** `pre-commit install --hook-type commit-msg` (once
   per clone); validates the message format before a commit is created.
 - **Local environment:** `uv sync --all-extras` from `backend/` creates

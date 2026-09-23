@@ -53,7 +53,7 @@ Task breakdown and current status:
 | 12. TUI shell | `adapters/tui/`: generic Textual shell (panes, focus, modes, keymap registry + dispatch, palette, `?` overlay, undo/redo, status bar), built against a stub module so it stays free of Projects/Tasks code | **Done** |
 | 13. TUI module + desktop wiring | `adapters/tui/modules/projects_tasks.py` implementing the shell's module contract, `lifeos-tui`/`lifeos-capture` console scripts, `docs/tui.md` with the Hyprland/Omarchy binds | **Done** |
 | 14. REST as a local product surface | Token auth + `Host` check, `lifeos-daemon` (systemd `--user`), `GET /revision`, quick-add over REST with shared `#project` resolution | **Done** |
-| 15. Quickshell board | `desktop/quickshell/lifeos/`: overlay with the TUI's panes, modes and keymap, plus mouse, live quick-add preview, live refresh and notifications | Pending |
+| 15. Quickshell board | `desktop/omarchy-plugin/` (Omarchy shell plugin `lifeos.board`): overlay with the TUI's panes, modes and keymap, plus mouse, live quick-add preview, live refresh and notifications | **Done** |
 
 Steps 9-13 implement
 [adr/0008-keyboard-driven-tui-adapter.md](adr/0008-keyboard-driven-tui-adapter.md).
@@ -185,9 +185,9 @@ correctly through both the REST API and the MCP tools.
 
 ## Immediate next steps
 
-Steps 9-13 are done — the TUI (`lifeos-tui`) is a fully working client for
-Projects/Tasks, alongside REST, MCP, and the CLI. The desktop-app direction
-is now recorded in
+Steps 9-15 are done — the Omarchy board (`lifeos.board`, over
+`lifeos-daemon`) is the primary interface for Projects/Tasks, with the TUI,
+the CLI, REST and MCP alongside it. The desktop-app direction is recorded in
 [adr/0009-quickshell-desktop-client.md](adr/0009-quickshell-desktop-client.md),
 superseding 0005.
 
@@ -195,6 +195,9 @@ superseding 0005.
    as a Project + Tasks in a single Claude conversation over MCP, and
    confirm the same data is visible through REST. Independent of Steps
    14-15; can happen whenever convenient.
-2. Step 15: build the Quickshell board (spec 0002, tasks 7-13). The bar
-   widget and a standalone quick-capture popup follow in their own specs.
+2. Try the board on the real desktop (`desktop/install.sh`, then the
+   bind in [desktop.md](desktop.md)): the automated checks run it headless,
+   but layer-shell focus, blur and notifications only show up on Omarchy.
+   Then the bar widget and a standalone quick-capture popup, each in its
+   own spec.
 3. Iterate on this roadmap as phases complete and priorities shift.

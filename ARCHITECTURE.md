@@ -38,6 +38,7 @@ infrastructure (DB) ────────────────┘ (impleme
 | `adapters/mcp/` | MCP server: each tool calls the same use case used by REST | Its own business logic (delegates to `application`) |
 | `adapters/cli/` | Typer CLI (`lifeos`): one command per use case, plus a `capture`/`add` quick-add wrapper, its own `deps.py` and `--json`/plain-text serialization | Its own business logic (delegates to `application`) |
 | `adapters/tui/` | Textual TUI: a generic shell (panes, focus, modes, keymap registry + dispatch, palette, `?` overlay, undo/redo, status bar) driving a pluggable `TuiModule`; `modules/projects_tasks.py` is the real one, `modules/stub.py` remains as the shell's own domain-agnostic test fixture | `application`, `domain`, `infrastructure` — the shell only knows the `TuiModule` contract; only `modules/projects_tasks.py` (not the shell itself) depends on `application` |
+| `desktop/omarchy-plugin/` (QML, outside the Python package) | The primary human interface (ADR 0009): an Omarchy shell plugin that is a pure REST client of `lifeos-daemon` — the same use cases, reached over HTTP instead of in process | Any Python code; business logic (quick-add parsing and `#project` resolution are asked of the daemon) |
 | `adapters/shared/` | Code shared across driver adapters that is not itself a use case — the quick-add tokenizer (`quick_add.py`), the `#project` capture-target rule (`capture_target.py`, which receives use cases as plain callables), both used by the CLI, the TUI's real module and REST's quick-add routes; and the domain-error-code map (`error_codes.py`, CLI, MCP, and the TUI's real module) | `application`, `infrastructure`, any single adapter |
 
 ## Folder structure
@@ -202,6 +203,16 @@ The MCP server **does not access the database directly**: it consumes the
 same use cases exposed by the REST adapter. This guarantees that business
 rules (validation, permissions, auditing) are always applied, regardless of
 whether the action originated from an AI agent, the frontend, or the CLI.
+
+The desktop client lives next to the backend, not inside it:
+
+```
+desktop/
+├── omarchy-plugin/        # lifeos.board: Board.qml (entry), BoardView.qml, panes/, modals/, lib/*.js
+├── tests/                 # node tests for lib/, TUI keymap fixture, qml/ headless harness
+├── systemd/               # lifeos-daemon.service (template)
+└── install.sh             # unit + plugin link + enable
+```
 
 ## Where the data lives
 
