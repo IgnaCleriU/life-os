@@ -441,6 +441,28 @@ def main() -> int:
         check(True, "an external write shows up without reloading")
         shot("09-external-change")
 
+        # Una letra sin atajo que empieza un nombre de tecla ("s" de "slash")
+        # no debe tragarse la tecla siguiente.
+        keys("h", "h", "g", "g")
+        before_index = prop("projectIndex")
+        keys("s", "j")
+        check(prop("projectIndex") == before_index + 1, "an unbound s does not swallow the next key")
+        keys("k", "l")
+
+        # Deshacer algo que ya no se puede aplicar: el error queda a la vista.
+        victim = prop("currentTaskId")
+        keys("e")
+        typed(" (editada)")
+        keys("Return")
+        wait_for(lambda: next(t for t in tasks() if t["id"] == victim)["title"].endswith("(editada)"), what="rename")
+        daemon._req("DELETE", f"/tasks/{victim}")
+        pump(1500)
+        keys("u")
+        wait_for(lambda: "task_not_found" in (prop("errorText") or ""), what="undo error")
+        check(not (prop("lastAction") or "").startswith("undo"), "a failed undo keeps its error instead of reporting success")
+        daemon.post(f"/tasks/{victim}/restore")
+        pump(1500)
+
         # Arrastrar la tarea del cursor sobre otro proyecto.
         keys("h")
         projects_list = [dict(p) for p in prop("visibleProjects")]
