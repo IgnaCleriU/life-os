@@ -27,3 +27,12 @@ test("empty stacks return null", () => {
   assert.equal(Undo.takeUndo(stack), null);
   assert.equal(Undo.takeRedo(stack), null);
 });
+
+test("a failed undo can be dropped instead of moving to redo", () => {
+  const stack = Undo.createStack();
+  Undo.push(stack, "a", null, null);
+  const entry = Undo.takeUndo(stack);
+  Undo.dropRedo(stack, entry);
+  assert.equal(Undo.canRedo(stack), false);
+  assert.equal(Undo.canUndo(stack), false);
+});

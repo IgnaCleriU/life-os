@@ -33,3 +33,15 @@ function takeRedo(stack) {
 
 function canUndo(stack) { return stack.undo.length > 0 }
 function canRedo(stack) { return stack.redo.length > 0 }
+
+// Si deshacer/rehacer falla (p. ej. la tarea se borró desde MCP), la entrada
+// ya no se puede aplicar: se descarta en vez de quedar ofreciéndose.
+function dropRedo(stack, entry) {
+  var i = stack.redo.lastIndexOf(entry)
+  if (i !== -1) stack.redo.splice(i, 1)
+}
+
+function dropUndo(stack, entry) {
+  var i = stack.undo.lastIndexOf(entry)
+  if (i !== -1) stack.undo.splice(i, 1)
+}

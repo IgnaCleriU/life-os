@@ -120,23 +120,35 @@ FocusScope {
 
   // Recarga proyectos y tareas. `external` indica que la recarga la disparó
   // un cambio de revisión ajeno (MCP, CLI, TUI): se avisa qué se agregó.
+  //
+  // La revisión se pide *antes* que los datos y se guarda solo si la recarga
+  // salió bien: una escritura que caiga en el medio deja una revisión más
+  // nueva que la guardada y el próximo sondeo vuelve a recargar; una recarga
+  // fallida no marca nada como visto, así que el sondeo la reintenta.
+  property bool refreshing: false
+
   function refresh(external) {
-    api.request("GET", "/projects", null, function(r) {
-      if (!r.ok) { showApiError(r); return }
-      var nextProjects = r.data
-      api.request("GET", "/tasks", null, function(t) {
-        if (!t.ok) { showApiError(t); return }
-        var previous = board.tasks
-        board.today = new Date()
-        board.projects = nextProjects
-        board.tasks = t.data
-        var wasLoaded = board.loaded
-        board.loaded = true
-        board.recompute()
-        if (external && wasLoaded) announceExternal(previous, t.data)
-        board.flushPulses()
-        api.request("GET", "/revision", null, function(v) {
-          if (v.ok) board.revision = v.data.revision
+    refreshing = true
+    function fail(r) { board.refreshing = false; showApiError(r) }
+    api.request("GET", "/revision", null, function(v) {
+      if (!v.ok) { fail(v); return }
+      var rev = v.data.revision
+      api.request("GET", "/projects", null, function(r) {
+        if (!r.ok) { fail(r); return }
+        var nextProjects = r.data
+        api.request("GET", "/tasks", null, function(t) {
+          if (!t.ok) { fail(t); return }
+          var previous = board.tasks
+          board.today = new Date()
+          board.projects = nextProjects
+          board.tasks = t.data
+          board.revision = rev
+          var wasLoaded = board.loaded
+          board.loaded = true
+          board.refreshing = false
+          board.recompute()
+          if (external && wasLoaded) announceExternal(previous, t.data)
+          board.flushPulses()
         })
       })
     })
@@ -154,14 +166,11 @@ FocusScope {
   }
 
   function poll() {
+    if (board.refreshing) return
     api.request("GET", "/revision", null, function(r) {
-      if (!r.ok) return
-      var rev = r.data.revision
-      if (!board.loaded) { board.refresh(false); return }
-      if (rev !== board.revision) {
-        board.revision = rev
-        board.refresh(true)
-      }
+      if (!r.ok || board.refreshing) return
+      if (!board.loaded) board.refresh(false)
+      else if (r.data.revision !== board.revision) board.refresh(true)
     })
   }
 
@@ -221,8 +230,14 @@ FocusScope {
     var entry = Undo.takeUndo(undoStack)
     if (!entry) { showError("nothing to undo"); return }
     runAll(entry.undo, function(ok) {
-      board.lastAction = "undo: " + entry.label
-      board.errorText = ""
+      // En falla, runAll ya mostró el error: no se pisa, y la entrada se
+      // descarta porque ya no se puede aplicar.
+      if (ok) {
+        board.lastAction = "undo: " + entry.label
+        board.errorText = ""
+      } else {
+        Undo.dropRedo(undoStack, entry)
+      }
       board.refresh(false)
     })
   }
@@ -231,8 +246,12 @@ FocusScope {
     var entry = Undo.takeRedo(undoStack)
     if (!entry) { showError("nothing to redo"); return }
     runAll(entry.redo, function(ok) {
-      board.lastAction = "redo: " + entry.label
-      board.errorText = ""
+      if (ok) {
+        board.lastAction = "redo: " + entry.label
+        board.errorText = ""
+      } else {
+        Undo.dropUndo(undoStack, entry)
+      }
       board.refresh(false)
     })
   }
