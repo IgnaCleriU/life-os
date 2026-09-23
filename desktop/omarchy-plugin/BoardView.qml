@@ -231,7 +231,10 @@ FocusScope {
     if (!entry) { showError("nothing to undo"); return }
     runAll(entry.undo, function(ok) {
       // En falla, runAll ya mostró el error: no se pisa, y la entrada se
-      // descarta porque ya no se puede aplicar.
+      // descarta porque ya no se puede aplicar. En una acción de varios
+      // pasos (p. ej. deshacer un borrado en lote) los pasos previos al que
+      // falló quedan aplicados: se acepta, porque el caso requiere que otro
+      // cliente toque esas mismas tareas en medio, y el error queda a la vista.
       if (ok) {
         board.lastAction = "undo: " + entry.label
         board.errorText = ""
