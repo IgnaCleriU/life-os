@@ -2,18 +2,13 @@
 tareas usando la sintaxis quick-add (ver ADR 0008 y
 `adapters/shared/quick_add.py`).
 
-Resolución del proyecto destino:
-
-- Si el texto trae `#nombre`, se busca un proyecto cuyo nombre matchee
-  exactamente (case-insensitive, `casefold` + `strip`) contra ese nombre.
-  Cero resultados levanta `ProjectNameNotFound`; más de uno (dos proyectos
-  activos con el mismo nombre) levanta `AmbiguousProjectName` listando los
-  ids candidatos, para que el usuario desambigüe con
-  `lifeos task create <project_id> ...` en vez de `capture`.
-- Si no hay `#nombre`, se usa como destino un proyecto "inbox" que se
-  busca por el mismo matcheo exacto y, si no existe, se crea al vuelo
-  (get-or-create). Esto significa que la primera captura sin `#proyecto`
-  en una base nueva crea el proyecto "inbox" automáticamente.
+Resolución del proyecto destino: la regla compartida con la TUI y REST de
+`adapters/shared/capture_target.py`. Un `#nombre` se busca por nombre exacto
+(case-insensitive); cero resultados levanta `ProjectNameNotFound` y más de
+uno `AmbiguousProjectName` (el usuario desambigua con
+`lifeos task create <project_id> ...`). Sin `#nombre`, el CLI no tiene un
+proyecto por defecto, así que la tarea cae en "inbox", creado al vuelo si no
+existe: la primera captura sin `#proyecto` en una base nueva lo crea.
 
 Nota sobre la carrera get-or-create: esta app es de un solo usuario y no
 hay locking explícito entre el `list` y el `create` del inbox, así que en
@@ -34,26 +29,20 @@ from dataclasses import dataclass
 import typer
 
 from lifeos.adapters.cli import deps
-from lifeos.adapters.cli.errors import (
-    AmbiguousProjectName,
-    ProjectNameNotFound,
-    handle_domain_errors,
-)
+from lifeos.adapters.cli.errors import handle_domain_errors
 from lifeos.adapters.cli.output import emit_single
 from lifeos.adapters.cli.serializers import format_task, task_dict
+from lifeos.adapters.shared.capture_target import resolve_capture_target
 from lifeos.adapters.shared.quick_add import parse_quick_add
 from lifeos.application.use_cases.create_project import CreateProject
 from lifeos.application.use_cases.create_task import CreateTask
 from lifeos.application.use_cases.list_projects import ListProjects
-from lifeos.domain import Project
 from lifeos.infrastructure.db.repositories.sqlite_project_repository import (
     SQLiteProjectRepository,
 )
 from lifeos.infrastructure.db.repositories.sqlite_task_repository import (
     SQLiteTaskRepository,
 )
-
-_INBOX_PROJECT_NAME = "inbox"
 
 
 @dataclass(frozen=True)
@@ -77,42 +66,16 @@ def _capture_use_cases() -> Iterator[_CaptureUseCases]:
         )
 
 
-def _find_exact_match(projects: list[Project], name: str) -> list[Project]:
-    target = name.strip().casefold()
-    return [p for p in projects if p.name.strip().casefold() == target]
-
-
-def _resolve_project(use_cases: _CaptureUseCases, name: str) -> Project:
-    """Busca un proyecto por nombre exacto (case-insensitive).
-
-    Usado tanto para `#nombre` explícito como para el fallback "inbox".
-    """
-    candidates = use_cases.list_projects.execute(text=name)
-    matches = _find_exact_match(candidates, name)
-
-    if not matches:
-        raise ProjectNameNotFound(name)
-    if len(matches) > 1:
-        raise AmbiguousProjectName(name, [p.id for p in matches])
-    return matches[0]
-
-
-def _resolve_or_create_inbox(use_cases: _CaptureUseCases) -> Project:
-    try:
-        return _resolve_project(use_cases, _INBOX_PROJECT_NAME)
-    except ProjectNameNotFound:
-        return use_cases.create_project.execute(_INBOX_PROJECT_NAME)
-
-
 def _run_capture(ctx: typer.Context, text: list[str]) -> None:
     joined_text = " ".join(text)
     parsed = parse_quick_add(joined_text)
 
     with _capture_use_cases() as use_cases:
-        if parsed.project_name is not None:
-            project = _resolve_project(use_cases, parsed.project_name)
-        else:
-            project = _resolve_or_create_inbox(use_cases)
+        project = resolve_capture_target(
+            parsed.project_name,
+            list_projects=use_cases.list_projects.execute,
+            create_project=use_cases.create_project.execute,
+        )
 
         task = use_cases.create_task.execute(
             project.id,

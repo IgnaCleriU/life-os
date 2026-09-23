@@ -74,7 +74,9 @@ single source of truth for phasing and status.
 - **Local environment:** run `uv sync --all-extras` from `backend/` — it
   creates `.venv` and installs the exact versions pinned in
   `backend/uv.lock`, the same ones CI uses. Then run
-  `uv run uvicorn lifeos.adapters.rest.main:app` for the REST API,
+  `uv run lifeos-daemon` for the REST API (token-guarded; see
+  [docs/desktop.md](docs/desktop.md), or `desktop/install.sh` to run it as
+  a user service),
   `uv run lifeos-mcp` for the MCP server, or `uv run lifeos --help` for the
   CLI (see [docs/cli.md](docs/cli.md)). All three use the shared database
   described in [ARCHITECTURE.md](ARCHITECTURE.md#where-the-data-lives).

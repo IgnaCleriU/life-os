@@ -36,6 +36,7 @@ lifeos-mcp = "lifeos.adapters.mcp.server:main"
 lifeos = "lifeos.adapters.cli.main:main"
 lifeos-tui = "lifeos.adapters.tui.__main__:main"
 lifeos-capture = "lifeos.adapters.tui.capture:main"
+lifeos-daemon = "lifeos.adapters.rest.daemon:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

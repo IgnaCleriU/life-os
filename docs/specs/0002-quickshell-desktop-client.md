@@ -73,8 +73,8 @@ It ships as a user unit, `desktop/systemd/lifeos-daemon.service`, with
 - Every route except `GET /health` requires the header
   `Authorization: Bearer <token>`. Otherwise it returns `401` with the
   usual structured error body (`unauthorized`).
-- Requests whose `Host` header is not `127.0.0.1:<port>` or
-  `localhost:<port>` are rejected with `403`, to block DNS rebinding.
+- Requests whose `Host` header names anything but `localhost`,
+  `127.0.0.1` or `::1` are rejected with `403`, to block DNS rebinding.
 - The app sends no CORS headers. The custom `Authorization` header forces
   a browser preflight, the preflight fails, and so a web page can neither
   read nor write.
@@ -88,7 +88,7 @@ It ships as a user unit, `desktop/systemd/lifeos-daemon.service`, with
 |---|---|
 | `GET /revision` | Returns `{"revision": "<opaque>"}`. The value changes after any commit by any process. |
 | `POST /quick-add/preview` | Body `{text, default_project_id?}`. Returns the parsed `title`, `priority`, `due_date` and the resolved `project` (`{id, name}` or `null`), plus `error` (`{code, message}` or `null`). It never writes. |
-| `POST /quick-add` | Same body. Creates the task and returns `201` with a `TaskResponse`. On error it uses the same codes as the preview (`project_not_found`, `ambiguous_project_name`, `validation_error`). |
+| `POST /quick-add` | Same body. Creates the task and returns `201` with a `TaskResponse`. On error it uses the same codes as the preview: `project_name_not_found` (404) and `ambiguous_project_name` (409) for a bad `#project`, `project_not_found` for a missing `default_project_id`, and `domain_validation_error` (400) for an empty title. |
 
 **Revision.** A new port, `RevisionSource.current() -> str`, reached
 through a `GetRevision` use case. The SQLite implementation keeps one

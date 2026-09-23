@@ -14,7 +14,12 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from lifeos.adapters.rest.routers import projects, tasks
+from lifeos.adapters.rest.auth import install_local_guard
+from lifeos.adapters.rest.routers import projects, quick_add, sync, tasks
+from lifeos.adapters.shared.capture_target import (
+    AmbiguousProjectName,
+    ProjectNameNotFound,
+)
 from lifeos.domain import (
     DomainValidationError,
     ProjectNotEmpty,
@@ -43,10 +48,23 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-def create_app() -> FastAPI:
-    """Construye y configura la instancia de FastAPI."""
+def create_app(
+    *, api_token: str | None = None, auth_enabled: bool | None = None
+) -> FastAPI:
+    """Construye y configura la instancia de FastAPI.
+
+    Sin argumentos, la auth sale de la configuración (`LIFEOS_API_AUTH`,
+    `LIFEOS_API_TOKEN`). `lifeos-daemon` pasa su propio token generado; los
+    tests la apagan explícitamente con `auth_enabled=False`.
+    """
     settings = get_settings()
+    if auth_enabled is None:
+        auth_enabled = settings.api_auth == "enabled"
+    if api_token is None:
+        api_token = settings.api_token
     app = FastAPI(title=settings.app_name, lifespan=_lifespan)
+    if auth_enabled:
+        install_local_guard(app, api_token=api_token)
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -83,6 +101,24 @@ def create_app() -> FastAPI:
             status.HTTP_409_CONFLICT, "project_not_empty", str(exc)
         )
 
+    @app.exception_handler(ProjectNameNotFound)
+    def handle_project_name_not_found(
+        request: Request, exc: ProjectNameNotFound
+    ) -> JSONResponse:
+        """`#nombre` de quick-add sin proyecto que coincida -> 404."""
+        return _error_response(
+            status.HTTP_404_NOT_FOUND, "project_name_not_found", str(exc)
+        )
+
+    @app.exception_handler(AmbiguousProjectName)
+    def handle_ambiguous_project_name(
+        request: Request, exc: AmbiguousProjectName
+    ) -> JSONResponse:
+        """`#nombre` de quick-add que coincide con varios proyectos -> 409."""
+        return _error_response(
+            status.HTTP_409_CONFLICT, "ambiguous_project_name", str(exc)
+        )
+
     @app.exception_handler(RequestValidationError)
     def handle_request_validation_error(
         request: Request, exc: RequestValidationError
@@ -96,6 +132,8 @@ def create_app() -> FastAPI:
 
     app.include_router(projects.router)
     app.include_router(tasks.router)
+    app.include_router(quick_add.router)
+    app.include_router(sync.router)
 
     return app
 

@@ -63,8 +63,9 @@ Before designing or implementing, review these documents:
   per clone); validates the message format before a commit is created.
 - **Local environment:** `uv sync --all-extras` from `backend/` creates
   `.venv` from the pinned versions in `backend/uv.lock`, then
-  `uv run uvicorn lifeos.adapters.rest.main:app` (REST) or
-  `uv run lifeos-mcp` (MCP). Both share one database, see
+  `uv run lifeos-daemon` (REST, token-guarded, see
+  [docs/desktop.md](docs/desktop.md)) or `uv run lifeos-mcp` (MCP). Both
+  share one database, see
   [ARCHITECTURE.md](ARCHITECTURE.md#where-the-data-lives).
 - **Dependencies are locked.** Never add a bare, unconstrained requirement:
   every entry in `backend/pyproject.toml` carries a version range with an
