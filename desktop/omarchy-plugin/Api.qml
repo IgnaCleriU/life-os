@@ -45,7 +45,12 @@ QtObject {
 
   function request(method, path, body, callback) {
     if (!api.baseUrl) {
+      // Sin daemon.json todavía (p. ej. el shell arrancó antes que el
+      // daemon): no se depende solo del watcher, que puede no dispararse
+      // por un archivo que no existía; se relee en cada intento, y el
+      // sondeo del tablero ya espacia los intentos (3 s).
       api.status = "unreachable"
+      api.rediscover()
       if (callback) callback({ ok: false, status: 0, data: null, error: { code: "daemon_unreachable", message: "lifeos-daemon is not running" } })
       return
     }
