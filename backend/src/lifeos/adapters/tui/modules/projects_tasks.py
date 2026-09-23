@@ -399,7 +399,7 @@ class ProjectsTasksModule:
         try:
             target = resolve_capture_target(
                 parsed.project_name,
-                list_projects=self._list_projects_matching,
+                list_projects=self._all_projects,
                 default=lambda: default_project,
             )
         except ProjectNameNotFound as exc:
@@ -424,9 +424,9 @@ class ProjectsTasksModule:
         )
         self.shell.action_reload()  # type: ignore[attr-defined]
 
-    def _list_projects_matching(self, text: str) -> list[Project]:
+    def _all_projects(self) -> list[Project]:
         with deps.list_projects_use_case() as use_case:
-            return use_case.execute(text=text)
+            return use_case.execute()
 
     def _find_projects_by_name(self, name: str) -> list[Project]:
         """All projects whose name matches `name` exactly (case-insensitive).
@@ -436,7 +436,7 @@ class ProjectsTasksModule:
         the same rule as `adapters/shared/capture_target.py`, which this
         delegates to.
         """
-        return find_projects_by_name(self._list_projects_matching(name), name)
+        return find_projects_by_name(self._all_projects(), name)
 
     def _show_ambiguous_project_error(self, name: str, count: int) -> None:
         self.shell.show_error(  # type: ignore[attr-defined]

@@ -23,8 +23,8 @@ class _Projects:
     def __init__(self, *names: str) -> None:
         self.items = [Project.create(name=n) for n in names]
 
-    def list(self, text: str) -> list[Project]:
-        return [p for p in self.items if text.casefold() in p.name.casefold()]
+    def list(self) -> list[Project]:
+        return list(self.items)
 
     def create(self, name: str) -> Project:
         project = Project.create(name=name)
@@ -105,3 +105,10 @@ def test_inbox_is_created_when_missing() -> None:
 def test_missing_inbox_without_create_raises() -> None:
     with pytest.raises(ProjectNameNotFound):
         resolve_capture_target(None, list_projects=_Projects("Casa").list)
+
+
+def test_resolve_by_name_folds_non_ascii_case() -> None:
+    """`#árbol` encuentra "Árbol": SQLite `LIKE` no pliega no-ASCII, casefold sí."""
+    projects = _Projects("Árbol genealógico", "Árbol")
+
+    assert resolve_project_by_name("ÁRBOL", list_projects=projects.list).name == "Árbol"

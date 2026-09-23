@@ -73,7 +73,7 @@ def _run_capture(ctx: typer.Context, text: list[str]) -> None:
     with _capture_use_cases() as use_cases:
         project = resolve_capture_target(
             parsed.project_name,
-            list_projects=lambda text: use_cases.list_projects.execute(text=text),
+            list_projects=use_cases.list_projects.execute,
             create_project=use_cases.create_project.execute,
         )
 

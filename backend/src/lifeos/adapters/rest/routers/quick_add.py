@@ -69,7 +69,7 @@ def preview_quick_add(
     try:
         target = resolve_capture_target(
             parsed.project_name,
-            list_projects=lambda text: list_projects.execute(text=text),
+            list_projects=list_projects.execute,
             default=_default(body, get_project),
         )
         project = QuickAddProject(id=target.id, name=target.name)
@@ -113,7 +113,7 @@ def create_from_quick_add(
         raise DomainValidationError("A task needs a title.")
     target = resolve_capture_target(
         parsed.project_name,
-        list_projects=lambda text: list_projects.execute(text=text),
+        list_projects=list_projects.execute,
         default=_default(body, get_project),
         create_project=create_project.execute,
     )
