@@ -48,6 +48,14 @@ def test_wrong_token_is_401(guarded: TestClient) -> None:
     assert response.status_code == 401
 
 
+def test_non_ascii_token_is_401_not_500(guarded: TestClient) -> None:
+    response = guarded.get(
+        "/projects", headers={"Authorization": "Bearer tok\u00e9n".encode("latin-1")}
+    )
+
+    assert response.status_code == 401
+
+
 def test_non_bearer_scheme_is_401(guarded: TestClient) -> None:
     response = guarded.get("/projects", headers={"Authorization": f"Basic {TOKEN}"})
 
