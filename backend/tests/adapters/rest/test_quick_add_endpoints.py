@@ -161,3 +161,12 @@ def test_create_empty_title_does_not_create_the_inbox(client: TestClient) -> Non
 
     assert response.status_code == 400
     assert client.get("/projects").json() == []
+
+
+def test_create_matches_non_ascii_project_names(client: TestClient) -> None:
+    arbol = _project(client, "Árbol")
+
+    response = client.post("/quick-add", json={"text": "podar #árbol"})
+
+    assert response.status_code == 201
+    assert response.json()["project_id"] == arbol["id"]

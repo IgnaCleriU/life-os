@@ -83,8 +83,11 @@ def install_local_guard(app: FastAPI, *, api_token: str | None) -> None:
         scheme, _, presented = request.headers.get("authorization", "").partition(
             " "
         )
+        # Se comparan bytes: `compare_digest` con `str` lanza TypeError ante
+        # caracteres no ASCII, y Starlette decodifica los headers como latin-1,
+        # así que un header raro daría 500 en vez de 401.
         if scheme.lower() != "bearer" or not secrets.compare_digest(
-            presented.strip(), api_token
+            presented.strip().encode(), api_token.encode()
         ):
             return _error(
                 status.HTTP_401_UNAUTHORIZED,

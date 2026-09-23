@@ -11,8 +11,10 @@ Lo lanza la unidad `systemd --user` de `desktop/systemd/`. En cada arranque:
 3. Sirve la app solo en `127.0.0.1`, con la guardia local siempre encendida
    (ignora `LIFEOS_API_AUTH`).
 
-Al salir borra el archivo, pero solo si sigue siendo el suyo: si otra
-instancia ya lo reemplazó, no se lo pisa.
+El puerto se toma *antes* de escribir el archivo: si ya hay un daemon
+corriendo, una segunda instancia falla al bindear y sale sin tocar el
+archivo del que funciona. Al salir borra el archivo, pero solo si sigue
+siendo el suyo.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ import json
 import os
 import secrets
 import signal
+import socket
 from pathlib import Path
 
 import uvicorn
@@ -80,6 +83,24 @@ def _exit_on_sigterm(signum: int, frame: object) -> None:
     raise SystemExit(0)
 
 
+def bind_socket(port: int) -> socket.socket:
+    """Toma el puerto en loopback; `OSError` si ya está en uso."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        sock.bind((HOST, port))
+    except OSError:
+        sock.close()
+        raise
+    sock.listen(128)
+    return sock
+
+
+def serve(app, sock: socket.socket) -> None:
+    """Sirve `app` sobre un socket ya bindeado."""
+    uvicorn.Server(uvicorn.Config(app)).run(sockets=[sock])
+
+
 def main() -> None:
     """Punto de entrada del console script `lifeos-daemon`."""
     settings = get_settings()
@@ -92,11 +113,13 @@ def main() -> None:
     # eso mata el proceso antes del `finally`; con este, sale limpio y el
     # archivo se borra (systemd detiene la unidad con SIGTERM).
     signal.signal(signal.SIGTERM, _exit_on_sigterm)
-    write_discovery_file(path, port=settings.app_port, token=token)
+    sock = bind_socket(settings.app_port)
     try:
-        uvicorn.run(app, host=HOST, port=settings.app_port)
+        write_discovery_file(path, port=settings.app_port, token=token)
+        serve(app, sock)
     finally:
         remove_discovery_file(path, token=token)
+        sock.close()
 
 
 if __name__ == "__main__":

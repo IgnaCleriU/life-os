@@ -25,8 +25,14 @@ from lifeos.domain import Project
 
 INBOX_PROJECT_NAME = "inbox"
 
-ListProjectsByText = Callable[[str], list[Project]]
-"""Devuelve los proyectos cuyo nombre contiene el texto (filtro amplio)."""
+ListProjects = Callable[[], list[Project]]
+"""Devuelve todos los proyectos vivos.
+
+Sin prefiltro por texto a propósito: el filtro `text` de los repositorios es
+un `LIKE` de SQLite, que solo pliega mayúsculas ASCII, así que `#árbol` no
+encontraría "Árbol". La comparación exacta se hace acá con `casefold()`, que
+sí cubre Unicode; a escala de un usuario, traer todos los proyectos es barato.
+"""
 
 
 class ProjectNameNotFound(Exception):
@@ -56,9 +62,9 @@ def find_projects_by_name(projects: Iterable[Project], name: str) -> list[Projec
     return [p for p in projects if p.name.strip().casefold() == target]
 
 
-def resolve_project_by_name(name: str, *, list_projects: ListProjectsByText) -> Project:
+def resolve_project_by_name(name: str, *, list_projects: ListProjects) -> Project:
     """Devuelve el único proyecto llamado `name`; falla si hay 0 o más de 1."""
-    matches = find_projects_by_name(list_projects(name), name)
+    matches = find_projects_by_name(list_projects(), name)
     if not matches:
         raise ProjectNameNotFound(name)
     if len(matches) > 1:
@@ -69,7 +75,7 @@ def resolve_project_by_name(name: str, *, list_projects: ListProjectsByText) -> 
 def resolve_capture_target(
     project_name: str | None,
     *,
-    list_projects: ListProjectsByText,
+    list_projects: ListProjects,
     default: Callable[[], Project] | None = None,
     create_project: Callable[[str], Project] | None = None,
 ) -> Project:
