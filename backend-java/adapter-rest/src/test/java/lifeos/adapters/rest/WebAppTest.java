@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -53,6 +54,28 @@ class WebAppTest extends RestTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("<div id=\"root\">")))
                 .andExpect(header().string("Cache-Control", "no-cache"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/app/proyectos/Casa%20nueva", "/app/a%C3%B1/b", "/app/x%2Dy"})
+    void encodedDeepLinksFallBackToIndex(String path) throws Exception {
+        // URI.create: con un String, MockMvc volvería a codificar el %.
+        anonymousMvc().perform(get(java.net.URI.create(path)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("<div id=\"root\">")));
+    }
+
+    @Autowired
+    private org.springframework.web.servlet.HandlerMapping resourceHandlerMapping;
+
+    /** Un CachingResourceResolver guardaría una entrada por cada /app/<ruta> distinta (memoria sin tope). */
+    @Test
+    void spaFallbackIsNotCached() {
+        var handler = (org.springframework.web.servlet.resource.ResourceHttpRequestHandler)
+                ((org.springframework.web.servlet.handler.SimpleUrlHandlerMapping) resourceHandlerMapping)
+                        .getUrlMap().get("/app/**");
+        org.assertj.core.api.Assertions.assertThat(handler.getResourceResolvers())
+                .noneMatch(r -> r instanceof org.springframework.web.servlet.resource.CachingResourceResolver);
     }
 
     @ParameterizedTest
@@ -129,6 +152,16 @@ class WebAppTest extends RestTestSupport {
         assertWeb("/app/..", false);
         assertWeb("/app/a/../b", false);
         assertWeb("/app/a%2fb", false);
+        assertWeb("/app/a%2Fb", false);
+        assertWeb("/app/%2E%2e/x", false);
+        assertWeb("/app/a%5Cb", false);
+        assertWeb("/app/a%3bb", false);
+        assertWeb("/app/a%252e", false);
+        assertWeb("/app/a%00", false);
+        assertWeb("/app/a%", false);
+        assertWeb("/app/a%zz", false);
+        assertWeb("/app/proyectos/Casa%20nueva", true);
+        assertWeb("/app/a%C3%B1", true);
         assertWeb("/app//x", false);
         assertWeb("/APP/", false);
         assertWeb("/projects", false);

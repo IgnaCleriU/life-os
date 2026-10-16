@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 class WebAppController {
 
-    private static final Resource INDEX = new ClassPathResource("static/app/index.html");
+    private static final Resource INDEX = new ClassPathResource(WebAppConfiguration.INDEX_PATH);
 
     @GetMapping("/app/")
     ResponseEntity<Resource> index() {
