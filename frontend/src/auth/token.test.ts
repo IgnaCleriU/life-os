@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { clearToken, clearTokenIfCurrent, readToken, writeToken } from './token'
+import { clearToken, clearTokenIfCurrent, readToken, subscribeToTokenChanges, writeToken } from './token'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -73,6 +73,21 @@ describe('token storage', () => {
 
     expect(clearTokenIfCurrent('token-b')).toBe(true)
     expect(readToken()).toBeNull()
+  })
+
+  it('notifies token changes from other tabs through the storage event', () => {
+    const onChange = vi.fn()
+    const unsubscribe = subscribeToTokenChanges(onChange)
+
+    window.dispatchEvent(new StorageEvent('storage', { key: 'lifeos.token', newValue: 'from-other-tab' }))
+    window.dispatchEvent(new StorageEvent('storage', { key: 'lifeos.token', newValue: null }))
+    window.dispatchEvent(new StorageEvent('storage', { key: null, newValue: null }))
+    window.dispatchEvent(new StorageEvent('storage', { key: 'other.key', newValue: 'x' }))
+
+    expect(onChange.mock.calls).toEqual([['from-other-tab'], [null], [null]])
+    unsubscribe()
+    window.dispatchEvent(new StorageEvent('storage', { key: 'lifeos.token', newValue: 'late' }))
+    expect(onChange).toHaveBeenCalledTimes(3)
   })
 
   it('keeps the in-memory token when localStorage is blocked', () => {
