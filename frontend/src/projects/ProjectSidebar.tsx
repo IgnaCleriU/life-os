@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type RefObject } from 'react'
 import { errorMessage } from '../api/errorMessage'
 import type { Project } from '../api/types'
 import { useApi } from '../api/useApi'
@@ -15,6 +15,8 @@ interface ProjectSidebarProps {
   onRetry: () => void
   /** Se llama con el proyecto recién creado. */
   onCreated: (project: Project) => void
+  /** Título de la lista: destino del foco cuando el proyecto seleccionado desaparece. */
+  headingRef: RefObject<HTMLHeadingElement | null>
 }
 
 export default function ProjectSidebar({
@@ -27,10 +29,13 @@ export default function ProjectSidebar({
   onSelect,
   onRetry,
   onCreated,
+  headingRef,
 }: ProjectSidebarProps) {
   return (
     <aside className="project-sidebar" aria-label="Proyectos">
-      <h2>Proyectos</h2>
+      <h2 ref={headingRef} tabIndex={-1}>
+        Proyectos
+      </h2>
 
       <div className="sidebar-section">
         <label htmlFor="project-status-filter">Estado</label>

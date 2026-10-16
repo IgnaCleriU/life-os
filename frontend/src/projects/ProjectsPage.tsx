@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useApi } from '../api/useApi'
 import type { Project } from '../api/types'
 import ProjectDetail from './ProjectDetail'
@@ -13,6 +13,7 @@ export default function ProjectsPage() {
   const [filter, setFilter] = useState<StatusFilter>('active')
   const [selectedId, selectProject] = useHashProjectId()
   const { projects, loading, error, reload } = useProjects(filter)
+  const sidebarHeadingRef = useRef<HTMLHeadingElement>(null)
 
   // Proyecto seleccionado que no está en la lista filtrada (p. ej. un reload con el hash
   // de un proyecto completado, con el filtro en Activos): se pide por id para no perder la selección.
@@ -41,7 +42,11 @@ export default function ProjectsPage() {
 
   // Tras una acción sobre el detalle: el proyecto sigue seleccionado solo si aún cumple el filtro.
   function handleChanged(updated: Project | null) {
-    if (updated === null || !matchesStatusFilter(updated, filter)) selectProject(null)
+    if (updated === null || !matchesStatusFilter(updated, filter)) {
+      selectProject(null)
+      // El detalle desaparece: el foco va a la lista.
+      sidebarHeadingRef.current?.focus()
+    }
     reload()
   }
 
@@ -64,6 +69,7 @@ export default function ProjectsPage() {
         onSelect={selectProject}
         onRetry={reload}
         onCreated={handleCreated}
+        headingRef={sidebarHeadingRef}
       />
 
       <div className="project-main">
