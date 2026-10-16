@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -69,5 +70,14 @@ class SqliteDatabaseTest {
                 "ix_tasks_project_id",
                 "projects",
                 "tasks");
+    }
+
+    @Test
+    void recognizesPrimaryAndExtendedConstraintCodes() {
+        // 19 es SQLITE_CONSTRAINT; con códigos extendidos llega 787 (FK) o 1555 (PK).
+        assertThat(SqliteDatabase.isConstraintViolation(new SQLException("x", null, 19))).isTrue();
+        assertThat(SqliteDatabase.isConstraintViolation(new SQLException("x", null, 787))).isTrue();
+        assertThat(SqliteDatabase.isConstraintViolation(new SQLException("x", null, 1555))).isTrue();
+        assertThat(SqliteDatabase.isConstraintViolation(new SQLException("x", null, 5))).isFalse();
     }
 }

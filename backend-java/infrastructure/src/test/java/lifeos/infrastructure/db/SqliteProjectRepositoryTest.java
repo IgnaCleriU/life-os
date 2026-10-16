@@ -1,12 +1,14 @@
 package lifeos.infrastructure.db;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 import lifeos.application.port.ProjectFilter;
 import lifeos.domain.Project;
+import lifeos.domain.ProjectNotFoundException;
 import lifeos.domain.ProjectStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -125,5 +127,14 @@ class SqliteProjectRepositoryTest {
         repo.add(Project.create("Life OS", null));
 
         assertThat(repo.list(ProjectFilter.all().withStatuses(List.of()))).isEmpty();
+    }
+
+    @Test
+    void updateOfAMissingRowFails() {
+        // Si otro proceso borró la fila, el UPDATE toca 0 filas: no puede
+        // reportarse como éxito.
+        var entity = Project.create("Nunca guardado", null);
+
+        assertThatThrownBy(() -> repo.update(entity)).isInstanceOf(ProjectNotFoundException.class);
     }
 }

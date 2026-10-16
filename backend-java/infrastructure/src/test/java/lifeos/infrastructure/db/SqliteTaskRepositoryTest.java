@@ -10,6 +10,7 @@ import java.util.UUID;
 import lifeos.application.port.TaskFilter;
 import lifeos.domain.Priority;
 import lifeos.domain.Project;
+import lifeos.domain.TaskNotFoundException;
 import lifeos.domain.Task;
 import lifeos.domain.TaskStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -195,5 +196,14 @@ class SqliteTaskRepositoryTest {
         repo.add(Task.create(project.id(), "Renovar seguro"));
 
         assertThat(ids(repo.list(TaskFilter.all().matching("expENSAS")))).containsExactly(expensas.id());
+    }
+
+    @Test
+    void updateOfAMissingRowFails() {
+        // Si otro proceso borró la fila, el UPDATE toca 0 filas: no puede
+        // reportarse como éxito.
+        var entity = Task.create(UUID.randomUUID(), "Nunca guardada");
+
+        assertThatThrownBy(() -> repo.update(entity)).isInstanceOf(TaskNotFoundException.class);
     }
 }

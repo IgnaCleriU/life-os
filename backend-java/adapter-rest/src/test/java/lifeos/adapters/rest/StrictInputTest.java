@@ -57,6 +57,14 @@ class StrictInputTest extends RestTestSupport {
     }
 
     @Test
+    void commaSeparatedStatusIsRejected() throws Exception {
+        // Spring separa por comas al bindear List<String>; FastAPI no, y responde 422.
+        is422(mvc.perform(get("/projects?status=active,archived")));
+        is422(mvc.perform(get("/tasks?status=todo,doing")));
+        is422(mvc.perform(get("/projects/" + createProject("P") + "/tasks?status=todo,doing")));
+    }
+
+    @Test
     void emptyStatusFilterIsRejected() throws Exception {
         is422(mvc.perform(get("/projects?status=")));
         is422(mvc.perform(get("/tasks?status=")));
