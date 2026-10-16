@@ -22,14 +22,12 @@ import com.lifeos.android.R;
 import com.lifeos.android.api.model.Task;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.format.FormatStyle;
 
 /**
  * Create / edit form for a task, as a DialogFragment so it (and its date picker) survive
  * rotation. The draft is kept in the saved state. On save the draft goes to the parent
  * FragmentManager as a fragment result under {@link #REQUEST_KEY}; read it with
- * {@link #draftFrom(Bundle)} and {@link #taskIdFrom(Bundle)} (null id means a new task).
+ * {@link #draftFrom(Bundle)}, {@link #originalFrom(Bundle)} and {@link #taskIdFrom(Bundle)} (null id means a new task).
  * The title is required: nothing is sent while it is blank.
  */
 public final class TaskEditDialog extends DialogFragment {
@@ -40,10 +38,10 @@ public final class TaskEditDialog extends DialogFragment {
     private static final String TAG_DUE_PICKER = "task_due_picker";
     private static final String ARG_TASK_ID = "task_id";
     private static final String ARG_PROJECT_ID = "project_id";
+    private static final String PREFIX_DRAFT = "draft_";
+    /** Values the form was opened with; the save diffs against them, not against a cache. */
+    private static final String PREFIX_ORIGINAL = "original_";
     private static final String KEY_TITLE = "draft_title";
-    private static final String KEY_DESCRIPTION = "draft_description";
-    private static final String KEY_PRIORITY = "draft_priority";
-    private static final String KEY_DUE = "draft_due";
 
     /** Implemented by the parent fragment so "today" comes from its (injectable) clock. */
     interface Host {
@@ -71,18 +69,29 @@ public final class TaskEditDialog extends DialogFragment {
         if (original != null) {
             args.putString(ARG_TASK_ID, original.getId());
         }
-        writeDraft(args, original == null ? TaskDraft.blank() : TaskDraft.of(original));
+        TaskDraft opened = original == null ? TaskDraft.blank() : TaskDraft.of(original);
+        writeDraft(args, PREFIX_DRAFT, opened);
+        writeDraft(args, PREFIX_ORIGINAL, opened);
         dialog.setArguments(args);
         return dialog;
     }
 
     /** The draft in a result (or saved state / arguments) bundle. */
     static TaskDraft draftFrom(Bundle bundle) {
+        return readDraft(bundle, PREFIX_DRAFT);
+    }
+
+    /** The values the task had when the form was opened (what the user saw and edited). */
+    static TaskDraft originalFrom(Bundle bundle) {
+        return readDraft(bundle, PREFIX_ORIGINAL);
+    }
+
+    private static TaskDraft readDraft(Bundle bundle, String prefix) {
         return TaskDraft.fromState(
-                bundle.getString(KEY_TITLE),
-                bundle.getString(KEY_DESCRIPTION),
-                bundle.getString(KEY_PRIORITY),
-                bundle.containsKey(KEY_DUE) ? bundle.getLong(KEY_DUE) : null);
+                bundle.getString(prefix + "title"),
+                bundle.getString(prefix + "description"),
+                bundle.getString(prefix + "priority"),
+                bundle.containsKey(prefix + "due") ? bundle.getLong(prefix + "due") : null);
     }
 
     /** The id of the task that was edited, or null when the form created a new one. */
@@ -91,13 +100,13 @@ public final class TaskEditDialog extends DialogFragment {
         return result.getString(ARG_TASK_ID);
     }
 
-    private static void writeDraft(Bundle bundle, TaskDraft draft) {
-        bundle.putString(KEY_TITLE, draft.getTitle());
-        bundle.putString(KEY_DESCRIPTION, draft.getDescription());
-        bundle.putString(KEY_PRIORITY, draft.priorityName());
+    private static void writeDraft(Bundle bundle, String prefix, TaskDraft draft) {
+        bundle.putString(prefix + "title", draft.getTitle());
+        bundle.putString(prefix + "description", draft.getDescription());
+        bundle.putString(prefix + "priority", draft.priorityName());
         Long dueDay = draft.dueEpochDay();
         if (dueDay != null) {
-            bundle.putLong(KEY_DUE, dueDay);
+            bundle.putLong(prefix + "due", dueDay);
         }
     }
 
@@ -175,7 +184,7 @@ public final class TaskEditDialog extends DialogFragment {
     public void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
         syncDraftFromFields();
-        writeDraft(outState, draft);
+        writeDraft(outState, PREFIX_DRAFT, draft);
     }
 
     @Override
@@ -205,7 +214,8 @@ public final class TaskEditDialog extends DialogFragment {
             return;
         }
         Bundle result = new Bundle();
-        writeDraft(result, draft);
+        writeDraft(result, PREFIX_DRAFT, draft);
+        writeDraft(result, PREFIX_ORIGINAL, originalFrom(requireArguments()));
         result.putString(ARG_TASK_ID, requireArguments().getString(ARG_TASK_ID));
         getParentFragmentManager().setFragmentResult(REQUEST_KEY, result);
         dismiss();
@@ -213,7 +223,7 @@ public final class TaskEditDialog extends DialogFragment {
 
     private void showDue() {
         LocalDate date = draft.dueDate();
-        due.setText(date == null ? "" : formatDate(date));
+        due.setText(date == null ? "" : TaskDueDates.format(date));
         clearDue.setVisibility(date == null ? View.GONE : View.VISIBLE);
     }
 
@@ -241,10 +251,6 @@ public final class TaskEditDialog extends DialogFragment {
     private Clock clock() {
         Fragment parent = getParentFragment();
         return parent instanceof Host ? ((Host) parent).clock() : Clock.systemDefaultZone();
-    }
-
-    private static String formatDate(LocalDate date) {
-        return DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).format(date);
     }
 
     private static String text(TextInputEditText field) {

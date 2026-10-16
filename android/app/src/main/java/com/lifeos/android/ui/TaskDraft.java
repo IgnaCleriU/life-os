@@ -114,21 +114,26 @@ final class TaskDraft {
      * an unchanged form does not call the server. Priority is only sent when it was set.
      */
     TaskPatch changesFrom(Task original) {
+        return changesFrom(of(original));
+    }
+
+    /** Same as {@link #changesFrom(Task)} for the values the form was opened with. */
+    TaskPatch changesFrom(TaskDraft original) {
         TaskPatch patch = new TaskPatch();
 
-        String originalTitle = nullToEmpty(original.getTitle()).trim();
+        String originalTitle = original.title.trim();
         if (!trimmedTitle().equals(originalTitle)) {
             patch.title(trimmedTitle());
         }
-        if (priority != null && priority != original.getPriority()) {
+        if (priority != null && priority != original.priority) {
             patch.priority(priority);
         }
         String newDescription = normalizedDescription(description);
-        String oldDescription = normalizedDescription(original.getDescription());
+        String oldDescription = normalizedDescription(original.description);
         if (!Objects.equals(newDescription, oldDescription)) {
             patch.description(newDescription);
         }
-        if (!Objects.equals(dueDate, original.getDueDate())) {
+        if (!Objects.equals(dueDate, original.dueDate)) {
             patch.dueDate(dueDate);
         }
         return patch;

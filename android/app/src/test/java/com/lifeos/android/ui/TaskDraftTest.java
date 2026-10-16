@@ -186,4 +186,16 @@ public class TaskDraftTest {
         assertFalse(patch.isEmpty());
         assertTrue(TaskDraft.of(original()).changesFrom(original()).isEmpty());
     }
+
+    @Test
+    public void changesAreDiffedAgainstTheValuesTheFormWasOpenedWith() {
+        TaskDraft opened = TaskDraft.of(original());
+        TaskDraft draft = TaskDraft.of(original());
+        draft.setTitle("Buy oat milk");
+        // Someone else changed the description meanwhile: the draft never touched it, so it is not sent.
+        JsonObject json = draft.changesFrom(opened).toJson();
+        assertEquals("Buy oat milk", json.get("title").getAsString());
+        assertFalse(json.has("description"));
+        assertTrue(TaskDraft.of(original()).changesFrom(opened).isEmpty());
+    }
 }
