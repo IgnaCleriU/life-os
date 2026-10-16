@@ -9,7 +9,7 @@ import {
   isOverdue,
 } from './taskModel'
 
-export const DRAG_TYPE = 'text/plain'
+export const DRAG_TYPE = 'application/x-lifeos-task'
 
 interface TaskCardProps {
   task: Task
