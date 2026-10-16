@@ -137,25 +137,26 @@ export default function ProjectDetail({ project, onChanged, children }: ProjectD
 
       {!editing && (
         <div className="actions">
-          {project.status === 'active' ? (
-            <>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => run(() => api.completeProject(project.id))}
-              >
-                Completar
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                disabled={busy}
-                onClick={() => run(() => api.archiveProject(project.id))}
-              >
-                Archivar
-              </button>
-            </>
-          ) : (
+          {project.status !== 'completed' && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => run(() => api.completeProject(project.id))}
+            >
+              Completar
+            </button>
+          )}
+          {project.status !== 'archived' && (
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() => run(() => api.archiveProject(project.id))}
+            >
+              Archivar
+            </button>
+          )}
+          {project.status !== 'active' && (
             <button
               type="button"
               disabled={busy}
