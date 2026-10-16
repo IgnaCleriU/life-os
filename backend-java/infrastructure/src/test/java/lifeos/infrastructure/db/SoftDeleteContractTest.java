@@ -29,7 +29,10 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class SoftDeleteContractTest {
 
-    private static final Set<String> EXPECTED_PUBLIC_METHODS = Set.of("add", "get", "list", "update");
+    private static final Set<String> COMMON_PUBLIC_METHODS = Set.of("add", "get", "list", "update");
+
+    /** {@code hasLiveTasks} lo usa {@code DeleteProject}; su caso de borrado está abajo. */
+    private static final Set<String> TASK_ONLY_PUBLIC_METHODS = Set.of("hasLiveTasks");
 
     @TempDir
     Path tmp;
@@ -47,7 +50,9 @@ class SoftDeleteContractTest {
                 .as("%s cambió su superficie pública. Antes de tocar esta lista, escribí el test "
                         + "que verifica que el método nuevo excluye los registros borrados.",
                         repoClass.getSimpleName())
-                .isEqualTo(EXPECTED_PUBLIC_METHODS);
+                .isEqualTo(repoClass == SqliteTaskRepository.class
+                        ? union(COMMON_PUBLIC_METHODS, TASK_ONLY_PUBLIC_METHODS)
+                        : COMMON_PUBLIC_METHODS);
     }
 
     @Test
@@ -66,6 +71,7 @@ class SoftDeleteContractTest {
         assertThat(repo.list(TaskFilter.all().inProject(project.id()))).isEmpty();
         assertThat(repo.list(TaskFilter.all().withStatuses(List.of(task.status())))).isEmpty();
         assertThat(repo.list(TaskFilter.all().matching("Tarea"))).isEmpty();
+        assertThat(repo.hasLiveTasks(project.id())).isFalse();
     }
 
     @Test
@@ -80,5 +86,11 @@ class SoftDeleteContractTest {
         assertThat(repo.list(ProjectFilter.all())).isEmpty();
         assertThat(repo.list(ProjectFilter.all().withStatuses(List.of(project.status())))).isEmpty();
         assertThat(repo.list(ProjectFilter.all().matching("Proyecto"))).isEmpty();
+    }
+
+    private static Set<String> union(Set<String> a, Set<String> b) {
+        var all = new java.util.HashSet<>(a);
+        all.addAll(b);
+        return all;
     }
 }

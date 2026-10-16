@@ -61,7 +61,9 @@ class ProjectEndpointsTest extends RestTestSupport {
     void createProjectWithMalformedJsonReturns422() throws Exception {
         mvc.perform(post("/projects").contentType(MediaType.APPLICATION_JSON).content("{\"name\": "))
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.error.code").value("request_validation_error"));
+                .andExpect(jsonPath("$.error.code").value("request_validation_error"))
+                // Mensaje estable: sin detalles internos del parser de Jackson.
+                .andExpect(jsonPath("$.error.message").value("El body no es JSON válido"));
     }
 
     @Test

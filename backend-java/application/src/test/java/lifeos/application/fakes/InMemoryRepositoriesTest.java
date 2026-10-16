@@ -52,4 +52,20 @@ class InMemoryRepositoriesTest {
 
         assertThat(repo.get(task.id()).orElseThrow().status()).isSameAs(task.status());
     }
+
+    @Test
+    void taskRepoHasLiveTasksIgnoresDeletedAndOtherProjects() {
+        var repo = new InMemoryTaskRepository();
+        UUID projectId = UUID.randomUUID();
+        repo.add(Task.create(UUID.randomUUID(), "Ajena"));
+        assertThat(repo.hasLiveTasks(projectId)).isFalse();
+
+        Task task = Task.create(projectId, "Propia");
+        repo.add(task);
+        assertThat(repo.hasLiveTasks(projectId)).isTrue();
+
+        task.delete();
+        repo.update(task);
+        assertThat(repo.hasLiveTasks(projectId)).isFalse();
+    }
 }

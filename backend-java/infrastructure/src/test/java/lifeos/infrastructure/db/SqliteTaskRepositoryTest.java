@@ -206,4 +206,16 @@ class SqliteTaskRepositoryTest {
 
         assertThatThrownBy(() -> repo.update(entity)).isInstanceOf(TaskNotFoundException.class);
     }
+
+    @Test
+    void hasLiveTasksIgnoresOtherProjects() {
+        Project project = addProject("P");
+        Project other = addProject("Otro");
+        repo.add(Task.create(other.id(), "Ajena"));
+
+        assertThat(repo.hasLiveTasks(project.id())).isFalse();
+
+        repo.add(Task.create(project.id(), "Propia"));
+        assertThat(repo.hasLiveTasks(project.id())).isTrue();
+    }
 }

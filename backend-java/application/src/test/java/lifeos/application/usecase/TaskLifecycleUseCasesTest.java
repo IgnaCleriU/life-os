@@ -55,6 +55,15 @@ class TaskLifecycleUseCasesTest {
         }
 
         @Test
+        void withoutPriorityDefaultsToMedium() {
+            Project project = seedProject("Life OS");
+
+            Task task = new CreateTask(taskRepo, projectRepo).execute(project.id(), "Tarea", null, null, null);
+
+            assertThat(task.priority()).isSameAs(Priority.MEDIUM);
+        }
+
+        @Test
         void underMissingProjectThrows() {
             assertThatThrownBy(() -> new CreateTask(taskRepo, projectRepo)
                             .execute(UUID.randomUUID(), "Tarea huérfana", Priority.MEDIUM, null, null))
