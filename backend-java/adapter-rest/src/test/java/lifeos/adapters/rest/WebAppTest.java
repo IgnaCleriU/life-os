@@ -118,6 +118,17 @@ class WebAppTest extends RestTestSupport {
     }
 
     @Test
+    void writeMethodsOnTheWebNeedTheToken() throws Exception {
+        for (String path : new String[] {"/app/x", "/app/", "/app", "/"}) {
+            anonymousMvc().perform(post(path)).andExpect(status().isUnauthorized());
+            anonymousMvc().perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete(path))
+                    .andExpect(status().isUnauthorized());
+        }
+        anonymousMvc().perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head("/app/"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void webResponsesDoNotLeakIntoTheApi() throws Exception {
         mvc.perform(get("/projects")).andExpect(status().isOk())
                 .andExpect(header().doesNotExist("Content-Security-Policy"));

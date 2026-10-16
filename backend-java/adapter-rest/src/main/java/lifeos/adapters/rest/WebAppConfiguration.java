@@ -27,9 +27,11 @@ import org.springframework.web.servlet.resource.PathResourceResolver;
 class WebAppConfiguration implements WebMvcConfigurer {
 
     /** Dónde queda el build de la web dentro del jar (classpath). */
-    static final String INDEX_PATH = "static/app/index.html";
+    private static final String BASE = "static/app/";
 
-    private static final String LOCATION = "classpath:/static/app/";
+    static final String INDEX_PATH = BASE + "index.html";
+
+    private static final String LOCATION = "classpath:/" + BASE;
 
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {

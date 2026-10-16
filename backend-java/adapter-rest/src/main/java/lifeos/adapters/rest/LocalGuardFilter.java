@@ -75,9 +75,10 @@ class LocalGuardFilter extends OncePerRequestFilter {
                     "The API only answers requests addressed to an allowed host.");
             return;
         }
-        // La web estática (/, /app, /app/**) no lleva datos personales: se sirve
-        // con el host validado pero sin token (WebPaths falla cerrado).
-        if (WebPaths.isWeb(request)) {
+        // La web estática (/, /app, /app/**) no lleva datos personales: se lee
+        // (GET/HEAD) con el host validado pero sin token (WebPaths falla cerrado).
+        // Cualquier otro método sigue exigiendo token.
+        if (WebPaths.isWeb(request) && isReadMethod(request.getMethod())) {
             chain.doFilter(request, response);
             return;
         }
@@ -92,6 +93,10 @@ class LocalGuardFilter extends OncePerRequestFilter {
             return;
         }
         chain.doFilter(request, response);
+    }
+
+    private static boolean isReadMethod(String method) {
+        return "GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method);
     }
 
     private boolean hasValidToken(String authorization) {
