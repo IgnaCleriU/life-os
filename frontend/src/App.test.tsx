@@ -21,6 +21,7 @@ describe('App', () => {
   })
 
   it('shows the shell with a logout button when a token is stored', () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('[]', { status: 200 })))
     writeToken('stored')
     render(<App />)
 
@@ -30,6 +31,7 @@ describe('App', () => {
   })
 
   it('logs out: clears the token and shows the login screen again', () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('[]', { status: 200 })))
     writeToken('stored')
     render(<App />)
 
