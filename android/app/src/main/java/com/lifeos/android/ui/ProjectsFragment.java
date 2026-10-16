@@ -147,9 +147,7 @@ public class ProjectsFragment extends BaseFragment {
 
     /** Fetches the list for the current filter and search. A newer request cancels the one in flight. */
     private void load() {
-        if (loadCall != null) {
-            loadCall.cancel();
-        }
+        cancel(loadCall);
         setLoading(true);
         List<ProjectStatus> statuses = activeOnly ? Collections.singletonList(ProjectStatus.ACTIVE) : null;
         String text = query.isEmpty() ? null : query;
