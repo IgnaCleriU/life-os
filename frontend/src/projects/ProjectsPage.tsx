@@ -5,7 +5,7 @@ import ProjectDetail from './ProjectDetail'
 import ProjectSidebar from './ProjectSidebar'
 import type { StatusFilter } from './projectStatus'
 import { useHashProjectId } from './useHashProjectId'
-import { useProjects } from './useProjects'
+import { matchesStatusFilter, useProjects } from './useProjects'
 
 /** Vista de proyectos: lista a la izquierda (arriba en pantallas angostas) y detalle a la derecha. */
 export default function ProjectsPage() {
@@ -39,6 +39,12 @@ export default function ProjectsPage() {
     }
   }, [api, selectedId, needsLookup, selectProject])
 
+  // Tras una acción sobre el detalle: el proyecto sigue seleccionado solo si aún cumple el filtro.
+  function handleChanged(updated: Project | null) {
+    if (updated === null || !matchesStatusFilter(updated, filter)) selectProject(null)
+    reload()
+  }
+
   function handleCreated(project: Project) {
     selectProject(project.id)
     // Un proyecto nuevo está activo: si el filtro no lo incluye, se cambia a Activos (eso recarga la lista).
@@ -62,7 +68,7 @@ export default function ProjectsPage() {
 
       <div className="project-main">
         {selected ? (
-          <ProjectDetail key={selected.id} project={selected} />
+          <ProjectDetail key={selected.id} project={selected} onChanged={handleChanged} />
         ) : (
           <p className="muted">
             {selectedId && !error ? 'Cargando proyecto…' : 'Elegí un proyecto de la lista.'}

@@ -119,7 +119,12 @@ function NewProjectForm({ onCreated }: { onCreated: (project: Project) => void }
   }
 
   return (
-    <form className="new-project" aria-labelledby="new-project-title" onSubmit={handleSubmit} noValidate>
+    <form
+      className="new-project"
+      aria-labelledby="new-project-title"
+      onSubmit={handleSubmit}
+      noValidate
+    >
       <h2 id="new-project-title">Nuevo proyecto</h2>
       <label htmlFor="new-project-name">Nombre</label>
       <input

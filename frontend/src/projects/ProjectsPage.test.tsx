@@ -28,9 +28,22 @@ function listFrom(store: Project[], filter: ProjectFilter = {}): Project[] {
   return store.filter((project) => wanted === null || wanted.includes(project.status))
 }
 
+/** Cambia un proyecto del almacén simulado y devuelve la versión nueva. */
+function patchStore(store: Project[], id: string, changes: Partial<Project>): Project {
+  const index = store.findIndex((project) => project.id === id)
+  if (index === -1) throw new ApiError(404, 'not_found', 'Proyecto no encontrado')
+  const updated = { ...store[index], ...changes }
+  store[index] = updated
+  return updated
+}
+
 function createMockApi(store: Project[]) {
   return {
     listProjects: vi.fn(async (filter?: ProjectFilter) => listFrom(store, filter)),
+    updateProject: vi.fn(async (id: string, body: { name?: string; description?: string | null }) =>
+      patchStore(store, id, body),
+    ),
+    archiveProject: vi.fn(async (id: string) => patchStore(store, id, { status: 'archived' })),
     getProject: vi.fn(async (id: string) => {
       const found = store.find((project) => project.id === id)
       if (!found) throw new ApiError(404, 'not_found', 'Proyecto no encontrado')
@@ -162,6 +175,44 @@ describe('ProjectsPage selection', () => {
 
     const board = screen.getByRole('region', { name: 'Tablero' })
     expect(board).toHaveTextContent('El tablero de tareas llega en el próximo cambio.')
+  })
+})
+
+describe('ProjectsPage after an action', () => {
+  it('keeps the selection when the project still matches the filter', async () => {
+    const store = [{ ...CASA }]
+    const api = createMockApi(store)
+    renderPage(api)
+    fireEvent.click(await screen.findByRole('button', { name: 'Casa' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }))
+    fireEvent.change(screen.getByLabelText('Nombre', { selector: '#edit-project-name' }), {
+      target: { value: 'Casa 2' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(await screen.findByRole('button', { name: 'Casa 2' })).toHaveAttribute(
+      'aria-current',
+      'true',
+    )
+    expect(screen.getByRole('heading', { level: 2, name: 'Casa 2' })).toBeInTheDocument()
+    expect(window.location.hash).toBe('#/projects/p1')
+  })
+
+  it('removes the project from the list and clears the selection when it leaves the filter', async () => {
+    const store = [{ ...CASA }]
+    const api = createMockApi(store)
+    renderPage(api)
+    fireEvent.click(await screen.findByRole('button', { name: 'Casa' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Archivar' }))
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Casa' })).not.toBeInTheDocument(),
+    )
+    expect(api.archiveProject).toHaveBeenCalledWith('p1')
+    expect(screen.getByText('Elegí un proyecto de la lista.')).toBeInTheDocument()
+    expect(window.location.hash).toBe('')
   })
 })
 
