@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
@@ -34,13 +35,24 @@ abstract class RestTestSupport {
     @Autowired
     private JdbcClient jdbc;
 
+    @Value("${lifeos.database-url}")
+    private String databaseUrl;
+
     @DynamicPropertySource
     static void databaseUrl(DynamicPropertyRegistry registry) {
         registry.add("lifeos.database-url", () -> "jdbc:sqlite:" + TMP.resolve("rest.db"));
     }
 
+    /**
+     * Vacía la base antes de cada test, pero primero verifica que sea la
+     * temporal: si la propiedad no llegara, la app abriría la base real del
+     * usuario y estos DELETE borrarían datos personales.
+     */
     @BeforeEach
     void emptyDatabase() {
+        if (!databaseUrl.startsWith("jdbc:sqlite:" + TMP)) {
+            throw new IllegalStateException("Los tests REST no apuntan a la base temporal: " + databaseUrl);
+        }
         jdbc.sql("DELETE FROM tasks").update();
         jdbc.sql("DELETE FROM projects").update();
     }
