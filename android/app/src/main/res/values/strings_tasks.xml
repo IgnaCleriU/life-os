@@ -6,11 +6,9 @@
     <string name="task_tab_title">%1$s (%2$d)</string>
     <string name="task_column_empty">No tasks here yet.</string>
 
-    <string-array name="task_priority_labels">
-        <item>Low</item>
-        <item>Medium</item>
-        <item>High</item>
-    </string-array>
+    <string name="task_priority_low">Low</string>
+    <string name="task_priority_medium">Medium</string>
+    <string name="task_priority_high">High</string>
     <string name="task_due">Due %1$s</string>
     <string name="task_overdue">Overdue, due %1$s</string>
 

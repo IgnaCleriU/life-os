@@ -15,7 +15,6 @@ import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.lifeos.android.R;
-import com.lifeos.android.api.model.Priority;
 import com.lifeos.android.api.model.Task;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -27,8 +26,6 @@ import java.time.format.FormatStyle;
  */
 final class TaskEditDialog {
 
-    /** Priorities in the same order as {@code R.array.task_priority_labels}. */
-    private static final Priority[] PRIORITIES = {Priority.LOW, Priority.MEDIUM, Priority.HIGH};
     private static final String TAG_DUE_PICKER = "task_due_picker";
 
     interface Listener {
@@ -67,10 +64,14 @@ final class TaskEditDialog {
         });
         description.setText(draft.getDescription());
 
-        String[] labels = context.getResources().getStringArray(R.array.task_priority_labels);
+        String[] labels = new String[TaskPriorities.ORDER.length];
+        for (int i = 0; i < labels.length; i++) {
+            labels[i] = context.getString(TaskPriorities.labelRes(TaskPriorities.ORDER[i]));
+        }
         priority.setSimpleItems(labels);
-        priority.setText(labels[draft.priorityOrDefault().ordinal()], false);
-        priority.setOnItemClickListener((parent, v, position, id) -> draft.setPriority(PRIORITIES[position]));
+        priority.setText(context.getString(TaskPriorities.labelRes(draft.priorityOrDefault())), false);
+        priority.setOnItemClickListener((parent, v, position, id) ->
+                draft.setPriority(TaskPriorities.ORDER[position]));
 
         Runnable showDue = () -> {
             LocalDate date = draft.dueDate();

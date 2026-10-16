@@ -128,8 +128,7 @@ final class TaskCardAdapter extends RecyclerView.Adapter<TaskCardAdapter.Holder>
                 return;
             }
             priority.setVisibility(View.VISIBLE);
-            String[] labels = context.getResources().getStringArray(R.array.task_priority_labels);
-            priority.setText(labels[value.ordinal()]);
+            priority.setText(TaskPriorities.labelRes(value));
             int attr;
             switch (value) {
                 case HIGH:
