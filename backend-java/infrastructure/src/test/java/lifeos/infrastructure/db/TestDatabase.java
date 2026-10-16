@@ -13,7 +13,7 @@ final class TestDatabase {
     TestDatabase(Path dir) {
         this.dataSource = SqliteDatabase.open("jdbc:sqlite:" + dir.resolve("test.db"));
         SqliteDatabase.createSchema(dataSource);
-        this.jdbc = JdbcClient.create(dataSource);
+        this.jdbc = SqliteDatabase.jdbcClient(dataSource);
     }
 
     SqliteProjectRepository projects() {
