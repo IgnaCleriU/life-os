@@ -47,6 +47,9 @@ public class ProjectBoardFragment extends BaseFragment {
 
     /** Last loaded state (tasks, project name, loading), kept across view re-creation (rotation). */
     private ProjectBoardViewModel state;
+
+    /** The tasks split into columns by the last {@link #render()}; the tab titles read it. */
+    private Map<TaskStatus, List<Task>> columns = Map.of();
     private int loadSeq;
     private int appliedSeq;
     private Async.Call loadCall;
@@ -87,7 +90,7 @@ public class ProjectBoardFragment extends BaseFragment {
         }, clock);
         pager.setAdapter(columnAdapter);
         tabMediator = new TabLayoutMediator(tabs, pager, (tab, position) ->
-                tab.setText(tabTitle(position, TaskColumns.split(state.getTasks()))));
+                tab.setText(tabTitle(position)));
         tabMediator.attach();
 
         ExtendedFloatingActionButton newTask = view.findViewById(R.id.task_board_new);
@@ -351,23 +354,19 @@ public class ProjectBoardFragment extends BaseFragment {
         render();
     }
 
-    /** Pushes the current tasks and loading state into the columns and tab titles. */
+    /** Pushes the current tasks and loading state into the columns (and, through them, the tab titles). */
     private void render() {
         if (columnAdapter == null) {
             return;
         }
-        Map<TaskStatus, List<Task>> columns = TaskColumns.split(state.getTasks());
+        columns = TaskColumns.split(state.getTasks());
+        // The adapter change also makes TabLayoutMediator rebuild the tabs from tabTitle(),
+        // which reads the columns just computed: one split per render.
         columnAdapter.setState(columns, state.isLoading());
-        for (int i = 0; i < TaskColumns.ORDER.length; i++) {
-            TabLayout.Tab tab = tabs.getTabAt(i);
-            if (tab != null) {
-                tab.setText(tabTitle(i, columns));
-            }
-        }
     }
 
     /** Tab label: the column name and how many tasks it holds. */
-    private CharSequence tabTitle(int position, Map<TaskStatus, List<Task>> columns) {
+    private CharSequence tabTitle(int position) {
         TaskStatus status = TaskColumns.ORDER[position];
         int count = columns.get(status).size();
         return getString(R.string.task_tab_title, getString(TaskColumnPagerAdapter.titleRes(status)), count);
