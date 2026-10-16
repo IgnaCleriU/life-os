@@ -1,4 +1,4 @@
-import { useState, type DragEvent } from 'react'
+import { useRef, useState, type DragEvent } from 'react'
 import { errorMessage } from '../api/errorMessage'
 import type { Project, Task, TaskStatus } from '../api/types'
 import { useApi } from '../api/useApi'
@@ -20,6 +20,10 @@ export default function TaskBoard({ project }: TaskBoardProps) {
   const [actionError, setActionError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Task | null>(null)
   const [dropTarget, setDropTarget] = useState<TaskStatus | null>(null)
+  const inflight = useRef(
+    new Map<string, { latest: number; pending: number; confirmed: TaskStatus }>(),
+  )
+  const enters = useRef<Record<TaskStatus, number>>({ todo: 0, doing: 0, done: 0 })
 
   function replaceTask(id: string, change: (task: Task) => Task) {
     setTasks((current) => current.map((item) => (item.id === id ? change(item) : item)))
@@ -30,8 +34,17 @@ export default function TaskBoard({ project }: TaskBoardProps) {
    * `complete`, `reopen`). La UI cambia al instante y se revierte si falla.
    */
   async function moveTask(task: Task, to: TaskStatus) {
-    const from = task.status
-    if (from === to) return
+    if (task.status === to) return
+    // Con movimientos superpuestos de una misma tarea solo cuenta el último pedido: las
+    // respuestas atrasadas no pisan la UI, y un fallo vuelve al último estado confirmado.
+    const entry = inflight.current.get(task.id) ?? {
+      latest: 0,
+      pending: 0,
+      confirmed: task.status,
+    }
+    inflight.current.set(task.id, entry)
+    const mine = ++entry.latest
+    entry.pending += 1
     setActionError(null)
     replaceTask(task.id, (item) => ({ ...item, status: to }))
     try {
@@ -41,21 +54,46 @@ export default function TaskBoard({ project }: TaskBoardProps) {
           : to === 'done'
             ? await api.completeTask(task.id)
             : await api.reopenTask(task.id)
-      replaceTask(task.id, () => updated)
+      entry.confirmed = updated.status
+      if (mine === entry.latest) replaceTask(task.id, () => updated)
     } catch (failure) {
-      replaceTask(task.id, (item) => ({ ...item, status: from }))
-      setActionError(`No se pudo mover "${task.title}": ${errorMessage(failure)}`)
+      if (mine === entry.latest) {
+        replaceTask(task.id, (item) => ({ ...item, status: entry.confirmed }))
+        setActionError(`No se pudo mover "${task.title}": ${errorMessage(failure)}`)
+      }
+    } finally {
+      entry.pending -= 1
+      if (entry.pending === 0) inflight.current.delete(task.id)
     }
   }
 
+  function carriesTask(event: DragEvent<HTMLElement>): boolean {
+    return Array.from(event.dataTransfer.types ?? []).includes(DRAG_TYPE)
+  }
+
+  function handleDragEnter(event: DragEvent<HTMLElement>, status: TaskStatus) {
+    if (!carriesTask(event)) return
+    enters.current[status] += 1
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLElement>, status: TaskStatus) {
+    if (!carriesTask(event)) return
+    enters.current[status] = Math.max(0, enters.current[status] - 1)
+    if (enters.current[status] === 0)
+      setDropTarget((current) => (current === status ? null : current))
+  }
+
   function handleDragOver(event: DragEvent<HTMLElement>, status: TaskStatus) {
+    if (!carriesTask(event)) return
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
     if (dropTarget !== status) setDropTarget(status)
   }
 
   function handleDrop(event: DragEvent<HTMLElement>, status: TaskStatus) {
+    if (!carriesTask(event)) return
     event.preventDefault()
+    enters.current = { todo: 0, doing: 0, done: 0 }
     setDropTarget(null)
     const task = tasks.find((item) => item.id === event.dataTransfer.getData(DRAG_TYPE))
     if (task) void moveTask(task, status)
@@ -94,11 +132,8 @@ export default function TaskBoard({ project }: TaskBoardProps) {
               }
               aria-labelledby={headingId}
               onDragOver={(event) => handleDragOver(event, column.status)}
-              onDragLeave={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-                  setDropTarget(null)
-                }
-              }}
+              onDragEnter={(event) => handleDragEnter(event, column.status)}
+              onDragLeave={(event) => handleDragLeave(event, column.status)}
               onDrop={(event) => handleDrop(event, column.status)}
             >
               <h3 id={headingId}>
