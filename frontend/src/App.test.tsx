@@ -56,7 +56,8 @@ describe('App without a stored token', () => {
 
     expect(await screen.findByRole('button', { name: 'Salir' })).toBeInTheDocument()
     expect(window.localStorage.getItem('lifeos.token')).toBe('fresh')
-    expect(fetchMock).toHaveBeenCalledOnce()
+    // Login valida una vez; después la página de proyectos carga su lista (2 peticiones en total).
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 })
 
@@ -70,7 +71,8 @@ describe('App with a stored token', () => {
 
     expect(screen.getByText('Verificando sesión…')).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: 'Salir' })).toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledOnce()
+    // Una validación al montar y una carga de la página de proyectos; la validación no se repite.
+    expect(fetchMock).toHaveBeenCalledTimes(2)
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('/projects?status=active')
     expect(bearerOf(init)).toBe('Bearer stored')
