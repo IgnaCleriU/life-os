@@ -2,7 +2,9 @@ import { useState, type DragEvent } from 'react'
 import { errorMessage } from '../api/errorMessage'
 import type { Project, Task, TaskStatus } from '../api/types'
 import { useApi } from '../api/useApi'
+import QuickCreate from './QuickCreate'
 import TaskCard, { DRAG_TYPE } from './TaskCard'
+import TaskDialog from './TaskDialog'
 import './tasks.css'
 import { COLUMNS, tasksOfColumn } from './taskModel'
 import { useProjectTasks } from './useProjectTasks'
@@ -16,6 +18,7 @@ export default function TaskBoard({ project }: TaskBoardProps) {
   const api = useApi()
   const { tasks, loading, error, setTasks, reload } = useProjectTasks(project.id)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [editing, setEditing] = useState<Task | null>(null)
   const [dropTarget, setDropTarget] = useState<TaskStatus | null>(null)
 
   function replaceTask(id: string, change: (task: Task) => Task) {
@@ -101,15 +104,30 @@ export default function TaskBoard({ project }: TaskBoardProps) {
               <h3 id={headingId}>
                 {column.label} <span className="muted">({items.length})</span>
               </h3>
+              {column.status === 'todo' && (
+                <QuickCreate
+                  projectId={project.id}
+                  onCreated={(created) => setTasks((current) => [...current, created])}
+                />
+              )}
               <ul className="task-list">
                 {items.map((task) => (
-                  <TaskCard key={task.id} task={task} onOpen={() => {}} onMove={moveTask} />
+                  <TaskCard key={task.id} task={task} onOpen={setEditing} onMove={moveTask} />
                 ))}
               </ul>
             </section>
           )
         })}
       </div>
+      {editing && (
+        <TaskDialog
+          key={editing.id}
+          task={editing}
+          onClose={() => setEditing(null)}
+          onUpdated={(updated) => replaceTask(updated.id, () => updated)}
+          onRemoved={(removed) => setTasks((current) => current.filter((t) => t.id !== removed.id))}
+        />
+      )}
     </>
   )
 }

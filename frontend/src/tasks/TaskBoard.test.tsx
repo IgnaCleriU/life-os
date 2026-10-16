@@ -305,3 +305,190 @@ describe('TaskBoard moves', () => {
     expect(api.startTask).not.toHaveBeenCalled()
   })
 })
+
+describe('TaskBoard quick create', () => {
+  it('creates a task in "Por hacer" with priority and due date', async () => {
+    const api = createMockApi()
+    renderBoard(api)
+    await screen.findByText('En marcha')
+
+    const form = within(screen.getByRole('form', { name: 'Nueva tarea' }))
+    fireEvent.change(form.getByLabelText('Título de la nueva tarea'), {
+      target: { value: '  Comprar pintura  ' },
+    })
+    fireEvent.change(form.getByLabelText('Prioridad'), { target: { value: 'high' } })
+    fireEvent.change(form.getByLabelText('Vencimiento'), { target: { value: '2099-05-01' } })
+    fireEvent.click(form.getByRole('button', { name: 'Agregar tarea' }))
+
+    await waitFor(() => expect(titlesIn('Por hacer')).toContain('Comprar pintura'))
+    expect(api.createTask).toHaveBeenCalledWith('p1', {
+      title: 'Comprar pintura',
+      priority: 'high',
+      due_date: '2099-05-01',
+    })
+    expect(form.getByLabelText('Título de la nueva tarea')).toHaveValue('')
+  })
+
+  it('sends a null due date when none is chosen and rejects empty titles', async () => {
+    const api = createMockApi()
+    renderBoard(api)
+    await screen.findByText('En marcha')
+    const form = within(screen.getByRole('form', { name: 'Nueva tarea' }))
+
+    fireEvent.click(form.getByRole('button', { name: 'Agregar tarea' }))
+    expect(await form.findByRole('alert')).toHaveTextContent('Ingresá un título')
+    expect(api.createTask).not.toHaveBeenCalled()
+
+    fireEvent.change(form.getByLabelText('Título de la nueva tarea'), { target: { value: 'X' } })
+    fireEvent.click(form.getByRole('button', { name: 'Agregar tarea' }))
+    await waitFor(() =>
+      expect(api.createTask).toHaveBeenCalledWith('p1', {
+        title: 'X',
+        priority: 'medium',
+        due_date: null,
+      }),
+    )
+  })
+
+  it('shows the API error and keeps the typed title', async () => {
+    const api = createMockApi()
+    api.createTask.mockRejectedValueOnce(new ApiError(404, 'not_found', 'Proyecto no encontrado'))
+    renderBoard(api)
+    await screen.findByText('En marcha')
+    const form = within(screen.getByRole('form', { name: 'Nueva tarea' }))
+
+    fireEvent.change(form.getByLabelText('Título de la nueva tarea'), { target: { value: 'Y' } })
+    fireEvent.click(form.getByRole('button', { name: 'Agregar tarea' }))
+
+    expect(await form.findByRole('alert')).toHaveTextContent('Proyecto no encontrado')
+    expect(form.getByLabelText('Título de la nueva tarea')).toHaveValue('Y')
+  })
+
+  it('is available on completed projects too (the domain does not forbid it)', async () => {
+    renderBoard(createMockApi(), { ...PROJECT, status: 'completed' })
+    await screen.findByText('En marcha')
+
+    expect(screen.getByRole('button', { name: 'Agregar tarea' })).toBeEnabled()
+  })
+})
+
+async function openEditor(title: string) {
+  fireEvent.click(within(card(title)).getByRole('button', { name: title }))
+  return within(await screen.findByRole('dialog', { name: 'Editar tarea' }))
+}
+
+describe('TaskBoard editor', () => {
+  it('opens a dialog with the task data', async () => {
+    renderBoard(createMockApi())
+    await screen.findByText('En marcha')
+
+    const dialog = await openEditor('En marcha')
+
+    expect(dialog.getByLabelText('Título')).toHaveValue('En marcha')
+    expect(dialog.getByLabelText('Descripción')).toHaveValue('Detalle de la tarea en curso')
+    expect(dialog.getByLabelText('Prioridad')).toHaveValue('medium')
+    expect(dialog.getByLabelText('Vencimiento')).toHaveValue('2020-01-01')
+  })
+
+  it('sends only the changed fields', async () => {
+    const api = createMockApi()
+    renderBoard(api)
+    await screen.findByText('En marcha')
+    const dialog = await openEditor('En marcha')
+
+    fireEvent.change(dialog.getByLabelText('Título'), { target: { value: 'Renombrada' } })
+    fireEvent.change(dialog.getByLabelText('Prioridad'), { target: { value: 'high' } })
+    fireEvent.click(dialog.getByRole('button', { name: 'Guardar' }))
+
+    await waitFor(() =>
+      expect(api.updateTask).toHaveBeenCalledWith('t5', { title: 'Renombrada', priority: 'high' }),
+    )
+    expect(await screen.findByText('Renombrada')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('clears the due date and the description with null', async () => {
+    const api = createMockApi()
+    renderBoard(api)
+    await screen.findByText('En marcha')
+    const dialog = await openEditor('En marcha')
+
+    fireEvent.click(dialog.getByRole('button', { name: 'Quitar fecha' }))
+    fireEvent.change(dialog.getByLabelText('Descripción'), { target: { value: '  ' } })
+    fireEvent.click(dialog.getByRole('button', { name: 'Guardar' }))
+
+    await waitFor(() =>
+      expect(api.updateTask).toHaveBeenCalledWith('t5', { description: null, due_date: null }),
+    )
+  })
+
+  it('does not call the API when nothing changed', async () => {
+    const api = createMockApi()
+    renderBoard(api)
+    await screen.findByText('En marcha')
+    const dialog = await openEditor('En marcha')
+
+    fireEvent.click(dialog.getByRole('button', { name: 'Guardar' }))
+
+    expect(api.updateTask).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('shows save errors inside the dialog', async () => {
+    const api = createMockApi()
+    api.updateTask.mockRejectedValueOnce(new ApiError(400, 'validation', 'Título inválido'))
+    renderBoard(api)
+    await screen.findByText('En marcha')
+    const dialog = await openEditor('En marcha')
+
+    fireEvent.change(dialog.getByLabelText('Título'), { target: { value: 'Otro' } })
+    fireEvent.click(dialog.getByRole('button', { name: 'Guardar' }))
+
+    expect(await dialog.findByRole('alert')).toHaveTextContent('Título inválido')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('moves the task to another active project', async () => {
+    const api = createMockApi()
+    renderBoard(api)
+    await screen.findByText('En marcha')
+    const dialog = await openEditor('En marcha')
+
+    await waitFor(() => expect(api.listProjects).toHaveBeenCalledWith({ status: 'active' }))
+    const select = await dialog.findByLabelText('Mover a proyecto')
+    // Solo se ofrecen los otros proyectos activos.
+    expect(within(select).queryByRole('option', { name: 'Casa' })).not.toBeInTheDocument()
+    fireEvent.change(select, { target: { value: 'p2' } })
+    fireEvent.click(dialog.getByRole('button', { name: 'Mover' }))
+
+    await waitFor(() => expect(api.moveTask).toHaveBeenCalledWith('t5', { project_id: 'p2' }))
+    await waitFor(() => expect(screen.queryByText('En marcha')).not.toBeInTheDocument())
+  })
+
+  it('deletes after confirmation', async () => {
+    const api = createMockApi()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderBoard(api)
+    await screen.findByText('En marcha')
+    const dialog = await openEditor('En marcha')
+
+    fireEvent.click(dialog.getByRole('button', { name: 'Eliminar' }))
+
+    await waitFor(() => expect(api.deleteTask).toHaveBeenCalledWith('t5'))
+    expect(confirm).toHaveBeenCalled()
+    await waitFor(() => expect(screen.queryByText('En marcha')).not.toBeInTheDocument())
+  })
+
+  it('does not delete when the confirmation is declined', async () => {
+    const api = createMockApi()
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    renderBoard(api)
+    await screen.findByText('En marcha')
+    const dialog = await openEditor('En marcha')
+
+    fireEvent.click(dialog.getByRole('button', { name: 'Eliminar' }))
+
+    expect(api.deleteTask).not.toHaveBeenCalled()
+    expect(screen.getByText('En marcha')).toBeInTheDocument()
+  })
+})
