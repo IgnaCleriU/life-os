@@ -97,7 +97,16 @@ export function createApiClient(options: ApiClientOptions) {
       throw error
     }
     if (response.status === 204) return undefined as T
-    return (await response.json()) as T
+    try {
+      return (await response.json()) as T
+    } catch {
+      // 2xx con un cuerpo que no es JSON (p. ej. el index.html de un proxy mal configurado).
+      throw new ApiError(
+        response.status,
+        'invalid_response',
+        'La API devolvió una respuesta inesperada que no es JSON',
+      )
+    }
   }
 
   const enc = encodeURIComponent

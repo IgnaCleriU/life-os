@@ -125,3 +125,10 @@ button:focus-visible {
   margin: 0;
   color: var(--color-danger);
 }
+
+.form-detail {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}

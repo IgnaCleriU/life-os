@@ -238,6 +238,18 @@ describe('api client: responses and errors', () => {
     await expect(client().deleteProject(PROJECT.id)).resolves.toBeUndefined()
   })
 
+  it('throws ApiError invalid_response for a 2xx body that is not JSON', async () => {
+    mockFetch(new Response('<!doctype html><html></html>', { status: 200 }))
+
+    const error = await client()
+      .listProjects()
+      .catch((e: unknown) => e)
+
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error).toMatchObject({ status: 200, code: 'invalid_response' })
+    expect((error as ApiError).message).toMatch(/no es JSON/)
+  })
+
   it('throws ApiError with status, code and message from the error body', async () => {
     mockFetch(
       jsonResponse(404, { error: { code: 'project_not_found', message: 'No existe el proyecto' } }),
