@@ -50,6 +50,16 @@ export function useProjects(filter: StatusFilter) {
     loading,
     error: !loading && current ? current.error : null,
     reload: () => setReloads((count) => count + 1),
+    /** Reemplaza en la lista un proyecto ya cargado (si está), sin esperar a una recarga. */
+    replaceProject: (project: Project) =>
+      setResult((previous) =>
+        previous && previous.projects.some((item) => item.id === project.id)
+          ? {
+              ...previous,
+              projects: previous.projects.map((item) => (item.id === project.id ? project : item)),
+            }
+          : previous,
+      ),
   }
 }
 
