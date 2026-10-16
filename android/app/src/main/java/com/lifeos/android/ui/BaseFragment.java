@@ -73,6 +73,17 @@ public abstract class BaseFragment extends Fragment {
     }
 
     /**
+     * Cancels a call started with {@link #async} or {@link #asyncVoid} and forgets it. A cancelled
+     * call never reaches its callback, so it would otherwise stay in {@link #pending}.
+     */
+    protected void cancel(Async.Call call) {
+        if (call != null) {
+            call.cancel();
+            pending.remove(call);
+        }
+    }
+
+    /**
      * Drops the call from {@link #pending} once its callback runs, so finished
      * calls (and the results their callbacks hold) don't pile up while the
      * view lives. Callbacks run on the main thread, like every other access.
