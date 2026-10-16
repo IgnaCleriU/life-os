@@ -32,6 +32,23 @@ class HostGuardTest extends RestTestSupport {
     }
 
     @Test
+    void missingHostHeaderIsForbidden() throws Exception {
+        // Python lo trata como "" (403); no se cae al nombre del servidor.
+        hostlessMvc().perform(get("/projects").header("Authorization", "Bearer " + TOKEN))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("forbidden_host"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"localhost.", "localhost.:8000", "127.0.0.1."})
+    void trailingDotHostIsForbidden(String host) throws Exception {
+        // urlsplit().hostname de Python conserva el punto final: no es "localhost".
+        mvc.perform(get("/projects").header("Host", host))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("forbidden_host"));
+    }
+
+    @Test
     void forbiddenHostCannotWrite() throws Exception {
         String project = createProject("P");
 
