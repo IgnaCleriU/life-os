@@ -31,7 +31,7 @@ import org.springframework.test.web.servlet.MockMvc;
  * Base de los tests REST: la app completa contra una base SQLite en un
  * directorio temporal, vaciada antes de cada test. Nunca la base real.
  *
- * <p>La guardia de token (ADR 0012) queda encendida con {@link #TOKEN}, que
+ * <p>La guardia de token queda encendida con {@link #TOKEN}, que
  * {@link #mvc} manda en cada request. Para probar la guardia misma,
  * {@link #anonymousMvc()} arma un MockMvc con los filtros reales pero sin ese
  * header por defecto.

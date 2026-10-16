@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Guardia de la API REST, como {@code auth.py} en Python (ADR 0009, 0010, 0012).
+ * Guardia de la API REST, como {@code auth.py} en Python (ADR 0009, 0010).
  *
  * <ul>
  *   <li><b>Host:</b> solo {@code localhost}, {@code 127.0.0.1} y {@code ::1},

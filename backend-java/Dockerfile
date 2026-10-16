@@ -1,4 +1,4 @@
-# Imagen del backend Java (Spring Boot, ADR 0011/0012). Contexto de build:
+# Imagen del backend Java (Spring Boot, ADR 0011). Contexto de build:
 # backend-java/. Dos etapas: se compila con el JDK y se corre solo con el JRE.
 
 FROM eclipse-temurin:21-jdk AS build

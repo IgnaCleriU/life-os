@@ -5,7 +5,7 @@
 #
 # - backend: FastAPI (Python), en el puerto 8000 del host. También es el que
 #   sirve MCP (`docker compose exec backend lifeos-mcp`).
-# - backend-java: Spring Boot (ADR 0011/0012), en el puerto 8001 del host para
+# - backend-java: Spring Boot (ADR 0011), en el puerto 8001 del host para
 #   no chocar con el de Python. En un VPS pasa a publicar el 8000
 #   (deploy/vps/compose.override.yml).
 services:

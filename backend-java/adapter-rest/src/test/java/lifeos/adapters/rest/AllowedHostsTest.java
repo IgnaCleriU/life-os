@@ -11,7 +11,7 @@ import org.springframework.test.context.TestPropertySource;
 
 /**
  * Un VPS detrás de {@code tailscale serve} recibe {@code Host: lifeos-vps...}
- * (ADR 0010/0012). Esos nombres se suman a loopback; el token se sigue exigiendo.
+ * (ADR 0010). Esos nombres se suman a loopback; el token se sigue exigiendo.
  * El valor se escribe sucio a propósito: espacios, mayúsculas, punto final, vacíos.
  */
 @TestPropertySource(properties = "lifeos.api.allowed-hosts= lifeos-vps , VPS.tailnet.ts.net. ,,")

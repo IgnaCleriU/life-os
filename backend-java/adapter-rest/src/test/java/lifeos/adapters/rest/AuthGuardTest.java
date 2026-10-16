@@ -14,7 +14,7 @@ import org.springframework.http.MediaType;
 
 /**
  * Toda ruta salvo {@code /health} exige {@code Authorization: Bearer <token>}
- * (ADR 0009/0012), como {@code test_auth.py} en Python. Estos tests usan un
+ * (ADR 0009), como {@code test_auth.py} en Python. Estos tests usan un
  * MockMvc sin token por defecto y lo mandan a mano.
  */
 class AuthGuardTest extends RestTestSupport {

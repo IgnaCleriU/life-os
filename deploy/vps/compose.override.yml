@@ -1,9 +1,9 @@
 # Override de docker-compose para un VPS. Se copia a la raíz del repo como
 # `docker-compose.override.yml` (compose lo carga solo) y deja la API escuchando
 # únicamente en loopback: desde afuera se llega por túnel SSH o por Tailscale
-# Serve (ADR 0012), nunca por un puerto público.
+# Serve, nunca por un puerto público.
 #
-# La API publicada es la de Java (ADR 0012). El contenedor de Python sigue
+# La API publicada es la de Java. El contenedor de Python sigue
 # corriendo —MCP entra por `docker compose exec backend lifeos-mcp`— pero sin
 # publicar ningún puerto. `!reset` vacía la lista del compose base y `!override`
 # la reemplaza en vez de sumarse a ella (requiere Docker Compose >= 2.24).
