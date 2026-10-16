@@ -3,8 +3,8 @@
 # nombrado `lifeos-data`, que comparten los dos servicios. Frontend/otros
 # servicios se suman en fases futuras.
 #
-# - backend: FastAPI (Python), en el puerto 8000 del host. También es el que
-#   sirve MCP (`docker compose exec backend lifeos-mcp`).
+# - backend: FastAPI (Python), en el puerto 8000 del host, solo en loopback.
+#   También es el que sirve MCP (`docker compose exec backend lifeos-mcp`).
 # - backend-java: Spring Boot (ADR 0011), en el puerto 8001 del host para
 #   no chocar con el de Python. En un VPS pasa a publicar el 8000
 #   (deploy/vps/compose.override.yml).
@@ -12,9 +12,13 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     env_file:
       - .env
+    # `environment` pisa a `env_file`: aunque el .env no traiga DATABASE_URL (o
+    # la apunte a otro lado), los dos servicios escriben en el volumen compartido.
+    environment:
+      DATABASE_URL: sqlite:////app/data/lifeos.db
     volumes:
       - lifeos-data:/app/data
 
@@ -24,6 +28,8 @@ services:
       - "127.0.0.1:8001:8000"
     env_file:
       - .env
+    environment:
+      DATABASE_URL: sqlite:////app/data/lifeos.db
     volumes:
       - lifeos-data:/app/data
 
