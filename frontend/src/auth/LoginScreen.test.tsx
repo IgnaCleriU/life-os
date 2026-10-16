@@ -74,6 +74,21 @@ describe('LoginScreen', () => {
     expect(readToken()).toBeNull()
   })
 
+  it('shows the API error status on 500, not a connection error', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse(500, { error: { code: 'internal_error', message: 'Error interno' } })),
+    )
+    const onLogin = vi.fn()
+    render(<LoginScreen onLogin={onLogin} />)
+
+    submitToken('any-token')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('La API devolvió un error (500)')
+    expect(onLogin).not.toHaveBeenCalled()
+    expect(readToken()).toBeNull()
+  })
+
   it('shows a connection error when the network request fails', async () => {
     vi.stubGlobal(
       'fetch',
