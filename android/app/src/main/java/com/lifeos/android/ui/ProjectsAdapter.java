@@ -19,6 +19,9 @@ final class ProjectsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
     interface Listener {
         void onOpen(Project project);
+
+        /** The overflow button or a long press on the row; {@code anchor} is where the menu hangs. */
+        void onMore(View anchor, Project project);
     }
 
     private static final int TYPE_HEADER = 0;
@@ -99,12 +102,14 @@ final class ProjectsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         private final TextView name;
         private final TextView description;
         private final Chip status;
+        private final View more;
 
         ProjectHolder(View itemView) {
             super(itemView);
             name = itemView.findViewById(R.id.item_project_name);
             description = itemView.findViewById(R.id.item_project_description);
             status = itemView.findViewById(R.id.item_project_status);
+            more = itemView.findViewById(R.id.item_project_more);
         }
 
         void bind(Project project) {
@@ -114,6 +119,11 @@ final class ProjectsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             description.setVisibility(text.isEmpty() ? View.GONE : View.VISIBLE);
             status.setText(statusLabel(project.getStatus()));
             itemView.setOnClickListener(v -> listener.onOpen(project));
+            itemView.setOnLongClickListener(v -> {
+                listener.onMore(itemView, project);
+                return true;
+            });
+            more.setOnClickListener(v -> listener.onMore(more, project));
         }
     }
 }

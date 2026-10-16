@@ -5,8 +5,10 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.view.Menu;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
+import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
@@ -18,10 +20,12 @@ import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.textfield.TextInputEditText;
 import com.lifeos.android.R;
 import com.lifeos.android.api.model.Project;
+import com.lifeos.android.api.model.ProjectPatch;
 import com.lifeos.android.api.model.ProjectStatus;
 import com.lifeos.android.util.Async;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Callable;
 
 /**
  * Start destination: projects grouped by status, with an Active/All filter and a
@@ -99,10 +103,22 @@ public class ProjectsFragment extends BaseFragment {
             return false;
         });
 
-        adapter = new ProjectsAdapter(project -> navigator().openProject(project.getId()));
+        adapter = new ProjectsAdapter(new ProjectsAdapter.Listener() {
+            @Override
+            public void onOpen(Project project) {
+                navigator().openProject(project.getId());
+            }
+
+            @Override
+            public void onMore(View anchor, Project project) {
+                showMenu(anchor, project);
+            }
+        });
         list.setLayoutManager(new LinearLayoutManager(requireContext()));
         list.setAdapter(adapter);
         swipeRefresh.setOnRefreshListener(this::load);
+
+        view.findViewById(R.id.fab_new_project).setOnClickListener(v -> showCreateDialog());
     }
 
     @Override
@@ -174,5 +190,49 @@ public class ProjectsFragment extends BaseFragment {
             return getString(R.string.projects_empty_search, query);
         }
         return getString(activeOnly ? R.string.projects_empty_active : R.string.projects_empty_none);
+    }
+
+    private void showCreateDialog() {
+        ProjectFormDialog.show(requireContext(), R.string.dialog_project_new_title, "", "",
+                (name, description) -> mutate(() -> api().createProject(name, description)));
+    }
+
+    private void showEditDialog(Project project) {
+        String description = project.getDescription() == null ? "" : project.getDescription();
+        ProjectFormDialog.show(requireContext(), R.string.dialog_project_edit_title,
+                project.getName(), description, (name, newDescription) -> {
+                    ProjectPatch patch = ProjectForm.changes(project, name, newDescription);
+                    if (patch == null) {
+                        return;
+                    }
+                    String id = project.getId();
+                    mutate(() -> api().updateProject(id, patch));
+                });
+    }
+
+    /** Row actions. Only Edit for now; the status actions and delete come next. */
+    private void showMenu(View anchor, Project project) {
+        PopupMenu popup = new PopupMenu(requireContext(), anchor);
+        popup.getMenu().add(Menu.NONE, 0, 0, R.string.action_edit);
+        popup.setOnMenuItemClickListener(item -> {
+            showEditDialog(project);
+            return true;
+        });
+        popup.show();
+    }
+
+    /** Runs a change, then reloads the list. Failures are shown; the list stays as it was. */
+    private void mutate(Callable<Project> work) {
+        async(work, new Async.Callback<Project>() {
+            @Override
+            public void onSuccess(Project result) {
+                load();
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                showError(error);
+            }
+        });
     }
 }

@@ -44,4 +44,12 @@
         android:layout_marginStart="12dp"
         android:clickable="false"
         android:focusable="false" />
+
+    <ImageButton
+        android:id="@+id/item_project_more"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/project_more_actions"
+        android:src="@android:drawable/ic_menu_more" />
 </LinearLayout>

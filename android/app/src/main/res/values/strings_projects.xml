@@ -8,4 +8,13 @@
     <string name="projects_empty_none">No projects yet.</string>
     <string name="projects_empty_active">No active projects. Choose All to see completed and archived ones.</string>
     <string name="projects_empty_search">No projects match \"%1$s\".</string>
+    <string name="projects_new">New project</string>
+    <string name="project_more_actions">More actions</string>
+    <string name="dialog_project_new_title">New project</string>
+    <string name="dialog_project_edit_title">Edit project</string>
+    <string name="project_name_hint">Name</string>
+    <string name="project_description_hint">Description (optional)</string>
+    <string name="project_name_required">Enter a name.</string>
+    <string name="dialog_cancel">Cancel</string>
+    <string name="action_edit">Edit</string>
 </resources>
