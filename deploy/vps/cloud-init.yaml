@@ -27,7 +27,9 @@ write_files:
       command -v docker >/dev/null || curl -fsSL https://get.docker.com | sh
       usermod -aG docker "$USER_NAME"
       [ -d "$REPO_DIR/.git" ] || git clone https://github.com/IgnaCleri/life-os.git "$REPO_DIR"
-      cp "$REPO_DIR/deploy/vps/compose.override.yml" "$REPO_DIR/docker-compose.override.yml"
+      # Symlink relativo: un `git pull` actualiza también el override en uso.
+      [ -L "$REPO_DIR/docker-compose.override.yml" ] || rm -f "$REPO_DIR/docker-compose.override.yml"
+      ln -sfn deploy/vps/compose.override.yml "$REPO_DIR/docker-compose.override.yml"
       if [ ! -f "$REPO_DIR/.env" ]; then
         TOKEN=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
         {

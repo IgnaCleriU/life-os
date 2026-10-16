@@ -1,5 +1,5 @@
-# Override de docker-compose para un VPS. Se copia a la raíz del repo como
-# `docker-compose.override.yml` (compose lo carga solo) y deja la API escuchando
+# Override de docker-compose para un VPS. Se enlaza (symlink) en la raíz del
+# repo como `docker-compose.override.yml` (compose lo carga solo) y deja la API escuchando
 # únicamente en loopback: desde afuera se llega por túnel SSH o por Tailscale
 # Serve, nunca por un puerto público.
 #
