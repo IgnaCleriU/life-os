@@ -5,6 +5,7 @@ import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.viewpager2.widget.ViewPager2;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
@@ -44,10 +45,8 @@ public class ProjectBoardFragment extends BaseFragment {
     private TaskColumnPagerAdapter columnAdapter;
     private TabLayoutMediator tabMediator;
 
-    /** Last loaded state, kept across view re-creation (rotation). */
-    private List<Task> tasks = List.of();
-    private String projectName;
-    private boolean loading;
+    /** Last loaded state (tasks, project name, loading), kept across view re-creation (rotation). */
+    private ProjectBoardViewModel state;
     private int loadSeq;
     private int appliedSeq;
     private Async.Call loadCall;
@@ -72,6 +71,7 @@ public class ProjectBoardFragment extends BaseFragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        state = new ViewModelProvider(this).get(ProjectBoardViewModel.class);
         tabs = view.findViewById(R.id.task_board_tabs);
         pager = view.findViewById(R.id.task_board_pager);
         columnAdapter = new TaskColumnPagerAdapter(new TaskColumnPagerAdapter.Listener() {
@@ -87,7 +87,7 @@ public class ProjectBoardFragment extends BaseFragment {
         }, clock);
         pager.setAdapter(columnAdapter);
         tabMediator = new TabLayoutMediator(tabs, pager, (tab, position) ->
-                tab.setText(tabTitle(position, TaskColumns.split(tasks))));
+                tab.setText(tabTitle(position, TaskColumns.split(state.getTasks()))));
         tabMediator.attach();
 
         ExtendedFloatingActionButton newTask = view.findViewById(R.id.task_board_new);
@@ -100,8 +100,8 @@ public class ProjectBoardFragment extends BaseFragment {
     @Override
     public void onResume() {
         super.onResume();
-        if (projectName != null) {
-            setTitle(projectName);
+        if (state != null && state.getProjectName() != null) {
+            setTitle(state.getProjectName());
         } else {
             setTitle(R.string.title_board);
         }
@@ -138,9 +138,9 @@ public class ProjectBoardFragment extends BaseFragment {
                     return;
                 }
                 appliedSeq = seq;
-                projectName = board.project.getName();
-                tasks = board.tasks;
-                setTitle(projectName);
+                state.setProjectName(board.project.getName());
+                state.setTasks(board.tasks);
+                setTitle(board.project.getName());
                 setLoading(false);
             }
 
@@ -338,7 +338,7 @@ public class ProjectBoardFragment extends BaseFragment {
     }
 
     private void setLoading(boolean value) {
-        loading = value;
+        state.setLoading(value);
         render();
     }
 
@@ -347,8 +347,8 @@ public class ProjectBoardFragment extends BaseFragment {
         if (columnAdapter == null) {
             return;
         }
-        Map<TaskStatus, List<Task>> columns = TaskColumns.split(tasks);
-        columnAdapter.setState(columns, loading);
+        Map<TaskStatus, List<Task>> columns = TaskColumns.split(state.getTasks());
+        columnAdapter.setState(columns, state.isLoading());
         for (int i = 0; i < TaskColumns.ORDER.length; i++) {
             TabLayout.Tab tab = tabs.getTabAt(i);
             if (tab != null) {
