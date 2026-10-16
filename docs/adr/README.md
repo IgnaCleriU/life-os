@@ -33,3 +33,4 @@ it the next available number, and open a pull request.
 | [0007](0007-shared-database-location.md) | One shared database in the user data directory | Accepted |
 | [0008](0008-keyboard-driven-tui-adapter.md) | Keyboard-driven TUI adapter | Accepted |
 | [0009](0009-quickshell-desktop-client.md) | Quickshell desktop client over a local REST daemon | Accepted |
+| [0010](0010-optional-vps-deployment.md) | Optional VPS deployment over SSH | Accepted |
