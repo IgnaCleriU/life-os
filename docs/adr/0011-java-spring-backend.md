@@ -21,8 +21,12 @@ and `application` stay framework-free: Spring is not on their classpath,
 so the build enforces the dependency rule ([0001](0001-hexagonal-monorepo.md)).
 Persistence uses plain JDBC (`JdbcClient` + `sqlite-jdbc`), not JPA.
 
-The Java REST adapter is a drop-in for the Python one: same routes, JSON
-shape, status codes, and error codes.
+The Java REST adapter matches the Python one's Projects/Tasks routes, JSON
+shape, status codes, and error codes. It does not yet port what
+[0009](0009-quickshell-desktop-client.md) added to the Python adapter (the
+local daemon, its bearer token and Host allowlist, `/revision`,
+`/quick-add`), so it is not a drop-in for the board. Until it has
+auth, it listens on loopback only.
 
 ## Consequences
 
