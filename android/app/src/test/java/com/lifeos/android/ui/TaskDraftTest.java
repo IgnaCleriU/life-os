@@ -145,4 +145,45 @@ public class TaskDraftTest {
 
         assertTrue(draft.changesFrom(noPriority).isEmpty());
     }
+
+    @Test
+    public void stateRoundTripKeepsEveryField() {
+        TaskDraft draft = TaskDraft.of(original());
+        draft.setTitle("  Edited ");
+        draft.setPriority(Priority.HIGH);
+
+        TaskDraft restored = TaskDraft.fromState(
+                draft.getTitle(), draft.getDescription(), draft.priorityName(), draft.dueEpochDay());
+
+        assertEquals("  Edited ", restored.getTitle());
+        assertEquals("Semi-skimmed", restored.getDescription());
+        assertEquals(Priority.HIGH, restored.priorityOrDefault());
+        assertEquals(DUE, restored.dueDate());
+    }
+
+    @Test
+    public void stateRoundTripKeepsMissingPriorityAndDueAsNull() {
+        Task noPriority = new Task("t1", "p1", "Buy milk", null, TaskStatus.TODO, null, null, Instant.EPOCH);
+        TaskDraft draft = TaskDraft.of(noPriority);
+
+        TaskDraft restored = TaskDraft.fromState(
+                draft.getTitle(), draft.getDescription(), draft.priorityName(), draft.dueEpochDay());
+
+        assertNull(draft.priorityName());
+        assertNull(restored.dueDate());
+        assertTrue(restored.changesFrom(noPriority).isEmpty());
+    }
+
+    @Test
+    public void restoredDraftKeepsPatchSemantics() {
+        TaskDraft draft = TaskDraft.of(original());
+        draft.setDueDate(null);
+        TaskDraft restored = TaskDraft.fromState(
+                draft.getTitle(), draft.getDescription(), draft.priorityName(), draft.dueEpochDay());
+
+        TaskPatch patch = restored.changesFrom(original());
+
+        assertFalse(patch.isEmpty());
+        assertTrue(TaskDraft.of(original()).changesFrom(original()).isEmpty());
+    }
 }

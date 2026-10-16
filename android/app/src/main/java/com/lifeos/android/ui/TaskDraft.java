@@ -38,6 +38,28 @@ final class TaskDraft {
                 task.getDueDate());
     }
 
+    /**
+     * Rebuilds a draft from {@link #priorityName()} / {@link #dueEpochDay()} style primitives, so
+     * it can be parceled into a Bundle (rotation, fragment results). Null priority / due stay null.
+     */
+    static TaskDraft fromState(String title, String description, String priorityName, Long dueEpochDay) {
+        return new TaskDraft(
+                nullToEmpty(title),
+                nullToEmpty(description),
+                priorityName == null ? null : Priority.valueOf(priorityName),
+                dueEpochDay == null ? null : LocalDate.ofEpochDay(dueEpochDay));
+    }
+
+    /** The priority as stored by {@link #fromState}, or null when the task had none. */
+    String priorityName() {
+        return priority == null ? null : priority.name();
+    }
+
+    /** The due date as an epoch day for {@link #fromState}, or null for no due date. */
+    Long dueEpochDay() {
+        return dueDate == null ? null : dueDate.toEpochDay();
+    }
+
     String getTitle() {
         return title;
     }
