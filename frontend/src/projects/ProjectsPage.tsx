@@ -26,6 +26,9 @@ export default function ProjectsPage() {
   const [opened, setOpened] = useState<Project | null>(null)
   // Fallo al pedir ese proyecto, con el id al que corresponde.
   const [lookupError, setLookupError] = useState<{ id: string; message: string } | null>(null)
+  // Un fallo es de la selección que lo produjo: al cambiar de proyecto se olvida, y volver a
+  // elegirlo vuelve a pedirlo.
+  useEffect(() => () => setLookupError(null), [selectedId])
   const lookupFailed = lookupError !== null && lookupError.id === selectedId
   const listed = projects.find((project) => project.id === selectedId) ?? null
   const selected = listed ?? (opened?.id === selectedId ? opened : null)
@@ -68,14 +71,21 @@ export default function ProjectsPage() {
   }
 
   function choose(projectId: string) {
+    if (projectId === selectedId) return
     if (!confirmDiscard()) return
     setNotice(null)
     selectProject(projectId)
   }
 
-  function changeFilter(next: StatusFilter) {
+  function applyFilter(next: StatusFilter) {
     setFilter(next)
     setOpened(null)
+  }
+
+  // Cambiar de filtro desmonta el detalle, así que también pide confirmación por una edición sin guardar.
+  function changeFilter(next: StatusFilter) {
+    if (!confirmDiscard()) return
+    applyFilter(next)
   }
 
   // Tras una acción sobre el detalle. Solo afecta a la selección si el proyecto cambiado es el
@@ -110,7 +120,7 @@ export default function ProjectsPage() {
     setNotice(null)
     selectProject(project.id)
     // Un proyecto nuevo está activo: si el filtro no lo incluye, se cambia a Activos (eso recarga la lista).
-    if (filter === 'completed' || filter === 'archived') changeFilter('active')
+    if (filter === 'completed' || filter === 'archived') applyFilter('active')
     else reload()
   }
 
