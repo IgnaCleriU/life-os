@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -100,16 +101,28 @@ class PythonInteropTest {
         assertThat(db.tasks().get(task.id())).isEmpty();
     }
 
-    /** Corre el script con el backend Python apuntando a la base temporal del test. */
+    /**
+     * Corre el script con el backend Python apuntando a la base temporal del test.
+     *
+     * <p>La salida va a un archivo para que lo que bloquee sea {@code waitFor} con
+     * timeout: leer el stdout del proceso bloquearía hasta que lo cierre, y un
+     * {@code uv run} colgado dejaría trabado el job de CI.
+     */
     private String python(String script) throws IOException, InterruptedException {
         Path backend = Path.of(System.getenv("LIFEOS_PYTHON_BACKEND")).toAbsolutePath();
+        Path output = tmp.resolve("python-output.txt");
         var process = new ProcessBuilder("uv", "run", "--directory", backend.toString(), "python", "-c", script)
-                .redirectErrorStream(true);
+                .redirectErrorStream(true)
+                .redirectOutput(output.toFile());
         process.environment().put("DATABASE_URL", "sqlite:///" + tmp.resolve("test.db"));
         Process running = process.start();
-        String output = new String(running.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        assertThat(running.waitFor(60, TimeUnit.SECONDS)).isTrue();
-        assertThat(running.exitValue()).as(output).isZero();
-        return output.strip();
+        boolean finished = running.waitFor(60, TimeUnit.SECONDS);
+        if (!finished) {
+            running.destroyForcibly();
+        }
+        String text = Files.readString(output, StandardCharsets.UTF_8);
+        assertThat(finished).as("uv run no terminó en 60 s:%n%s", text).isTrue();
+        assertThat(running.exitValue()).as(text).isZero();
+        return text.strip();
     }
 }
