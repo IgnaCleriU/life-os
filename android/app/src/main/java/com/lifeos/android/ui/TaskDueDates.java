@@ -6,13 +6,23 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
 
 /**
  * Due-date rules. The clock is a parameter so "today" can be fixed in tests. Pure Java.
  */
 final class TaskDueDates {
 
+    /** Shared by the cards and the form: built once, not on every bind. */
+    private static final DateTimeFormatter DISPLAY = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM);
+
     private TaskDueDates() {}
+
+    /** The date as shown to the user (medium localized style). */
+    static String format(LocalDate date) {
+        return DISPLAY.format(date);
+    }
 
     /** A task is overdue when it has a due date before today and is not done. */
     static boolean isOverdue(Task task, Clock clock) {

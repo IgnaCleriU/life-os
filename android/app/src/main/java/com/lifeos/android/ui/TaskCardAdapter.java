@@ -13,8 +13,6 @@ import com.lifeos.android.R;
 import com.lifeos.android.api.model.Priority;
 import com.lifeos.android.api.model.Task;
 import java.time.Clock;
-import java.time.format.DateTimeFormatter;
-import java.time.format.FormatStyle;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -30,6 +28,8 @@ final class TaskCardAdapter extends RecyclerView.Adapter<TaskCardAdapter.Holder>
     private final Listener listener;
     private final Clock clock;
     private List<Task> items = Collections.emptyList();
+    /** Whether each card was overdue when it was last given to the adapter (same order as items). */
+    private boolean[] overdue = new boolean[0];
 
     TaskCardAdapter(Listener listener, Clock clock) {
         this.listener = listener;
@@ -40,6 +40,11 @@ final class TaskCardAdapter extends RecyclerView.Adapter<TaskCardAdapter.Holder>
     void setItems(List<Task> tasks) {
         List<Task> oldItems = items;
         List<Task> newItems = new ArrayList<>(tasks);
+        boolean[] oldOverdue = overdue;
+        boolean[] newOverdue = new boolean[newItems.size()];
+        for (int i = 0; i < newOverdue.length; i++) {
+            newOverdue[i] = TaskDueDates.isOverdue(newItems.get(i), clock);
+        }
         DiffUtil.DiffResult diff = DiffUtil.calculateDiff(new DiffUtil.Callback() {
             @Override
             public int getOldListSize() {
@@ -63,10 +68,13 @@ final class TaskCardAdapter extends RecyclerView.Adapter<TaskCardAdapter.Holder>
                 return Objects.equals(a.getTitle(), b.getTitle())
                         && Objects.equals(a.getDescription(), b.getDescription())
                         && a.getPriority() == b.getPriority()
-                        && Objects.equals(a.getDueDate(), b.getDueDate());
+                        && Objects.equals(a.getDueDate(), b.getDueDate())
+                        // A new day can turn an unchanged task overdue: rebind to repaint it.
+                        && oldOverdue[oldPosition] == newOverdue[newPosition];
             }
         });
         items = newItems;
+        overdue = newOverdue;
         diff.dispatchUpdatesTo(this);
     }
 
@@ -151,7 +159,7 @@ final class TaskCardAdapter extends RecyclerView.Adapter<TaskCardAdapter.Holder>
                 return;
             }
             due.setVisibility(View.VISIBLE);
-            String date = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).format(task.getDueDate());
+            String date = TaskDueDates.format(task.getDueDate());
             boolean overdue = TaskDueDates.isOverdue(task, clock);
             due.setText(context.getString(
                     overdue ? R.string.task_overdue : R.string.task_due, date));
