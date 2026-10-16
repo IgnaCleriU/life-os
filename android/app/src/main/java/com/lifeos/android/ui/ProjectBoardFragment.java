@@ -2,21 +2,59 @@ package com.lifeos.android.ui;
 
 import android.os.Bundle;
 import android.view.View;
-import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.viewpager2.widget.ViewPager2;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
+import com.google.android.material.tabs.TabLayout;
+import com.google.android.material.tabs.TabLayoutMediator;
 import com.lifeos.android.R;
+import com.lifeos.android.api.model.Priority;
+import com.lifeos.android.api.model.Project;
+import com.lifeos.android.api.model.ProjectStatus;
+import com.lifeos.android.api.model.Task;
+import com.lifeos.android.api.model.TaskPatch;
+import com.lifeos.android.api.model.TaskQuery;
+import com.lifeos.android.api.model.TaskStatus;
+import com.lifeos.android.util.Async;
+import com.lifeos.android.util.Snackbars;
+import java.time.Clock;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
 
 /**
- * Task board of one project. PLACEHOLDER: the Tasks-board agent replaces the
- * layout and class body (columns todo / doing / done, start / complete /
- * reopen / move / delete with Undo). Open it with {@code Navigator.openProject(id)};
- * read the id with {@link #getProjectId()}.
+ * Task board of one project: three swipeable columns (To do / Doing / Done). All tasks are
+ * loaded once and split by status here. Open it with {@code Navigator.openProject(id)}.
  */
-public class ProjectBoardFragment extends BaseFragment {
+public class ProjectBoardFragment extends BaseFragment implements TaskEditDialog.Host {
 
     static final String TAG = "project_board";
     private static final String ARG_PROJECT_ID = "project_id";
+
+    private final Clock clock = Clock.systemDefaultZone();
+
+    /** Page index of the To do column: new tasks are created there. */
+    private static final int TODO_PAGE = 0;
+
+    private TabLayout tabs;
+    private ViewPager2 pager;
+    private TaskColumnPagerAdapter columnAdapter;
+    private TabLayoutMediator tabMediator;
+
+    /** Last loaded state (tasks, project name, loading), kept across view re-creation (rotation). */
+    private ProjectBoardViewModel state;
+
+    /** The tasks split into columns by the last {@link #render()}; the tab titles read it. */
+    private Map<TaskStatus, List<Task>> columns = TaskColumns.split(List.of());
+    private int loadSeq;
+    private int appliedSeq;
+    private Async.Call loadCall;
+    /** Whether the load in flight also fetches the project name. */
+    private boolean loadFetchesProject;
 
     public static ProjectBoardFragment newInstance(String projectId) {
         ProjectBoardFragment fragment = new ProjectBoardFragment();
@@ -30,6 +68,11 @@ public class ProjectBoardFragment extends BaseFragment {
         super(R.layout.fragment_project_board);
     }
 
+    @Override
+    public Clock clock() {
+        return clock;
+    }
+
     /** The project this board shows. */
     public String getProjectId() {
         return requireArguments().getString(ARG_PROJECT_ID);
@@ -38,13 +81,339 @@ public class ProjectBoardFragment extends BaseFragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        TextView label = view.findViewById(R.id.placeholder_project_id);
-        label.setText(getString(R.string.placeholder_board, getProjectId()));
+        state = new ViewModelProvider(this).get(ProjectBoardViewModel.class);
+        tabs = view.findViewById(R.id.task_board_tabs);
+        pager = view.findViewById(R.id.task_board_pager);
+        columnAdapter = new TaskColumnPagerAdapter(new TaskColumnPagerAdapter.Listener() {
+            @Override
+            public void onTaskClicked(Task task) {
+                showActions(task);
+            }
+
+            @Override
+            public void onRefresh() {
+                loadBoard(true);
+            }
+        }, clock);
+        pager.setAdapter(columnAdapter);
+        // The tab titles read the columns: fill them from the saved state before the tabs exist.
+        columns = TaskColumns.split(state.getTasks());
+        // No auto refresh: the mediator only creates the tabs; render() retitles them in place.
+        tabMediator = new TabLayoutMediator(tabs, pager, false, true, (tab, position) ->
+                tab.setText(tabTitle(position)));
+        tabMediator.attach();
+
+        ExtendedFloatingActionButton newTask = view.findViewById(R.id.task_board_new);
+        newTask.setOnClickListener(v -> showEditor(null));
+        // The form is a DialogFragment that outlives rotation; its result is queued until here.
+        getChildFragmentManager().setFragmentResultListener(
+                TaskEditDialog.REQUEST_KEY, getViewLifecycleOwner(), (key, result) -> onEditorResult(result));
+
+        render();
+        // The name is only fetched when the ViewModel does not have it yet (first open).
+        loadBoard(state.getProjectName() == null);
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        setTitle(R.string.title_board);
+        if (state != null && state.getProjectName() != null) {
+            setTitle(state.getProjectName());
+        } else {
+            setTitle(R.string.title_board);
+        }
+    }
+
+    @Override
+    public void onDestroyView() {
+        if (tabMediator != null) {
+            tabMediator.detach();
+            tabMediator = null;
+        }
+        loadCall = null;
+        loadFetchesProject = false;
+        super.onDestroyView();
+    }
+
+    /** Reloads the tasks only: the project name does not change after an action on a task. */
+    void loadBoard() {
+        loadBoard(false);
+    }
+
+    /**
+     * Loads all tasks of the project, and its name too when {@code withProject} (first load and
+     * pull-to-refresh) in the same background call. A newer request cancels the one in flight; the
+     * sequence check stays as a backstop.
+     */
+    void loadBoard(boolean withProject) {
+        // A tasks-only reload must not drop the project-name fetch it replaces.
+        boolean fetchProject = withProject || (loadCall != null && loadFetchesProject);
+        cancel(loadCall);
+        loadFetchesProject = fetchProject;
+        int seq = ++loadSeq;
+        String projectId = getProjectId();
+        setLoading(true);
+        loadCall = async(() -> {
+            Project project = fetchProject ? api().getProject(projectId) : null;
+            List<Task> all = api().listProjectTasks(projectId, TaskQuery.all());
+            return new Board(project, all);
+        }, new Async.Callback<Board>() {
+            @Override
+            public void onSuccess(Board board) {
+                if (seq == loadSeq) {
+                    loadCall = null;
+                    loadFetchesProject = false;
+                }
+                if (seq < appliedSeq) {
+                    return;
+                }
+                appliedSeq = seq;
+                if (board.project != null) {
+                    state.setProjectName(board.project.getName());
+                    setTitle(board.project.getName());
+                }
+                state.setTasks(board.tasks);
+                setLoading(false);
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                if (seq == loadSeq) {
+                    loadCall = null;
+                    loadFetchesProject = false;
+                    setLoading(false);
+                }
+                showError(error);
+            }
+        });
+    }
+
+    /** The action menu of a task: only the actions that make sense for its column. */
+    private void showActions(Task task) {
+        List<TaskMenu.Action> actions = TaskMenu.actionsFor(task.getStatus());
+        String[] labels = new String[actions.size()];
+        for (int i = 0; i < labels.length; i++) {
+            labels[i] = getString(labelRes(actions.get(i)));
+        }
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(task.getTitle())
+                .setItems(labels, (dialog, which) -> perform(task, actions.get(which)))
+                .show();
+    }
+
+    private static @StringRes int labelRes(TaskMenu.Action action) {
+        switch (action) {
+            case START:
+                return R.string.task_action_start;
+            case COMPLETE:
+                return R.string.task_action_complete;
+            case BACK_TO_TODO:
+                return R.string.task_action_back_to_todo;
+            case REOPEN:
+                return R.string.task_action_reopen;
+            case EDIT:
+                return R.string.task_action_edit;
+            case MOVE:
+                return R.string.task_action_move;
+            case DELETE:
+            default:
+                return R.string.task_action_delete;
+        }
+    }
+
+    private void perform(Task task, TaskMenu.Action action) {
+        String taskId = task.getId();
+        switch (action) {
+            case START:
+                runThenReload(() -> api().startTask(taskId));
+                break;
+            case COMPLETE:
+                runThenReload(() -> api().completeTask(taskId));
+                break;
+            case BACK_TO_TODO:
+            case REOPEN:
+                runThenReload(() -> api().reopenTask(taskId));
+                break;
+            case EDIT:
+                showEditor(task);
+                break;
+            case MOVE:
+                chooseMoveTarget(task);
+                break;
+            case DELETE:
+            default:
+                confirmDelete(task);
+                break;
+        }
+    }
+
+    private void chooseMoveTarget(Task task) {
+        String currentProjectId = getProjectId();
+        String taskId = task.getId();
+        async(() -> api().listProjects(List.of(ProjectStatus.ACTIVE), null), new Async.Callback<List<Project>>() {
+            @Override
+            public void onSuccess(List<Project> projects) {
+                List<Project> targets = TaskMenu.moveTargets(projects, currentProjectId);
+                if (targets.isEmpty()) {
+                    Snackbars.info(requireView(), getString(R.string.task_move_none));
+                    return;
+                }
+                String[] names = new String[targets.size()];
+                for (int i = 0; i < names.length; i++) {
+                    names[i] = targets.get(i).getName();
+                }
+                new MaterialAlertDialogBuilder(requireContext())
+                        .setTitle(R.string.task_move_title)
+                        .setItems(names, (dialog, which) -> moveTask(taskId, targets.get(which)))
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show();
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                showError(error);
+            }
+        });
+    }
+
+    private void moveTask(String taskId, Project target) {
+        runThenReload(() -> api().moveTask(taskId, target.getId()));
+    }
+
+    private void confirmDelete(Task task) {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.task_delete_title)
+                .setMessage(getString(R.string.task_delete_message, task.getTitle()))
+                .setPositiveButton(R.string.task_delete_confirm, (dialog, which) -> deleteTask(task.getId()))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    /** Deletes the task, then offers Undo (the only way back: deleted tasks cannot be listed). */
+    private void deleteTask(String taskId) {
+        async(() -> {
+            api().deleteTask(taskId);
+            return taskId;
+        }, new Async.Callback<String>() {
+            @Override
+            public void onSuccess(String deletedId) {
+                loadBoard();
+                View root = getView();
+                if (root != null) {
+                    Snackbars.undo(root, getString(R.string.task_deleted), () ->
+                            runThenReload(() -> api().restoreTask(deletedId)));
+                }
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                showError(error);
+            }
+        });
+    }
+
+    /** Opens the form for {@code task}, or a blank one for a new task. */
+    private void showEditor(@Nullable Task task) {
+        TaskEditDialog.newInstance(task, getProjectId()).show(getChildFragmentManager(), TaskEditDialog.TAG);
+    }
+
+    /** The form was saved: create the task, or send the changes for the task being edited. */
+    private void onEditorResult(Bundle result) {
+        TaskDraft draft = TaskEditDialog.draftFrom(result);
+        String taskId = TaskEditDialog.taskIdFrom(result);
+        if (taskId == null) {
+            createTask(draft);
+            return;
+        }
+        // Everything needed travels in the result: no lookup in the (possibly reloaded) cache.
+        saveChanges(taskId, TaskEditDialog.originalFrom(result), draft);
+    }
+
+    private void createTask(TaskDraft draft) {
+        String projectId = getProjectId();
+        Priority priority = draft.priorityOrDefault();
+        async(() -> api().createTask(
+                projectId,
+                draft.trimmedTitle(),
+                priority,
+                draft.dueDate(),
+                draft.descriptionOrNull()), new Async.Callback<Task>() {
+            @Override
+            public void onSuccess(Task created) {
+                // The backend always creates tasks in To do: show that column.
+                pager.setCurrentItem(TODO_PAGE, true);
+                loadBoard();
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                showError(error);
+            }
+        });
+    }
+
+    /** Sends only the fields that changed; an unchanged form makes no call. */
+    private void saveChanges(String taskId, TaskDraft original, TaskDraft draft) {
+        // Diffed against what the user saw when opening the form, so fields edited elsewhere
+        // since then are not overwritten. A deleted task answers 404, shown by runThenReload.
+        TaskPatch patch = draft.changesFrom(original);
+        if (patch.isEmpty()) {
+            return;
+        }
+        runThenReload(() -> api().updateTask(taskId, patch));
+    }
+
+    /** Runs a server call, then reloads the board; errors are shown. */
+    private <T> void runThenReload(Callable<T> work) {
+        async(work, new Async.Callback<T>() {
+            @Override
+            public void onSuccess(T result) {
+                loadBoard();
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                showError(error);
+            }
+        });
+    }
+
+    private void setLoading(boolean value) {
+        state.setLoading(value);
+        render();
+    }
+
+    /** Pushes the current tasks and loading state into the columns (and, through them, the tab titles). */
+    private void render() {
+        if (columnAdapter == null) {
+            return;
+        }
+        columns = TaskColumns.split(state.getTasks());
+        columnAdapter.setState(columns, state.isLoading());
+        // Retitle the existing tabs in place (the mediator does not rebuild them).
+        for (int i = 0; i < tabs.getTabCount(); i++) {
+            TabLayout.Tab tab = tabs.getTabAt(i);
+            if (tab != null) {
+                tab.setText(tabTitle(i));
+            }
+        }
+    }
+
+    /** Tab label: the column name and how many tasks it holds. */
+    private CharSequence tabTitle(int position) {
+        TaskStatus status = TaskColumns.ORDER[position];
+        int count = columns.get(status).size();
+        return getString(R.string.task_tab_title, getString(TaskColumnPagerAdapter.titleRes(status)), count);
+    }
+
+    /** Result of the board load: the project (null when only tasks were reloaded) and every task. */
+    private static final class Board {
+        @Nullable final Project project;
+        final List<Task> tasks;
+
+        Board(@Nullable Project project, List<Task> tasks) {
+            this.project = project;
+            this.tasks = tasks;
+        }
     }
 }
