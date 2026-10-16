@@ -329,7 +329,9 @@ describe('ProjectsPage in-flight and stale changes', () => {
     expect(
       await screen.findByText('Ese proyecto ya no existe; se quitó de la lista.'),
     ).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Casa' })).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Casa' })).not.toBeInTheDocument(),
+    )
     expect(api.listProjects).toHaveBeenCalledTimes(2)
     expect(window.location.hash).toBe('')
   })
@@ -375,6 +377,66 @@ describe('ProjectsPage in-flight and stale changes', () => {
 
     expect(window.confirm).toHaveBeenCalled()
     expect(api.createProject).not.toHaveBeenCalled()
+  })
+
+  it('asks before a filter change discards an unsaved edit', async () => {
+    const store = [{ ...CASA }, { ...VIAJE }]
+    renderPage(createMockApi(store))
+    fireEvent.click(await screen.findByRole('button', { name: 'Casa' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }))
+    fireEvent.change(screen.getByLabelText('Nombre', { selector: '#edit-project-name' }), {
+      target: { value: 'Casa editada' },
+    })
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+
+    fireEvent.change(screen.getByLabelText('Estado'), { target: { value: 'completed' } })
+
+    expect(confirm).toHaveBeenCalledWith('Hay cambios sin guardar. ¿Descartarlos?')
+    expect(screen.getByLabelText('Estado')).toHaveValue('active')
+    expect(screen.getByLabelText('Nombre', { selector: '#edit-project-name' })).toHaveValue(
+      'Casa editada',
+    )
+
+    confirm.mockReturnValue(true)
+    fireEvent.change(screen.getByLabelText('Estado'), { target: { value: 'completed' } })
+
+    expect(await screen.findByRole('button', { name: 'Viaje' })).toBeInTheDocument()
+  })
+
+  it('does not ask again when the selected project is clicked', async () => {
+    renderPage(createMockApi([{ ...CASA }]))
+    fireEvent.click(await screen.findByRole('button', { name: 'Casa' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }))
+    fireEvent.change(screen.getByLabelText('Nombre', { selector: '#edit-project-name' }), {
+      target: { value: 'Casa editada' },
+    })
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Casa' }))
+
+    expect(confirm).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Nombre', { selector: '#edit-project-name' })).toHaveValue(
+      'Casa editada',
+    )
+  })
+
+  it('retries a failed lookup when its project is selected again', async () => {
+    window.history.replaceState(null, '', '#/projects/p2')
+    const api = createMockApi([{ ...CASA }, { ...VIAJE }])
+    api.getProject.mockRejectedValueOnce(new ApiError(500, 'internal_error', 'Fallo puntual'))
+    renderPage(api)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Fallo puntual')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Casa' }))
+    expect(await screen.findByRole('heading', { level: 2, name: 'Casa' })).toBeInTheDocument()
+
+    act(() => {
+      window.location.hash = '#/projects/p2'
+    })
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Viaje' })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(api.getProject).toHaveBeenCalledTimes(2)
   })
 
   it('fetches the hash-loaded project again when the filter changes', async () => {
