@@ -26,9 +26,9 @@ public class TaskMenuTest {
     }
 
     @Test
-    public void doingOffersOnlyComplete() {
+    public void doingOffersCompleteAndBackToTodo() {
         assertEquals(
-                Arrays.asList(Action.COMPLETE, Action.EDIT, Action.MOVE, Action.DELETE),
+                Arrays.asList(Action.COMPLETE, Action.BACK_TO_TODO, Action.EDIT, Action.MOVE, Action.DELETE),
                 TaskMenu.actionsFor(TaskStatus.DOING));
     }
 

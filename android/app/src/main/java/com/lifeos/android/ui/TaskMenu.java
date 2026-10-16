@@ -8,12 +8,13 @@ import java.util.Objects;
 
 /**
  * What the action menu of a task offers. Status moves follow the board: a To do task can be
- * started or completed, a Doing task completed, a Done task reopened. Pure Java.
+ * started or completed, a Doing task completed or sent back to To do, a Done task reopened. Pure Java.
  */
 final class TaskMenu {
 
     enum Action {
         START,
+        BACK_TO_TODO,
         COMPLETE,
         REOPEN,
         EDIT,
@@ -31,6 +32,7 @@ final class TaskMenu {
             actions.add(Action.COMPLETE);
         } else if (status == TaskStatus.DOING) {
             actions.add(Action.COMPLETE);
+            actions.add(Action.BACK_TO_TODO);
         } else if (status == TaskStatus.DONE) {
             actions.add(Action.REOPEN);
         }

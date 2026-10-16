@@ -166,6 +166,8 @@ public class ProjectBoardFragment extends BaseFragment {
                 return R.string.task_action_start;
             case COMPLETE:
                 return R.string.task_action_complete;
+            case BACK_TO_TODO:
+                return R.string.task_action_back_to_todo;
             case REOPEN:
                 return R.string.task_action_reopen;
             case EDIT:
@@ -187,6 +189,7 @@ public class ProjectBoardFragment extends BaseFragment {
             case COMPLETE:
                 runThenReload(() -> api().completeTask(taskId));
                 break;
+            case BACK_TO_TODO:
             case REOPEN:
                 runThenReload(() -> api().reopenTask(taskId));
                 break;
