@@ -43,6 +43,18 @@ class Settings(BaseSettings):
     )
     # Token para una corrida manual; `lifeos-daemon` genera el suyo propio.
     api_token: str | None = Field(default=None, validation_alias="LIFEOS_API_TOKEN")
+    # Hosts que la guardia acepta además de loopback, separados por coma (ADR
+    # 0010): p. ej. el nombre de Tailscale de un VPS. Vacío en el escritorio.
+    api_allowed_hosts: str = Field(default="", validation_alias="LIFEOS_ALLOWED_HOSTS")
+
+    @property
+    def extra_allowed_hosts(self) -> frozenset[str]:
+        """`LIFEOS_ALLOWED_HOSTS` normalizado: minúsculas y sin punto final."""
+        return frozenset(
+            host.strip().lower().rstrip(".")
+            for host in self.api_allowed_hosts.split(",")
+            if host.strip()
+        )
 
 
 @lru_cache

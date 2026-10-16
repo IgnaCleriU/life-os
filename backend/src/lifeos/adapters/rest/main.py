@@ -49,22 +49,28 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app(
-    *, api_token: str | None = None, auth_enabled: bool | None = None
+    *,
+    api_token: str | None = None,
+    auth_enabled: bool | None = None,
+    extra_hosts: frozenset[str] | None = None,
 ) -> FastAPI:
     """Construye y configura la instancia de FastAPI.
 
     Sin argumentos, la auth sale de la configuración (`LIFEOS_API_AUTH`,
-    `LIFEOS_API_TOKEN`). `lifeos-daemon` pasa su propio token generado; los
-    tests la apagan explícitamente con `auth_enabled=False`.
+    `LIFEOS_API_TOKEN`, `LIFEOS_ALLOWED_HOSTS`). `lifeos-daemon` pasa su
+    propio token generado; los tests la apagan explícitamente con
+    `auth_enabled=False`.
     """
     settings = get_settings()
     if auth_enabled is None:
         auth_enabled = settings.api_auth == "enabled"
     if api_token is None:
         api_token = settings.api_token
+    if extra_hosts is None:
+        extra_hosts = settings.extra_allowed_hosts
     app = FastAPI(title=settings.app_name, lifespan=_lifespan)
     if auth_enabled:
-        install_local_guard(app, api_token=api_token)
+        install_local_guard(app, api_token=api_token, extra_hosts=extra_hosts)
 
     @app.get("/health")
     def health() -> dict[str, str]:

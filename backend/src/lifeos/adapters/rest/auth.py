@@ -9,7 +9,9 @@ puede apuntar a `localhost`. Dos chequeos lo cierran:
   app no emite headers CORS, el preflight falla: una página no puede ni leer
   ni escribir.
 - **Host:** solo se aceptan `localhost`, `127.0.0.1` y `::1`, lo que bloquea
-  el DNS rebinding (un dominio del atacante que resuelve a 127.0.0.1).
+  el DNS rebinding (un dominio del atacante que resuelve a 127.0.0.1). Un VPS
+  puede sumar nombres propios de forma explícita (`LIFEOS_ALLOWED_HOSTS`, ADR
+  0010), como el de Tailscale; el escritorio no suma ninguno.
 
 Vive en el adapter REST porque es transporte, no negocio: MCP, CLI y TUI
 abren la base en proceso y no pasan por acá.
@@ -49,13 +51,20 @@ def _hostname(host_header: str) -> str | None:
         return None
 
 
-def install_local_guard(app: FastAPI, *, api_token: str | None) -> None:
+def install_local_guard(
+    app: FastAPI,
+    *,
+    api_token: str | None,
+    extra_hosts: frozenset[str] = frozenset(),
+) -> None:
     """Registra el middleware de token + host en `app`.
 
     Con `api_token=None` la guardia sigue activa pero rechaza todo: es el
     caso de un `uvicorn` lanzado a mano sin token, y fallar cerrado es
-    preferible a quedar abierto sin avisar.
+    preferible a quedar abierto sin avisar. `extra_hosts` se suma a loopback
+    y se espera ya normalizado (minúsculas, sin punto final).
     """
+    allowed_hosts = LOOPBACK_HOSTS | extra_hosts
 
     @app.middleware("http")
     async def local_guard(
@@ -64,11 +73,11 @@ def install_local_guard(app: FastAPI, *, api_token: str | None) -> None:
         if request.url.path in OPEN_PATHS:
             return await call_next(request)
 
-        if _hostname(request.headers.get("host", "")) not in LOOPBACK_HOSTS:
+        if _hostname(request.headers.get("host", "")) not in allowed_hosts:
             return _error(
                 status.HTTP_403_FORBIDDEN,
                 "forbidden_host",
-                "The API only answers requests addressed to localhost.",
+                "The API only answers requests addressed to an allowed host.",
             )
 
         if api_token is None:
