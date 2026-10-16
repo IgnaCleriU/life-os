@@ -13,16 +13,20 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.lifeos.android.R;
+import com.lifeos.android.api.model.ApiException;
 import com.lifeos.android.api.model.Project;
 import com.lifeos.android.api.model.ProjectPatch;
 import com.lifeos.android.api.model.ProjectStatus;
 import com.lifeos.android.util.Async;
+import com.lifeos.android.util.Snackbars;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -210,15 +214,99 @@ public class ProjectsFragment extends BaseFragment {
                 });
     }
 
-    /** Row actions. Only Edit for now; the status actions and delete come next. */
     private void showMenu(View anchor, Project project) {
         PopupMenu popup = new PopupMenu(requireContext(), anchor);
-        popup.getMenu().add(Menu.NONE, 0, 0, R.string.action_edit);
+        for (ProjectAction action : ProjectAction.forStatus(project.getStatus())) {
+            popup.getMenu().add(Menu.NONE, action.ordinal(), action.ordinal(), actionLabel(action));
+        }
         popup.setOnMenuItemClickListener(item -> {
-            showEditDialog(project);
+            handle(ProjectAction.values()[item.getItemId()], project);
             return true;
         });
         popup.show();
+    }
+
+    @StringRes
+    private static int actionLabel(ProjectAction action) {
+        switch (action) {
+            case COMPLETE:
+                return R.string.action_complete;
+            case ARCHIVE:
+                return R.string.action_archive;
+            case ACTIVATE:
+                return R.string.action_activate;
+            case DELETE:
+                return R.string.action_delete;
+            case EDIT:
+            default:
+                return R.string.action_edit;
+        }
+    }
+
+    private void handle(ProjectAction action, Project project) {
+        String id = project.getId();
+        switch (action) {
+            case EDIT:
+                showEditDialog(project);
+                break;
+            case COMPLETE:
+                mutate(() -> api().completeProject(id));
+                break;
+            case ARCHIVE:
+                mutate(() -> api().archiveProject(id));
+                break;
+            case ACTIVATE:
+                mutate(() -> api().activateProject(id));
+                break;
+            case DELETE:
+                confirmDelete(project);
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void confirmDelete(Project project) {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.delete_project_title)
+                .setMessage(getString(R.string.delete_project_message, project.getName()))
+                .setNegativeButton(R.string.dialog_cancel, null)
+                .setPositiveButton(R.string.action_delete, (dialog, which) -> deleteProject(project))
+                .show();
+    }
+
+    /**
+     * Deletes the project and offers Undo: the server has no list of deleted projects, so the
+     * restore is only possible right after this call. A project that still has tasks is refused.
+     */
+    private void deleteProject(Project project) {
+        String id = project.getId();
+        async(() -> {
+            api().deleteProject(id);
+            return project;
+        }, new Async.Callback<Project>() {
+            @Override
+            public void onSuccess(Project deleted) {
+                load();
+                View root = getView();
+                if (root != null) {
+                    Snackbars.undo(root, getString(R.string.project_deleted),
+                            () -> mutate(() -> api().restoreProject(id)));
+                }
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                if (error instanceof ApiException && ((ApiException) error).isProjectNotEmpty()) {
+                    View root = getView();
+                    if (root != null) {
+                        Snackbars.info(root, getString(R.string.project_delete_not_empty));
+                    }
+                } else {
+                    showError(error);
+                }
+            }
+        });
     }
 
     /** Runs a change, then reloads the list. Failures are shown; the list stays as it was. */

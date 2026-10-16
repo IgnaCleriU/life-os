@@ -17,4 +17,12 @@
     <string name="project_name_required">Enter a name.</string>
     <string name="dialog_cancel">Cancel</string>
     <string name="action_edit">Edit</string>
+    <string name="action_complete">Complete</string>
+    <string name="action_archive">Archive</string>
+    <string name="action_activate">Activate</string>
+    <string name="action_delete">Delete</string>
+    <string name="delete_project_title">Delete project?</string>
+    <string name="delete_project_message">Delete \"%1$s\"? You can undo this right after.</string>
+    <string name="project_deleted">Project deleted.</string>
+    <string name="project_delete_not_empty">Move or delete its tasks first.</string>
 </resources>
