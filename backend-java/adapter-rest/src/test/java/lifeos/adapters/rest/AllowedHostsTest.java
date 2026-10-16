@@ -12,13 +12,14 @@ import org.springframework.test.context.TestPropertySource;
 /**
  * Un VPS detrás de {@code tailscale serve} recibe {@code Host: lifeos-vps...}
  * (ADR 0010). Esos nombres se suman a loopback; el token se sigue exigiendo.
- * El valor se escribe sucio a propósito: espacios, mayúsculas, punto final, vacíos.
+ * El valor se escribe sucio a propósito: espacios, mayúsculas, punto final, vacíos. El punto final se
+ * normaliza en la lista (como Python) pero no en el Host recibido: ahí es 403.
  */
 @TestPropertySource(properties = "lifeos.api.allowed-hosts= lifeos-vps , VPS.tailnet.ts.net. ,,")
 class AllowedHostsTest extends RestTestSupport {
 
     @ParameterizedTest
-    @ValueSource(strings = {"lifeos-vps", "LIFEOS-VPS", "vps.tailnet.ts.net:443", "vps.tailnet.ts.net", "vps.tailnet.ts.net.", "localhost."})
+    @ValueSource(strings = {"lifeos-vps", "LIFEOS-VPS", "vps.tailnet.ts.net:443", "vps.tailnet.ts.net"})
     void configuredHostsAreServed(String host) throws Exception {
         mvc.perform(get("/projects").header("Host", host)).andExpect(status().isOk());
     }
@@ -29,7 +30,7 @@ class AllowedHostsTest extends RestTestSupport {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"evil.example", "lifeos-vps.evil.example", "tailnet.ts.net"})
+    @ValueSource(strings = {"evil.example", "lifeos-vps.evil.example", "tailnet.ts.net", "vps.tailnet.ts.net.", "lifeos-vps.", "localhost."})
     void otherHostsAreStillForbidden(String host) throws Exception {
         mvc.perform(get("/projects").header("Host", host))
                 .andExpect(status().isForbidden())

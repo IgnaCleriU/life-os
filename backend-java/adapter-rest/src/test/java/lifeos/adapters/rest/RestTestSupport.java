@@ -49,7 +49,9 @@ abstract class RestTestSupport {
         @Bean
         MockMvcBuilderCustomizer defaultToken() {
             return builder -> builder.defaultRequest(
-                    MockMvcRequestBuilders.get("/").header("Authorization", "Bearer " + TOKEN));
+                    MockMvcRequestBuilders.get("/")
+                            .header("Host", "localhost")
+                            .header("Authorization", "Bearer " + TOKEN));
         }
     }
 
@@ -88,8 +90,19 @@ abstract class RestTestSupport {
 
     /** MockMvc con los filtros reales (la guardia) pero sin token por defecto. */
     protected MockMvc anonymousMvc() {
-        Filter[] filters = context.getBeansOfType(Filter.class).values().toArray(Filter[]::new);
-        return MockMvcBuilders.webAppContextSetup(context).addFilters(filters).build();
+        return MockMvcBuilders.webAppContextSetup(context)
+                .addFilters(filters())
+                .defaultRequest(MockMvcRequestBuilders.get("/").header("Host", "localhost"))
+                .build();
+    }
+
+    /** Como {@link #anonymousMvc()} pero sin Host por defecto: un request sin ese header. */
+    protected MockMvc hostlessMvc() {
+        return MockMvcBuilders.webAppContextSetup(context).addFilters(filters()).build();
+    }
+
+    private Filter[] filters() {
+        return context.getBeansOfType(Filter.class).values().toArray(Filter[]::new);
     }
 
     protected String createProject(String name) throws Exception {
