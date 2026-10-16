@@ -281,9 +281,7 @@ button:focus-visible,
 }
 
 .board {
-  padding: 1rem;
-  border: 1px dashed var(--color-border);
-  border-radius: 8px;
+  min-width: 0;
 }
 
 .board .muted {
