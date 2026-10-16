@@ -6,8 +6,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Value;
 
 /**
- * La API todavía no tiene autenticación: solo puede escuchar en loopback. En
- * {@code 0.0.0.0} cualquier equipo de la LAN leería y escribiría la base real.
+ * Por defecto la API escucha solo en loopback. Aunque ahora hay token (ADR
+ * 0012), en {@code 0.0.0.0} cualquier equipo de la LAN llegaría al puerto de un
+ * escritorio. Solo el contenedor lo cambia, con {@code LIFEOS_BIND_ADDRESS}.
  */
 class ServerBindingTest extends RestTestSupport {
 
@@ -15,7 +16,7 @@ class ServerBindingTest extends RestTestSupport {
     String serverAddress;
 
     @Test
-    void listensOnLoopbackOnly() {
+    void listensOnLoopbackByDefault() {
         assertThat(serverAddress).isEqualTo("127.0.0.1");
     }
 }
