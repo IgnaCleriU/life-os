@@ -7,6 +7,12 @@ import react from '@vitejs/plugin-react'
 // responde 401 hasta que la app envíe el bearer token (lo agrega un PR
 // posterior). changeOrigin hace que el backend vea Host 127.0.0.1 aunque el
 // dev server escuche en otra interfaz (`npm run dev -- --host`).
+// Consecuencia: con changeOrigin el backend siempre ve Host 127.0.0.1, así que
+// el allowlist de Host de LocalGuardFilter (anti DNS rebinding) no aplica al
+// tráfico que pasa por el dev server. Lo que queda como protección es
+// `server.allowedHosts` de Vite y el token. NO usar `allowedHosts: true` para
+// llegar por MagicDNS: listar el host específico (p. ej. el nombre de la
+// tailnet) en `server.allowedHosts`.
 const API_TARGET = 'http://127.0.0.1:8000'
 
 export default defineConfig({
