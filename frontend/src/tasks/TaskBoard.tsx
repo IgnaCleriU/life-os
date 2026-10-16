@@ -20,13 +20,17 @@ export default function TaskBoard({ project }: TaskBoardProps) {
   const [actionError, setActionError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Task | null>(null)
   const [dropTarget, setDropTarget] = useState<TaskStatus | null>(null)
-  const inflight = useRef(
-    new Map<
-      string,
-      { latest: number; pending: number; confirmed: TaskStatus; confirmedSeq: number }
-    >(),
+  // Movimientos por tarea: se serializan (cada pedido sale cuando termina el anterior), así el
+  // estado confirmado sigue el orden en que el servidor los aplica.
+  const moves = useRef(
+    new Map<string, { queue: Promise<void>; pending: number; confirmed: TaskStatus }>(),
   )
   const enters = useRef<Record<TaskStatus, number>>({ todo: 0, doing: 0, done: 0 })
+
+  /** Solo el estado: las respuestas de mover no deben pisar otros campos (p. ej. un título editado). */
+  function setStatus(id: string, status: TaskStatus) {
+    replaceTask(id, (item) => ({ ...item, status }))
+  }
 
   function replaceTask(id: string, change: (task: Task) => Task) {
     setTasks((current) => current.map((item) => (item.id === id ? change(item) : item)))
@@ -38,43 +42,35 @@ export default function TaskBoard({ project }: TaskBoardProps) {
    */
   async function moveTask(task: Task, to: TaskStatus) {
     if (task.status === to) return
-    // Con movimientos superpuestos de una misma tarea, la UI muestra el último pedido mientras
-    // haya alguno en curso; al terminar todos, muestra el estado confirmado por la respuesta
-    // exitosa del pedido más reciente (un fallo del último no pisa una respuesta anterior).
-    const entry = inflight.current.get(task.id) ?? {
-      latest: 0,
-      pending: 0,
-      confirmed: task.status,
-      confirmedSeq: 0,
+    let entry = moves.current.get(task.id)
+    if (!entry) {
+      entry = { queue: Promise.resolve(), pending: 0, confirmed: task.status }
+      moves.current.set(task.id, entry)
     }
-    inflight.current.set(task.id, entry)
-    const mine = ++entry.latest
-    entry.pending += 1
+    const current = entry
+    current.pending += 1
     setActionError(null)
-    replaceTask(task.id, (item) => ({ ...item, status: to }))
-    try {
-      const updated =
-        to === 'doing'
-          ? await api.startTask(task.id)
-          : to === 'done'
-            ? await api.completeTask(task.id)
-            : await api.reopenTask(task.id)
-      if (mine > entry.confirmedSeq) {
-        entry.confirmed = updated.status
-        entry.confirmedSeq = mine
-      }
-      if (mine === entry.latest) replaceTask(task.id, () => updated)
-    } catch (failure) {
-      if (mine === entry.latest) {
+    // La UI muestra el último destino pedido; al terminar la cola, el último estado confirmado.
+    setStatus(task.id, to)
+    current.queue = current.queue.then(async () => {
+      try {
+        const updated =
+          to === 'doing'
+            ? await api.startTask(task.id)
+            : to === 'done'
+              ? await api.completeTask(task.id)
+              : await api.reopenTask(task.id)
+        current.confirmed = updated.status
+      } catch (failure) {
         setActionError(`No se pudo mover "${task.title}": ${errorMessage(failure)}`)
+      } finally {
+        current.pending -= 1
+        if (current.pending === 0) {
+          moves.current.delete(task.id)
+          setStatus(task.id, current.confirmed)
+        }
       }
-    } finally {
-      entry.pending -= 1
-      if (entry.pending === 0) {
-        inflight.current.delete(task.id)
-        replaceTask(task.id, (item) => ({ ...item, status: entry.confirmed }))
-      }
-    }
+    })
   }
 
   function carriesTask(event: DragEvent<HTMLElement>): boolean {
@@ -169,11 +165,9 @@ export default function TaskBoard({ project }: TaskBoardProps) {
           key={editing.id}
           task={editing}
           onClose={() => setEditing(null)}
+          // El diálogo no cambia el estado: se toman todos los campos menos `status`.
           onUpdated={(updated) =>
-            // Si hay un movimiento en curso de esta tarea, se conserva su estado optimista.
-            replaceTask(updated.id, (item) =>
-              inflight.current.has(updated.id) ? { ...updated, status: item.status } : updated,
-            )
+            replaceTask(updated.id, (item) => ({ ...updated, status: item.status }))
           }
           onRemoved={(removed) => setTasks((current) => current.filter((t) => t.id !== removed.id))}
         />

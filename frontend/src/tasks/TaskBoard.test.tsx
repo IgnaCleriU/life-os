@@ -544,7 +544,14 @@ describe('TaskBoard editor', () => {
 })
 
 describe('TaskBoard robustness', () => {
-  it('overlapping moves of one card: only the latest request decides the state', async () => {
+  const T1 = (status: Task['status'], title = 'Baja sin fecha') =>
+    task({ id: 't1', title, priority: 'low', status })
+
+  function clickMove(title: string, label: string) {
+    fireEvent.click(within(card(title)).getByRole('button', { name: label }))
+  }
+
+  it('serializes overlapping moves of one card and ends on the last target', async () => {
     const api = createMockApi()
     const first = deferred<Task>()
     const second = deferred<Task>()
@@ -553,85 +560,96 @@ describe('TaskBoard robustness', () => {
     renderBoard(api)
     await screen.findByText('En marcha')
 
-    fireEvent.click(
-      within(card('Baja sin fecha')).getByRole('button', { name: 'Mover a En curso' }),
-    )
-    fireEvent.click(within(card('Baja sin fecha')).getByRole('button', { name: 'Mover a Hecho' }))
+    clickMove('Baja sin fecha', 'Mover a En curso')
+    clickMove('Baja sin fecha', 'Mover a Hecho')
     expect(titlesIn('Hecho')).toContain('Baja sin fecha')
+    // La segunda petición espera a que la primera termine.
+    expect(api.completeTask).not.toHaveBeenCalled()
 
-    // La segunda responde primero; la primera llega tarde (ok) y no debe pisarla.
-    second.resolve(task({ id: 't1', title: 'Baja sin fecha', priority: 'low', status: 'done' }))
+    first.resolve(T1('doing'))
+    await waitFor(() => expect(api.completeTask).toHaveBeenCalledWith('t1'))
+    expect(titlesIn('Hecho')).toContain('Baja sin fecha')
+    second.resolve(T1('done'))
+    await waitFor(() => expect(api.completeTask).toHaveBeenCalledTimes(1))
+    expect(titlesIn('Hecho')).toContain('Baja sin fecha')
+  })
+
+  it('a failed last move falls back to the last server-confirmed status', async () => {
+    const api = createMockApi()
+    const first = deferred<Task>()
+    const second = deferred<Task>()
+    api.startTask.mockImplementationOnce(() => first.promise)
+    api.completeTask.mockImplementationOnce(() => second.promise)
+    renderBoard(api)
+    await screen.findByText('En marcha')
+
+    clickMove('Baja sin fecha', 'Mover a En curso')
+    clickMove('Baja sin fecha', 'Mover a Hecho')
+    first.resolve(T1('doing'))
     await waitFor(() => expect(api.completeTask).toHaveBeenCalled())
-    first.resolve(task({ id: 't1', title: 'Baja sin fecha', priority: 'low', status: 'doing' }))
-    await Promise.resolve()
-    await waitFor(() => expect(titlesIn('Hecho')).toContain('Baja sin fecha'))
-    expect(titlesIn('En curso')).not.toContain('Baja sin fecha')
-  })
-
-  it('a failed latest move reverts to the last confirmed state, not the pre-click one', async () => {
-    const api = createMockApi()
-    const first = deferred<Task>()
-    const second = deferred<Task>()
-    api.startTask.mockImplementationOnce(() => first.promise)
-    api.completeTask.mockImplementationOnce(() => second.promise)
-    renderBoard(api)
-    await screen.findByText('En marcha')
-
-    fireEvent.click(
-      within(card('Baja sin fecha')).getByRole('button', { name: 'Mover a En curso' }),
-    )
-    fireEvent.click(within(card('Baja sin fecha')).getByRole('button', { name: 'Mover a Hecho' }))
-    first.resolve(task({ id: 't1', title: 'Baja sin fecha', priority: 'low', status: 'doing' }))
-    await waitFor(() => expect(api.startTask).toHaveBeenCalled())
-    await Promise.resolve()
     second.reject(new ApiError(500, 'boom', 'Falló'))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Falló')
     await waitFor(() => expect(titlesIn('En curso')).toContain('Baja sin fecha'))
-    expect(titlesIn('Por hacer')).not.toContain('Baja sin fecha')
-  })
-
-  it('latest move fails before an earlier one succeeds: the UI ends on the server state', async () => {
-    const api = createMockApi()
-    const first = deferred<Task>()
-    const second = deferred<Task>()
-    api.startTask.mockImplementationOnce(() => first.promise)
-    api.completeTask.mockImplementationOnce(() => second.promise)
-    renderBoard(api)
-    await screen.findByText('En marcha')
-
-    fireEvent.click(
-      within(card('Baja sin fecha')).getByRole('button', { name: 'Mover a En curso' }),
-    )
-    fireEvent.click(within(card('Baja sin fecha')).getByRole('button', { name: 'Mover a Hecho' }))
-    second.reject(new ApiError(500, 'boom', 'Falló'))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Falló')
-    first.resolve(task({ id: 't1', title: 'Baja sin fecha', priority: 'low', status: 'doing' }))
-
-    await waitFor(() => expect(titlesIn('En curso')).toContain('Baja sin fecha'))
-    expect(titlesIn('Por hacer')).not.toContain('Baja sin fecha')
     expect(titlesIn('Hecho')).not.toContain('Baja sin fecha')
   })
 
-  it('saving the dialog during a move keeps the optimistic status', async () => {
+  it('a failed first move does not stop the next one', async () => {
+    const api = createMockApi()
+    const first = deferred<Task>()
+    api.startTask.mockImplementationOnce(() => first.promise)
+    renderBoard(api)
+    await screen.findByText('En marcha')
+
+    clickMove('Baja sin fecha', 'Mover a En curso')
+    clickMove('Baja sin fecha', 'Mover a Hecho')
+    first.reject(new ApiError(500, 'boom', 'Falló'))
+
+    await waitFor(() => expect(api.completeTask).toHaveBeenCalledWith('t1'))
+    await waitFor(() => expect(titlesIn('Hecho')).toContain('Baja sin fecha'))
+  })
+
+  it('a move response only contributes the status, not a stale title', async () => {
     const api = createMockApi()
     const move = deferred<Task>()
     api.startTask.mockImplementationOnce(() => move.promise)
     renderBoard(api)
     await screen.findByText('En marcha')
 
-    fireEvent.click(
-      within(card('Baja sin fecha')).getByRole('button', { name: 'Mover a En curso' }),
-    )
+    clickMove('Baja sin fecha', 'Mover a En curso')
     const dialog = await openEditor('Baja sin fecha')
     fireEvent.change(dialog.getByLabelText('Título'), { target: { value: 'Renombrada' } })
     fireEvent.click(dialog.getByRole('button', { name: 'Guardar' }))
-
-    await waitFor(() => expect(api.updateTask).toHaveBeenCalled())
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(titlesIn('En curso')).toContain('Renombrada')
-    move.resolve(task({ id: 't1', title: 'Renombrada', priority: 'low', status: 'doing' }))
+
+    move.resolve(T1('doing', 'Baja sin fecha'))
+    await waitFor(() => expect(api.startTask).toHaveBeenCalled())
+    await Promise.resolve()
     await waitFor(() => expect(titlesIn('En curso')).toContain('Renombrada'))
+    expect(screen.queryByText('Baja sin fecha')).not.toBeInTheDocument()
+  })
+
+  it('a save response never changes the status, even if the move finished meanwhile', async () => {
+    const api = createMockApi()
+    const save = deferred<Task>()
+    api.updateTask.mockImplementationOnce(() => save.promise)
+    renderBoard(api)
+    await screen.findByText('En marcha')
+
+    const dialog = await openEditor('Baja sin fecha')
+    fireEvent.change(dialog.getByLabelText('Título'), { target: { value: 'Renombrada' } })
+    fireEvent.click(dialog.getByRole('button', { name: 'Guardar' }))
+    await waitFor(() => expect(api.updateTask).toHaveBeenCalled())
+
+    // El movimiento se confirma mientras el PATCH sigue en vuelo.
+    clickMove('Baja sin fecha', 'Mover a En curso')
+    await waitFor(() => expect(api.startTask).toHaveBeenCalled())
+    await waitFor(() => expect(titlesIn('En curso')).toContain('Baja sin fecha'))
+
+    save.resolve(T1('todo', 'Renombrada'))
+    await waitFor(() => expect(titlesIn('En curso')).toContain('Renombrada'))
+    expect(titlesIn('Por hacer')).not.toContain('Renombrada')
   })
 
   it('ignores drags that do not carry a task', async () => {
