@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import javax.sql.DataSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -20,6 +21,9 @@ public final class SqliteDatabase {
 
     /** Código primario de SQLite para violaciones de restricción (FK, NOT NULL, PK...). */
     private static final int SQLITE_CONSTRAINT = 19;
+
+    /** Los códigos extendidos (787 FK, 1555 PK...) llevan el primario en el byte bajo. */
+    private static final int PRIMARY_CODE_MASK = 0xFF;
 
     /**
      * El mismo DDL que genera {@code SQLModel.metadata.create_all} en Python, con
@@ -97,10 +101,15 @@ public final class SqliteDatabase {
     public static JdbcClient jdbcClient(DataSource dataSource) {
         SQLExceptionTranslator fallback = new SQLStateSQLExceptionTranslator();
         JdbcTemplate template = new JdbcTemplate(dataSource);
-        template.setExceptionTranslator((task, sql, ex) -> ex.getErrorCode() == SQLITE_CONSTRAINT
+        template.setExceptionTranslator((task, sql, ex) -> isConstraintViolation(ex)
                 ? new DataIntegrityViolationException(task + "; " + ex.getMessage(), ex)
                 : fallback.translate(task, sql, ex));
         return JdbcClient.create(template);
+    }
+
+    /** Si la excepción es una violación de restricción, con código primario o extendido. */
+    static boolean isConstraintViolation(SQLException ex) {
+        return (ex.getErrorCode() & PRIMARY_CODE_MASK) == SQLITE_CONSTRAINT;
     }
 
     /** Crea las tablas e índices si no existen (idempotente). */
