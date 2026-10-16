@@ -26,12 +26,20 @@ function createMockApi() {
 
 function renderDetail(project: Project, api = createMockApi()) {
   const onChanged = vi.fn()
-  render(
+  const view = render(
     <ApiContext.Provider value={api as unknown as ApiClient}>
       <ProjectDetail project={project} onChanged={onChanged} />
     </ApiContext.Provider>,
   )
-  return { api, onChanged }
+  /** Vuelve a renderizar con el proyecto actualizado, como lo hace la página tras una acción. */
+  function rerenderWith(next: Project) {
+    view.rerender(
+      <ApiContext.Provider value={api as unknown as ApiClient}>
+        <ProjectDetail project={next} onChanged={onChanged} />
+      </ApiContext.Provider>,
+    )
+  }
+  return { api, onChanged, rerenderWith }
 }
 
 afterEach(() => {
@@ -102,6 +110,36 @@ describe('ProjectDetail actions', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent('Ingresá un nombre')
     expect(api.updateProject).not.toHaveBeenCalled()
+  })
+
+  it('moves focus to the name field when editing starts', () => {
+    renderDetail(CASA)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }))
+
+    expect(screen.getByLabelText('Nombre')).toHaveFocus()
+  })
+
+  it('returns focus to the title after saving', async () => {
+    const { api, onChanged, rerenderWith } = renderDetail(CASA)
+    const updated = { ...CASA, name: 'Casa 2' }
+    api.updateProject.mockResolvedValue(updated)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+    await waitFor(() => expect(onChanged).toHaveBeenCalledWith(updated))
+    rerenderWith(updated)
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Casa 2' })).toHaveFocus()
+  })
+
+  it('returns focus to the title after cancelling the edit', () => {
+    renderDetail(CASA)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Casa' })).toHaveFocus()
   })
 
   it('deletes the project after confirmation', async () => {
