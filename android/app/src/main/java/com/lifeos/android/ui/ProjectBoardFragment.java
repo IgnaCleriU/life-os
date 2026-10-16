@@ -30,7 +30,7 @@ import java.util.concurrent.Callable;
  * Task board of one project: three swipeable columns (To do / Doing / Done). All tasks are
  * loaded once and split by status here. Open it with {@code Navigator.openProject(id)}.
  */
-public class ProjectBoardFragment extends BaseFragment {
+public class ProjectBoardFragment extends BaseFragment implements TaskEditDialog.Host {
 
     static final String TAG = "project_board";
     private static final String ARG_PROJECT_ID = "project_id";
@@ -66,6 +66,11 @@ public class ProjectBoardFragment extends BaseFragment {
         super(R.layout.fragment_project_board);
     }
 
+    @Override
+    public Clock clock() {
+        return clock;
+    }
+
     /** The project this board shows. */
     public String getProjectId() {
         return requireArguments().getString(ARG_PROJECT_ID);
@@ -95,6 +100,9 @@ public class ProjectBoardFragment extends BaseFragment {
 
         ExtendedFloatingActionButton newTask = view.findViewById(R.id.task_board_new);
         newTask.setOnClickListener(v -> showEditor(null));
+        // The form is a DialogFragment that outlives rotation; its result is queued until here.
+        getChildFragmentManager().setFragmentResultListener(
+                TaskEditDialog.REQUEST_KEY, getViewLifecycleOwner(), (key, result) -> onEditorResult(result));
 
         render();
         // The name is only fetched when the ViewModel does not have it yet (first open).
@@ -292,13 +300,23 @@ public class ProjectBoardFragment extends BaseFragment {
 
     /** Opens the form for {@code task}, or a blank one for a new task. */
     private void showEditor(@Nullable Task task) {
-        TaskEditDialog.show(this, task, draft -> {
-            if (task == null) {
-                createTask(draft);
-            } else {
+        TaskEditDialog.newInstance(task, getProjectId()).show(getChildFragmentManager(), TaskEditDialog.TAG);
+    }
+
+    /** The form was saved: create the task, or send the changes for the task being edited. */
+    private void onEditorResult(Bundle result) {
+        TaskDraft draft = TaskEditDialog.draftFrom(result);
+        String taskId = TaskEditDialog.taskIdFrom(result);
+        if (taskId == null) {
+            createTask(draft);
+            return;
+        }
+        for (Task task : state.getTasks()) {
+            if (taskId.equals(task.getId())) {
                 saveChanges(task, draft);
+                return;
             }
-        });
+        }
     }
 
     private void createTask(TaskDraft draft) {
