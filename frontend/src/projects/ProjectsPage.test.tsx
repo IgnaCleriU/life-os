@@ -213,6 +213,7 @@ describe('ProjectsPage after an action', () => {
     expect(api.archiveProject).toHaveBeenCalledWith('p1')
     expect(screen.getByText('Elegí un proyecto de la lista.')).toBeInTheDocument()
     expect(window.location.hash).toBe('')
+    expect(screen.getByRole('heading', { name: 'Proyectos' })).toHaveFocus()
   })
 })
 

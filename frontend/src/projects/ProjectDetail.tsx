@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { errorMessage } from '../api/errorMessage'
 import type { Project } from '../api/types'
 import { useApi } from '../api/useApi'
@@ -27,6 +27,23 @@ export default function ProjectDetail({ project, onChanged, children }: ProjectD
   const [formError, setFormError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const nameInputRef = useRef<HTMLInputElement>(null)
+  // Tras guardar, cambiar de estado o cancelar, el foco vuelve al título cuando el proyecto sigue visible.
+  const focusHeadingNext = useRef(false)
+
+  // Editar: el foco va al campo de nombre.
+  useEffect(() => {
+    if (editing) nameInputRef.current?.focus()
+  }, [editing])
+
+  // Al terminar la edición o llegar el proyecto actualizado, el foco vuelve al título.
+  useEffect(() => {
+    if (focusHeadingNext.current && !editing) {
+      focusHeadingNext.current = false
+      headingRef.current?.focus()
+    }
+  }, [project, editing])
 
   function startEditing() {
     setName(project.name)
@@ -35,11 +52,18 @@ export default function ProjectDetail({ project, onChanged, children }: ProjectD
     setEditing(true)
   }
 
+  function cancelEditing() {
+    focusHeadingNext.current = true
+    setEditing(false)
+  }
+
   async function run(action: () => Promise<Project | null>) {
     setBusy(true)
     setActionError(null)
     try {
-      onChanged(await action())
+      const result = await action()
+      focusHeadingNext.current = result !== null
+      onChanged(result)
     } catch (error) {
       setActionError(errorMessage(error))
     } finally {
@@ -81,7 +105,9 @@ export default function ProjectDetail({ project, onChanged, children }: ProjectD
   return (
     <article className="project-detail">
       <header className="project-detail-header">
-        <h2>{project.name}</h2>
+        <h2 ref={headingRef} tabIndex={-1}>
+          {project.name}
+        </h2>
         <span className={`status-badge status-${project.status}`}>
           {PROJECT_STATUS_LABELS[project.status]}
         </span>
@@ -91,6 +117,7 @@ export default function ProjectDetail({ project, onChanged, children }: ProjectD
         <form className="inline-form" aria-label="Editar proyecto" onSubmit={handleSave} noValidate>
           <label htmlFor="edit-project-name">Nombre</label>
           <input
+            ref={nameInputRef}
             id="edit-project-name"
             type="text"
             required
@@ -113,7 +140,7 @@ export default function ProjectDetail({ project, onChanged, children }: ProjectD
             <button type="submit" disabled={busy}>
               Guardar
             </button>
-            <button type="button" className="secondary" onClick={() => setEditing(false)}>
+            <button type="button" className="secondary" onClick={cancelEditing}>
               Cancelar
             </button>
           </div>
