@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lifeos.domain.Task;
+import lifeos.domain.TaskNotFoundException;
 
 /**
  * Puerto de persistencia de Task.
@@ -32,6 +33,6 @@ public interface TaskRepository {
     /** Devuelve las tareas vivas que cumplen todos los filtros dados. */
     List<Task> list(TaskFilter filter);
 
-    /** Persiste los cambios de una tarea existente. */
+    /** Persiste los cambios de una tarea existente; lanza {@link TaskNotFoundException} si ya no existe. */
     void update(Task task);
 }

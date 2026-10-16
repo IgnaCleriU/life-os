@@ -8,6 +8,7 @@ import java.util.UUID;
 import lifeos.application.port.ProjectFilter;
 import lifeos.application.port.ProjectRepository;
 import lifeos.domain.Project;
+import lifeos.domain.ProjectNotFoundException;
 
 /**
  * {@link ProjectRepository} en memoria para tests.
@@ -47,6 +48,9 @@ public class InMemoryProjectRepository implements ProjectRepository {
 
     @Override
     public void update(Project project) {
+        if (!projects.containsKey(project.id())) {
+            throw new ProjectNotFoundException(project.id());
+        }
         projects.put(project.id(), project);
     }
 }

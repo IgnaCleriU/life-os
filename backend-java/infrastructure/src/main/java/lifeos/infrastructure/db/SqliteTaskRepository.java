@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import lifeos.domain.TaskNotFoundException;
 import lifeos.application.port.TaskFilter;
 import lifeos.application.port.TaskRepository;
 import lifeos.domain.Priority;
@@ -86,11 +87,12 @@ public class SqliteTaskRepository implements TaskRepository {
     /**
      * Persiste el estado completo de una tarea existente con un {@code UPDATE} de
      * las columnas conocidas, nunca un {@code REPLACE}: las columnas que agregan
-     * otras ramas (ej. recurrencia) tienen que sobrevivir.
+     * otras ramas (ej. recurrencia) tienen que sobrevivir. Si la fila ya no existe (otro proceso la
+     * borró), falla en vez de reportar éxito.
      */
     @Override
     public void update(Task task) {
-        jdbc.sql("UPDATE tasks SET project_id = ?, title = ?, description = ?, status = ?, "
+        int rows = jdbc.sql("UPDATE tasks SET project_id = ?, title = ?, description = ?, status = ?, "
                         + "priority = ?, due_date = ?, created_at = ?, deleted_at = ? WHERE id = ?")
                 .params(
                         task.projectId().toString(),
@@ -103,6 +105,9 @@ public class SqliteTaskRepository implements TaskRepository {
                         SqliteFormats.instant(task.deletedAt()),
                         task.id().toString())
                 .update();
+        if (rows == 0) {
+            throw new TaskNotFoundException(task.id());
+        }
     }
 
     private static Task toDomain(ResultSet rs, int rowNum) throws SQLException {

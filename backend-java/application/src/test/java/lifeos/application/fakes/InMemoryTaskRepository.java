@@ -8,6 +8,7 @@ import java.util.UUID;
 import lifeos.application.port.TaskFilter;
 import lifeos.application.port.TaskRepository;
 import lifeos.domain.Task;
+import lifeos.domain.TaskNotFoundException;
 
 /** {@link TaskRepository} en memoria para tests; mismo criterio que el de proyectos. */
 public class InMemoryTaskRepository implements TaskRepository {
@@ -45,6 +46,9 @@ public class InMemoryTaskRepository implements TaskRepository {
 
     @Override
     public void update(Task task) {
+        if (!tasks.containsKey(task.id())) {
+            throw new TaskNotFoundException(task.id());
+        }
         tasks.put(task.id(), task);
     }
 }

@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import lifeos.domain.ProjectNotFoundException;
 import lifeos.application.port.ProjectFilter;
 import lifeos.application.port.ProjectRepository;
 import lifeos.domain.Project;
@@ -70,11 +71,12 @@ public class SqliteProjectRepository implements ProjectRepository {
     /**
      * Persiste el estado completo de un proyecto existente. Es un {@code UPDATE}
      * de las columnas conocidas, nunca un {@code REPLACE}: las columnas que
-     * agregan otras ramas (ej. {@code position}) tienen que sobrevivir.
+     * agregan otras ramas (ej. {@code position}) tienen que sobrevivir. Si la fila ya no existe (otro proceso la
+     * borró), falla en vez de reportar éxito.
      */
     @Override
     public void update(Project project) {
-        jdbc.sql("UPDATE projects SET name = ?, description = ?, status = ?, created_at = ?, "
+        int rows = jdbc.sql("UPDATE projects SET name = ?, description = ?, status = ?, created_at = ?, "
                         + "deleted_at = ? WHERE id = ?")
                 .params(
                         project.name(),
@@ -84,6 +86,9 @@ public class SqliteProjectRepository implements ProjectRepository {
                         SqliteFormats.instant(project.deletedAt()),
                         project.id().toString())
                 .update();
+        if (rows == 0) {
+            throw new ProjectNotFoundException(project.id());
+        }
     }
 
     private static Project toDomain(ResultSet rs, int rowNum) throws SQLException {

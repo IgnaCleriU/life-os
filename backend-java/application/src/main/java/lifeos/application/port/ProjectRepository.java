@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lifeos.domain.Project;
+import lifeos.domain.ProjectNotFoundException;
 
 /**
  * Puerto de persistencia de Project.
@@ -32,6 +33,6 @@ public interface ProjectRepository {
     /** Devuelve los proyectos vivos que cumplen todos los filtros dados. */
     List<Project> list(ProjectFilter filter);
 
-    /** Persiste los cambios de un proyecto existente. */
+    /** Persiste los cambios de un proyecto existente; lanza {@link ProjectNotFoundException} si ya no existe. */
     void update(Project project);
 }
