@@ -91,3 +91,5 @@ single source of truth for phasing and status.
   is being built as a local desktop app instead (a Quickshell client over a
   local REST daemon), see
   [docs/adr/0009-quickshell-desktop-client.md](docs/adr/0009-quickshell-desktop-client.md).
+- **VPS:** the same Compose setup also runs on a server, reached only
+  over SSH. See [docs/deployment.md](docs/deployment.md).
