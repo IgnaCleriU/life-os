@@ -47,11 +47,17 @@ final class RequestParsing {
         }
     }
 
-    /** Un filtro presente pero vacío ({@code ?status=}) es inválido, no "sin filtro". */
-    static <T> List<T> parseAll(String field, List<String> values, Function<String, T> parser) {
-        if (values == null) {
+    /**
+     * Valores de un parámetro repetible ({@code ?status=a&status=b}), tomados
+     * crudos de {@code getParameterValues}: {@code @RequestParam List<String>}
+     * los separaría por comas y FastAPI no lo hace. Un filtro presente pero vacío
+     * ({@code ?status=}) es inválido, no "sin filtro".
+     */
+    static <T> List<T> parseAll(String field, String[] rawValues, Function<String, T> parser) {
+        if (rawValues == null) {
             return null;
         }
+        List<String> values = List.of(rawValues);
         if (values.isEmpty()) {
             throw new RequestValidationException("'" + field + "' no puede estar vacío");
         }

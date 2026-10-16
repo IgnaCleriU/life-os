@@ -1,5 +1,6 @@
 package lifeos.adapters.rest;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -76,10 +77,9 @@ class ProjectController {
 
     /** Lista los proyectos, opcionalmente filtrados por estado (repetible) y/o texto. */
     @GetMapping
-    List<ProjectResponse> list(
-            @RequestParam(name = "status", required = false) List<String> status,
-            @RequestParam(name = "q", required = false) String q) {
-        var filter = new ProjectFilter(RequestParsing.parseAll("status", status, ProjectStatus::fromValue), q);
+    List<ProjectResponse> list(HttpServletRequest request, @RequestParam(name = "q", required = false) String q) {
+        var filter = new ProjectFilter(
+                RequestParsing.parseAll("status", request.getParameterValues("status"), ProjectStatus::fromValue), q);
         return listProjects.execute(filter).stream().map(ProjectResponse::from).toList();
     }
 

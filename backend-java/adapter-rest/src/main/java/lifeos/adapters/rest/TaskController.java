@@ -1,5 +1,6 @@
 package lifeos.adapters.rest;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -88,23 +89,23 @@ class TaskController {
     @GetMapping("/projects/{projectId}/tasks")
     List<TaskResponse> listOfProject(
             @PathVariable UUID projectId,
-            @RequestParam(name = "status", required = false) List<String> status,
+            HttpServletRequest request,
             @RequestParam(name = "due_before", required = false) String dueBefore,
             @RequestParam(name = "q", required = false) String q) {
-        return list(projectId, status, dueBefore, q);
+        return list(projectId, request.getParameterValues("status"), dueBefore, q);
     }
 
     /** Lista tareas de todos los proyectos, con filtros opcionales. */
     @GetMapping("/tasks")
     List<TaskResponse> listAll(
             @RequestParam(name = "project_id", required = false) String projectId,
-            @RequestParam(name = "status", required = false) List<String> status,
+            HttpServletRequest request,
             @RequestParam(name = "due_before", required = false) String dueBefore,
             @RequestParam(name = "q", required = false) String q) {
-        return list(RequestParsing.uuid("project_id", projectId), status, dueBefore, q);
+        return list(RequestParsing.uuid("project_id", projectId), request.getParameterValues("status"), dueBefore, q);
     }
 
-    private List<TaskResponse> list(UUID projectId, List<String> status, String dueBefore, String q) {
+    private List<TaskResponse> list(UUID projectId, String[] status, String dueBefore, String q) {
         var filter = new TaskFilter(
                 projectId,
                 RequestParsing.parseAll("status", status, TaskStatus::fromValue),
