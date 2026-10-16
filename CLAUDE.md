@@ -82,3 +82,8 @@ Before designing or implementing, review these documents:
   [docs/adr/0009-quickshell-desktop-client.md](docs/adr/0009-quickshell-desktop-client.md)).
   [docs/adr/0005-deployment-target.md](docs/adr/0005-deployment-target.md)
   is superseded — do not treat it as current.
+- **VPS deployment** is an optional second target (ADR 0010): Docker
+  Compose with the API bound to loopback, reached over SSH, with its own
+  database. Files live in `deploy/` and the procedure in
+  [docs/deployment.md](docs/deployment.md). Never publish the API port or
+  set `LIFEOS_API_AUTH=disabled` on a VPS.
