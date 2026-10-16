@@ -49,12 +49,20 @@ describe('ProjectDetail actions', () => {
     expect(screen.getByRole('button', { name: 'Eliminar' })).toBeInTheDocument()
   })
 
-  it.each(['completed', 'archived'] as const)('offers only activate for a %s project', (status) => {
-    renderDetail({ ...CASA, status })
+  it('offers archive and activate for a completed project', () => {
+    renderDetail({ ...CASA, status: 'completed' })
 
-    expect(screen.getByRole('button', { name: 'Activar' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Completar' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Archivar' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Activar' })).toBeInTheDocument()
+  })
+
+  it('offers complete and activate for an archived project', () => {
+    renderDetail({ ...CASA, status: 'archived' })
+
+    expect(screen.getByRole('button', { name: 'Completar' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Archivar' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Activar' })).toBeInTheDocument()
   })
 
   it('completes the project and reports the updated one', async () => {
