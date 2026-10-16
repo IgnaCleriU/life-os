@@ -21,7 +21,10 @@ export default function TaskBoard({ project }: TaskBoardProps) {
   const [editing, setEditing] = useState<Task | null>(null)
   const [dropTarget, setDropTarget] = useState<TaskStatus | null>(null)
   const inflight = useRef(
-    new Map<string, { latest: number; pending: number; confirmed: TaskStatus }>(),
+    new Map<
+      string,
+      { latest: number; pending: number; confirmed: TaskStatus; confirmedSeq: number }
+    >(),
   )
   const enters = useRef<Record<TaskStatus, number>>({ todo: 0, doing: 0, done: 0 })
 
@@ -35,12 +38,14 @@ export default function TaskBoard({ project }: TaskBoardProps) {
    */
   async function moveTask(task: Task, to: TaskStatus) {
     if (task.status === to) return
-    // Con movimientos superpuestos de una misma tarea solo cuenta el último pedido: las
-    // respuestas atrasadas no pisan la UI, y un fallo vuelve al último estado confirmado.
+    // Con movimientos superpuestos de una misma tarea, la UI muestra el último pedido mientras
+    // haya alguno en curso; al terminar todos, muestra el estado confirmado por la respuesta
+    // exitosa del pedido más reciente (un fallo del último no pisa una respuesta anterior).
     const entry = inflight.current.get(task.id) ?? {
       latest: 0,
       pending: 0,
       confirmed: task.status,
+      confirmedSeq: 0,
     }
     inflight.current.set(task.id, entry)
     const mine = ++entry.latest
@@ -54,16 +59,21 @@ export default function TaskBoard({ project }: TaskBoardProps) {
           : to === 'done'
             ? await api.completeTask(task.id)
             : await api.reopenTask(task.id)
-      entry.confirmed = updated.status
+      if (mine > entry.confirmedSeq) {
+        entry.confirmed = updated.status
+        entry.confirmedSeq = mine
+      }
       if (mine === entry.latest) replaceTask(task.id, () => updated)
     } catch (failure) {
       if (mine === entry.latest) {
-        replaceTask(task.id, (item) => ({ ...item, status: entry.confirmed }))
         setActionError(`No se pudo mover "${task.title}": ${errorMessage(failure)}`)
       }
     } finally {
       entry.pending -= 1
-      if (entry.pending === 0) inflight.current.delete(task.id)
+      if (entry.pending === 0) {
+        inflight.current.delete(task.id)
+        replaceTask(task.id, (item) => ({ ...item, status: entry.confirmed }))
+      }
     }
   }
 
@@ -159,7 +169,12 @@ export default function TaskBoard({ project }: TaskBoardProps) {
           key={editing.id}
           task={editing}
           onClose={() => setEditing(null)}
-          onUpdated={(updated) => replaceTask(updated.id, () => updated)}
+          onUpdated={(updated) =>
+            // Si hay un movimiento en curso de esta tarea, se conserva su estado optimista.
+            replaceTask(updated.id, (item) =>
+              inflight.current.has(updated.id) ? { ...updated, status: item.status } : updated,
+            )
+          }
           onRemoved={(removed) => setTasks((current) => current.filter((t) => t.id !== removed.id))}
         />
       )}
