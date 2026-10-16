@@ -51,17 +51,14 @@ final class RequestParsing {
      * Valores de un parámetro repetible ({@code ?status=a&status=b}), tomados
      * crudos de {@code getParameterValues}: {@code @RequestParam List<String>}
      * los separaría por comas y FastAPI no lo hace. Un filtro presente pero vacío
-     * ({@code ?status=}) es inválido, no "sin filtro".
+     * ({@code ?status=}) llega como {@code [""]} y lo rechaza el parser: es
+     * inválido, no "sin filtro".
      */
     static <T> List<T> parseAll(String field, String[] rawValues, Function<String, T> parser) {
         if (rawValues == null) {
             return null;
         }
-        List<String> values = List.of(rawValues);
-        if (values.isEmpty()) {
-            throw new RequestValidationException("'" + field + "' no puede estar vacío");
-        }
-        return values.stream().map(value -> parse(field, value, parser)).toList();
+        return List.of(rawValues).stream().map(value -> parse(field, value, parser)).toList();
     }
 
     static UUID uuid(String field, String value) {
