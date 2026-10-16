@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ApiClient } from '../api/client'
 import { ApiError } from '../api/client'
@@ -12,6 +12,13 @@ const CASA: Project = {
   description: 'Reformas',
   status: 'active',
   created_at: '2026-01-10T12:00:00Z',
+}
+const HUERTA: Project = {
+  id: 'p3',
+  name: 'Huerta',
+  description: null,
+  status: 'active',
+  created_at: '2026-03-01T12:00:00Z',
 }
 const VIAJE: Project = {
   id: 'p2',
@@ -44,6 +51,10 @@ function createMockApi(store: Project[]) {
       patchStore(store, id, body),
     ),
     archiveProject: vi.fn(async (id: string) => patchStore(store, id, { status: 'archived' })),
+    deleteProject: vi.fn(async (id: string) => {
+      const index = store.findIndex((project) => project.id === id)
+      if (index !== -1) store.splice(index, 1)
+    }),
     getProject: vi.fn(async (id: string) => {
       const found = store.find((project) => project.id === id)
       if (!found) throw new ApiError(404, 'not_found', 'Proyecto no encontrado')
@@ -72,6 +83,7 @@ function renderPage(api: ReturnType<typeof createMockApi>) {
 }
 
 afterEach(() => {
+  vi.restoreAllMocks()
   window.history.replaceState(null, '', '/')
 })
 
@@ -179,7 +191,7 @@ describe('ProjectsPage selection', () => {
     window.history.replaceState(null, '', '#/projects/gone')
     renderPage(createMockApi([CASA]))
 
-    expect(await screen.findByText('Elegí un proyecto de la lista.')).toBeInTheDocument()
+    expect(await screen.findByText('Ese proyecto ya no existe.')).toBeInTheDocument()
     expect(window.location.hash).toBe('')
   })
 
@@ -247,6 +259,148 @@ describe('ProjectsPage after an action', () => {
     expect(screen.getByText('Elegí un proyecto de la lista.')).toBeInTheDocument()
     expect(window.location.hash).toBe('')
     expect(screen.getByRole('heading', { name: 'Proyectos' })).toHaveFocus()
+  })
+})
+
+describe('ProjectsPage in-flight and stale changes', () => {
+  it('does not deselect another project when an earlier action finishes', async () => {
+    const store = [{ ...CASA }, { ...HUERTA }]
+    const api = createMockApi(store)
+    let finish!: () => void
+    api.archiveProject.mockImplementationOnce(
+      () =>
+        new Promise<Project>((resolve) => {
+          finish = () => resolve(patchStore(store, 'p1', { status: 'archived' }))
+        }),
+    )
+    renderPage(api)
+    fireEvent.click(await screen.findByRole('button', { name: 'Casa' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Archivar' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Huerta' }))
+    await act(async () => finish())
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Casa' })).not.toBeInTheDocument(),
+    )
+    expect(screen.getByRole('button', { name: 'Huerta' })).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByRole('heading', { level: 2, name: 'Huerta' })).toBeInTheDocument()
+  })
+
+  it('does not deselect another project when an earlier delete finishes', async () => {
+    const store = [{ ...CASA }, { ...HUERTA }]
+    const api = createMockApi(store)
+    let finish!: () => void
+    api.deleteProject.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = () => {
+            store.splice(0, 1)
+            resolve()
+          }
+        }),
+    )
+    renderPage(api)
+    fireEvent.click(await screen.findByRole('button', { name: 'Casa' }))
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Huerta' }))
+    await act(async () => finish())
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Casa' })).not.toBeInTheDocument(),
+    )
+    expect(screen.getByRole('heading', { level: 2, name: 'Huerta' })).toBeInTheDocument()
+  })
+
+  it('removes a project deleted elsewhere, reloads the list and says so', async () => {
+    const store = [{ ...CASA }, { ...HUERTA }]
+    const api = createMockApi(store)
+    renderPage(api)
+    fireEvent.click(await screen.findByRole('button', { name: 'Casa' }))
+    store.splice(0, 1)
+    api.archiveProject.mockRejectedValueOnce(
+      new ApiError(404, 'not_found', 'Proyecto no encontrado'),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Archivar' }))
+
+    expect(
+      await screen.findByText('Ese proyecto ya no existe; se quitó de la lista.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Casa' })).not.toBeInTheDocument()
+    expect(api.listProjects).toHaveBeenCalledTimes(2)
+    expect(window.location.hash).toBe('')
+  })
+
+  it('asks before discarding an unsaved edit when another project is chosen', async () => {
+    const store = [{ ...CASA }, { ...HUERTA }]
+    renderPage(createMockApi(store))
+    fireEvent.click(await screen.findByRole('button', { name: 'Casa' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }))
+    fireEvent.change(screen.getByLabelText('Nombre', { selector: '#edit-project-name' }), {
+      target: { value: 'Casa editada' },
+    })
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Huerta' }))
+
+    expect(confirm).toHaveBeenCalledWith('Hay cambios sin guardar. ¿Descartarlos?')
+    expect(screen.getByRole('button', { name: 'Casa' })).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByLabelText('Nombre', { selector: '#edit-project-name' })).toHaveValue(
+      'Casa editada',
+    )
+
+    confirm.mockReturnValue(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Huerta' }))
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Huerta' })).toBeInTheDocument()
+  })
+
+  it('asks before creating a project that would discard an unsaved edit', async () => {
+    const api = createMockApi([{ ...CASA }])
+    renderPage(api)
+    fireEvent.click(await screen.findByRole('button', { name: 'Casa' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }))
+    fireEvent.change(screen.getByLabelText('Nombre', { selector: '#edit-project-name' }), {
+      target: { value: 'Casa editada' },
+    })
+    fireEvent.change(screen.getByLabelText('Nombre', { selector: '#new-project-name' }), {
+      target: { value: 'Nuevo' },
+    })
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Crear proyecto' }))
+
+    expect(window.confirm).toHaveBeenCalled()
+    expect(api.createProject).not.toHaveBeenCalled()
+  })
+
+  it('fetches the hash-loaded project again when the filter changes', async () => {
+    window.history.replaceState(null, '', '#/projects/p2')
+    const store = [{ ...CASA }, { ...VIAJE }]
+    const api = createMockApi(store)
+    renderPage(api)
+    expect(await screen.findByRole('heading', { level: 2, name: 'Viaje' })).toBeInTheDocument()
+    patchStore(store, 'p2', { name: 'Viaje actualizado' })
+
+    fireEvent.change(screen.getByLabelText('Estado'), { target: { value: 'archived' } })
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Viaje actualizado' }),
+    ).toBeInTheDocument()
+    expect(api.getProject).toHaveBeenCalledTimes(2)
+  })
+
+  it('still opens the hash selection when the project list fails', async () => {
+    window.history.replaceState(null, '', '#/projects/p1')
+    const api = createMockApi([{ ...CASA }])
+    api.listProjects.mockRejectedValue(new ApiError(500, 'internal_error', 'La lista no carga'))
+    renderPage(api)
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Casa' })).toBeInTheDocument()
+    expect(screen.getByText('La lista no carga')).toBeInTheDocument()
   })
 })
 

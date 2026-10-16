@@ -80,7 +80,9 @@ describe('ProjectDetail actions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Completar' }))
 
-    await waitFor(() => expect(onChanged).toHaveBeenCalledWith(updated))
+    await waitFor(() =>
+      expect(onChanged).toHaveBeenCalledWith({ type: 'updated', project: updated }),
+    )
     expect(api.completeProject).toHaveBeenCalledWith('p1')
   })
 
@@ -97,7 +99,9 @@ describe('ProjectDetail actions', () => {
     fireEvent.change(screen.getByLabelText('Descripción (opcional)'), { target: { value: '' } })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
 
-    await waitFor(() => expect(onChanged).toHaveBeenCalledWith(updated))
+    await waitFor(() =>
+      expect(onChanged).toHaveBeenCalledWith({ type: 'updated', project: updated }),
+    )
     expect(api.updateProject).toHaveBeenCalledWith('p1', { name: 'Casa nueva', description: null })
   })
 
@@ -127,7 +131,9 @@ describe('ProjectDetail actions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Editar' }))
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
-    await waitFor(() => expect(onChanged).toHaveBeenCalledWith(updated))
+    await waitFor(() =>
+      expect(onChanged).toHaveBeenCalledWith({ type: 'updated', project: updated }),
+    )
     rerenderWith(updated)
 
     expect(screen.getByRole('heading', { level: 2, name: 'Casa 2' })).toHaveFocus()
@@ -150,7 +156,7 @@ describe('ProjectDetail actions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }))
 
     expect(confirm).toHaveBeenCalledWith(expect.stringContaining('"Casa"'))
-    await waitFor(() => expect(onChanged).toHaveBeenCalledWith(null))
+    await waitFor(() => expect(onChanged).toHaveBeenCalledWith({ type: 'deleted', id: 'p1' }))
     expect(api.deleteProject).toHaveBeenCalledWith('p1')
   })
 
@@ -162,6 +168,17 @@ describe('ProjectDetail actions', () => {
 
     expect(api.deleteProject).not.toHaveBeenCalled()
     expect(onChanged).not.toHaveBeenCalled()
+  })
+
+  it('reports a missing project when the API answers 404', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const { api, onChanged } = renderDetail(CASA)
+    api.deleteProject.mockRejectedValue(new ApiError(404, 'not_found', 'Proyecto no encontrado'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }))
+
+    await waitFor(() => expect(onChanged).toHaveBeenCalledWith({ type: 'missing', id: 'p1' }))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('shows the API message when the project cannot be deleted (409)', async () => {
