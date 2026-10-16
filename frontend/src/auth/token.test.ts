@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { clearToken, readToken, writeToken } from './token'
+import { clearToken, clearTokenIfCurrent, readToken, writeToken } from './token'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -38,6 +38,40 @@ describe('token storage', () => {
     })
 
     expect(() => readToken()).not.toThrow()
+    expect(readToken()).toBeNull()
+  })
+
+  it('removes an older stored token when the new write fails', () => {
+    window.localStorage.setItem('lifeos.token', 'old')
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('quota', 'QuotaExceededError')
+    })
+
+    writeToken('new')
+
+    expect(window.localStorage.getItem('lifeos.token')).toBeNull()
+    expect(readToken()).toBe('new')
+  })
+
+  it('does not throw when both write and remove fail', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError')
+    })
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new DOMException('blocked', 'SecurityError')
+    })
+
+    expect(() => writeToken('new')).not.toThrow()
+    expect(readToken()).toBe('new')
+  })
+
+  it('clearTokenIfCurrent ignores a stale token and clears the current one', () => {
+    writeToken('token-b')
+
+    expect(clearTokenIfCurrent('token-a')).toBe(false)
+    expect(readToken()).toBe('token-b')
+
+    expect(clearTokenIfCurrent('token-b')).toBe(true)
     expect(readToken()).toBeNull()
   })
 

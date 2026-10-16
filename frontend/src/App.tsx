@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { ApiProvider } from './api/ApiContext'
 import LoginScreen from './auth/LoginScreen'
-import { clearToken, readToken } from './auth/token'
+import { clearToken, clearTokenIfCurrent, readToken } from './auth/token'
 
 export default function App() {
   const [token, setToken] = useState<string | null>(() => readToken())
@@ -9,6 +9,11 @@ export default function App() {
   const logout = useCallback(() => {
     clearToken()
     setToken(null)
+  }, [])
+
+  // Un 401 de un token que ya no es el vigente (p. ej. tras volver a entrar) no cierra la sesión nueva.
+  const handleUnauthorized = useCallback((used: string | null) => {
+    if (clearTokenIfCurrent(used)) setToken(null)
   }, [])
 
   // LoginScreen ya guardó el token al validarlo.
@@ -19,7 +24,7 @@ export default function App() {
   }
 
   return (
-    <ApiProvider token={token} onUnauthorized={logout}>
+    <ApiProvider token={token} onUnauthorized={handleUnauthorized}>
       <header className="app-header">
         <h1>Life OS</h1>
         <button type="button" className="secondary" onClick={logout}>

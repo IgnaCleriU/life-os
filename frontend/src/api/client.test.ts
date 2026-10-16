@@ -275,6 +275,21 @@ describe('api client: responses and errors', () => {
       code: 'unauthorized',
     })
     expect(onUnauthorized).toHaveBeenCalledOnce()
+    expect(onUnauthorized).toHaveBeenCalledWith(TOKEN)
+  })
+
+  it('reports the token that made the request, even if it has since been replaced', async () => {
+    mockFetch(jsonResponse(401, { error: { code: 'unauthorized', message: 'x' } }))
+    let current = 'token-a'
+    const onUnauthorized = vi.fn()
+    const api = createApiClient({ getToken: () => current, onUnauthorized })
+
+    const pending = api.listProjects().catch(() => undefined)
+    // Mientras la petición vuela, el usuario vuelve a entrar con otro token.
+    current = 'token-b'
+    await pending
+
+    expect(onUnauthorized).toHaveBeenCalledWith('token-a')
   })
 
   it('does not call onUnauthorized for other errors', async () => {

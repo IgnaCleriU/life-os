@@ -28,8 +28,11 @@ export class ApiError extends Error {
 export interface ApiClientOptions {
   /** Token que se envía como `Authorization: Bearer`. Si devuelve null, no se envía el header. */
   getToken: () => string | null
-  /** Se llama cuando una ruta autenticada responde 401. */
-  onUnauthorized?: () => void
+  /**
+   * Se llama cuando una ruta autenticada responde 401, con el token que hizo la
+   * petición. Permite ignorar un 401 tardío de un token ya reemplazado.
+   */
+  onUnauthorized?: (token: string | null) => void
 }
 
 type QueryValue = string | readonly string[] | undefined | null
@@ -90,7 +93,7 @@ export function createApiClient(options: ApiClientOptions) {
 
     if (!response.ok) {
       const error = await readError(response)
-      if (auth && response.status === 401) options.onUnauthorized?.()
+      if (auth && response.status === 401) options.onUnauthorized?.(token)
       throw error
     }
     if (response.status === 204) return undefined as T
