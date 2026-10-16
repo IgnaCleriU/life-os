@@ -10,7 +10,7 @@ import lifeos.domain.Task;
 
 /**
  * Crea una tarea bajo un proyecto existente. La validación del título vive en
- * el dominio ({@link Task#create}).
+ * el dominio ({@link Task#create}); sin prioridad, la tarea queda en media.
  */
 public class CreateTask {
 
@@ -28,7 +28,8 @@ public class CreateTask {
             throw new ProjectNotFoundException(projectId);
         }
 
-        Task task = Task.create(projectId, title, priority, dueDate, description);
+        Task task = Task.create(
+                projectId, title, priority == null ? Priority.MEDIUM : priority, dueDate, description);
         taskRepo.add(task);
         return task;
     }
