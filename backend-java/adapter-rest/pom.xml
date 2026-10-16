@@ -13,6 +13,12 @@
 
     <artifactId>lifeos-adapter-rest</artifactId>
 
+    <properties>
+        <!-- -Dlifeos.web.skip=true: build solo del backend, sin Node (los tests nunca lo necesitan). -->
+        <lifeos.web.skip>false</lifeos.web.skip>
+        <lifeos.web.dir>${project.basedir}/../../frontend</lifeos.web.dir>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>lifeos</groupId>
@@ -34,6 +40,72 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!--
+              La web (frontend/) viaja dentro del jar, en static/app/. Se arma
+              en prepare-package: `test` no necesita Node, `package` sí (salvo
+              -Dlifeos.web.skip=true, que es lo que usa el Dockerfile porque
+              ya trae el build de otra etapa).
+            -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.6.4</version>
+                <configuration>
+                    <executable>npm</executable>
+                    <workingDirectory>${lifeos.web.dir}</workingDirectory>
+                    <skip>${lifeos.web.skip}</skip>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>web-npm-ci</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>
+                                <argument>ci</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>web-build</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <arguments>
+                                <argument>run</argument>
+                                <argument>build</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>web-copy</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${lifeos.web.skip}</skip>
+                            <outputDirectory>${project.build.outputDirectory}/static/app</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${lifeos.web.dir}/dist</directory>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

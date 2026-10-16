@@ -1,23 +1,34 @@
-# Imagen del backend Java (Spring Boot, ADR 0011). Contexto de build:
-# backend-java/. Dos etapas: se compila con el JDK y se corre solo con el JRE.
+# Imagen del backend Java (Spring Boot, ADR 0011) con la web incluida.
+# Contexto de build: la raíz del repo (necesita frontend/ y backend-java/).
+# Tres etapas: la web con Node, el jar con el JDK y se corre solo con el JRE.
+
+FROM node:22 AS web
+WORKDIR /web
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend ./
+RUN npm run build
 
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /build
 
 # Primero lo que cambia poco (wrapper y POMs) para aprovechar la cache de capas.
-COPY .mvn .mvn
-COPY mvnw pom.xml ./
-COPY domain/pom.xml domain/pom.xml
-COPY application/pom.xml application/pom.xml
-COPY infrastructure/pom.xml infrastructure/pom.xml
-COPY adapter-rest/pom.xml adapter-rest/pom.xml
-RUN ./mvnw -B -q dependency:go-offline -pl adapter-rest -am || true
+COPY backend-java/.mvn .mvn
+COPY backend-java/mvnw backend-java/pom.xml ./
+COPY backend-java/domain/pom.xml domain/pom.xml
+COPY backend-java/application/pom.xml application/pom.xml
+COPY backend-java/infrastructure/pom.xml infrastructure/pom.xml
+COPY backend-java/adapter-rest/pom.xml adapter-rest/pom.xml
+RUN ./mvnw -B -q dependency:go-offline -Dlifeos.web.skip=true -pl adapter-rest -am || true
 
-COPY domain domain
-COPY application application
-COPY infrastructure infrastructure
-COPY adapter-rest adapter-rest
-RUN ./mvnw -B -DskipTests -pl adapter-rest -am package \
+COPY backend-java/domain domain
+COPY backend-java/application application
+COPY backend-java/infrastructure infrastructure
+COPY backend-java/adapter-rest adapter-rest
+# La web llega ya armada desde la etapa anterior: Maven la empaqueta como un
+# recurso más (static/app/) y no ejecuta npm (-Dlifeos.web.skip=true).
+COPY --from=web /web/dist adapter-rest/src/main/resources/static/app
+RUN ./mvnw -B -DskipTests -Dlifeos.web.skip=true -pl adapter-rest -am package \
     && cp adapter-rest/target/lifeos-adapter-rest-*.jar /build/app.jar
 
 FROM eclipse-temurin:21-jre

@@ -101,7 +101,9 @@ jobs:
       - name: Maven verify
         env:
           LIFEOS_PYTHON_BACKEND: ${{ github.workspace }}/backend
-        run: ./mvnw -B verify
+        # La web ya se arma y prueba en el job `web`: acá se omite para no
+        # instalar Node ni repetir el build (el jar de CI no se publica).
+        run: ./mvnw -B verify -Dlifeos.web.skip=true
 
   # Librerías JavaScript del tablero de Quickshell (desktop/omarchy-plugin/lib):
   # sin dependencias, con el runner de tests de node. El QML en sí se prueba
