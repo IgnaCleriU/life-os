@@ -26,6 +26,9 @@ import org.springframework.web.servlet.resource.PathResourceResolver;
 @Configuration
 class WebAppConfiguration implements WebMvcConfigurer {
 
+    /** Dónde queda el build de la web dentro del jar (classpath). */
+    static final String INDEX_PATH = "static/app/index.html";
+
     private static final String LOCATION = "classpath:/static/app/";
 
     @Override
@@ -42,7 +45,9 @@ class WebAppConfiguration implements WebMvcConfigurer {
         registry.addResourceHandler("/app/**")
                 .addResourceLocations(LOCATION)
                 .setCacheControl(CacheControl.noCache())
-                .resourceChain(true)
+                // Sin cache de resolvers: con el fallback SPA cada /app/<ruta> distinta
+                // sumaría una entrada (CachingResourceResolver) y la memoria crecería sin tope.
+                .resourceChain(false)
                 .addResolver(new SpaFallbackResolver());
     }
 
@@ -57,7 +62,7 @@ class WebAppConfiguration implements WebMvcConfigurer {
             if (found != null && found.isReadable()) {
                 return found;
             }
-            Resource index = new ClassPathResource("static/app/index.html");
+            Resource index = new ClassPathResource(INDEX_PATH);
             return index.exists() ? index : null;
         }
     }

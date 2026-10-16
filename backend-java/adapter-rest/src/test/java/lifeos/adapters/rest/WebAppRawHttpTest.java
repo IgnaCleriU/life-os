@@ -44,6 +44,17 @@ class WebAppRawHttpTest {
         assertRejected("/app/%2e%2e/projects", "401");
         assertRejected("/app/..%2fprojects", "400");
         assertRejected("/app/../projects", "401");
+        assertRejected("/app/%2E%2E/projects", "401");
+        assertRejected("/app/..%2Fprojects", "400");
+        assertRejected("/app/%252e%252e/projects", "401");
+    }
+
+    @Test
+    void encodedDeepLinksAreServed() throws IOException {
+        for (String path : new String[] {"/app/proyectos/Casa%20nueva", "/app/a%C3%B1"}) {
+            String response = raw(path, "localhost");
+            assertThat(response).as(path).startsWith("HTTP/1.1 200").contains("<div id=\"root\">");
+        }
     }
 
     @Test

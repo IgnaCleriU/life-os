@@ -27,9 +27,9 @@ COPY backend-java/application application
 COPY backend-java/infrastructure infrastructure
 COPY backend-java/adapter-rest adapter-rest
 # La web llega ya armada desde la etapa anterior: Maven la empaqueta como un
-# recurso más (static/app/) y no ejecuta npm (-Dlifeos.web.skip=true).
+# recurso más (static/app/) y no ejecuta npm.
 COPY --from=web /web/dist adapter-rest/src/main/resources/static/app
-RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -DskipTests -Dlifeos.web.skip=true -pl adapter-rest -am package \
+RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -DskipTests -pl adapter-rest -am package \
     && cp adapter-rest/target/lifeos-adapter-rest-*.jar /build/app.jar
 
 FROM eclipse-temurin:21-jre
