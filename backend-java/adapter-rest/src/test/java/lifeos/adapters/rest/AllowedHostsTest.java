@@ -18,7 +18,7 @@ import org.springframework.test.context.TestPropertySource;
 class AllowedHostsTest extends RestTestSupport {
 
     @ParameterizedTest
-    @ValueSource(strings = {"lifeos-vps", "LIFEOS-VPS", "vps.tailnet.ts.net:443", "vps.tailnet.ts.net"})
+    @ValueSource(strings = {"lifeos-vps", "LIFEOS-VPS", "vps.tailnet.ts.net:443", "vps.tailnet.ts.net", "vps.tailnet.ts.net.", "localhost."})
     void configuredHostsAreServed(String host) throws Exception {
         mvc.perform(get("/projects").header("Host", host)).andExpect(status().isOk());
     }

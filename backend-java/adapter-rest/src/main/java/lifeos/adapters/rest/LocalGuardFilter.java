@@ -146,6 +146,10 @@ class LocalGuardFilter extends OncePerRequestFilter {
             if (host.startsWith("[") && host.endsWith("]")) {
                 host = host.substring(1, host.length() - 1);
             }
+            // Un FQDN con punto final ("localhost.") es el mismo host.
+            if (host.endsWith(".")) {
+                host = host.substring(0, host.length() - 1);
+            }
             return host.toLowerCase(Locale.ROOT);
         } catch (IllegalArgumentException e) {
             return null;
