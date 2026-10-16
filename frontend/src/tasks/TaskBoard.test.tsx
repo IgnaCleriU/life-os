@@ -591,6 +591,49 @@ describe('TaskBoard robustness', () => {
     expect(titlesIn('Por hacer')).not.toContain('Baja sin fecha')
   })
 
+  it('latest move fails before an earlier one succeeds: the UI ends on the server state', async () => {
+    const api = createMockApi()
+    const first = deferred<Task>()
+    const second = deferred<Task>()
+    api.startTask.mockImplementationOnce(() => first.promise)
+    api.completeTask.mockImplementationOnce(() => second.promise)
+    renderBoard(api)
+    await screen.findByText('En marcha')
+
+    fireEvent.click(
+      within(card('Baja sin fecha')).getByRole('button', { name: 'Mover a En curso' }),
+    )
+    fireEvent.click(within(card('Baja sin fecha')).getByRole('button', { name: 'Mover a Hecho' }))
+    second.reject(new ApiError(500, 'boom', 'Falló'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Falló')
+    first.resolve(task({ id: 't1', title: 'Baja sin fecha', priority: 'low', status: 'doing' }))
+
+    await waitFor(() => expect(titlesIn('En curso')).toContain('Baja sin fecha'))
+    expect(titlesIn('Por hacer')).not.toContain('Baja sin fecha')
+    expect(titlesIn('Hecho')).not.toContain('Baja sin fecha')
+  })
+
+  it('saving the dialog during a move keeps the optimistic status', async () => {
+    const api = createMockApi()
+    const move = deferred<Task>()
+    api.startTask.mockImplementationOnce(() => move.promise)
+    renderBoard(api)
+    await screen.findByText('En marcha')
+
+    fireEvent.click(
+      within(card('Baja sin fecha')).getByRole('button', { name: 'Mover a En curso' }),
+    )
+    const dialog = await openEditor('Baja sin fecha')
+    fireEvent.change(dialog.getByLabelText('Título'), { target: { value: 'Renombrada' } })
+    fireEvent.click(dialog.getByRole('button', { name: 'Guardar' }))
+
+    await waitFor(() => expect(api.updateTask).toHaveBeenCalled())
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(titlesIn('En curso')).toContain('Renombrada')
+    move.resolve(task({ id: 't1', title: 'Renombrada', priority: 'low', status: 'doing' }))
+    await waitFor(() => expect(titlesIn('En curso')).toContain('Renombrada'))
+  })
+
   it('ignores drags that do not carry a task', async () => {
     const api = createMockApi()
     renderBoard(api)
