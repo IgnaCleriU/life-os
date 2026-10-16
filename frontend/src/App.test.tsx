@@ -3,8 +3,10 @@ import { useEffect } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { ApiProvider } from './api/ApiContext'
+import type { ApiClient } from './api/client'
 import { useApi } from './api/useApi'
 import { clearToken, writeToken } from './auth/token'
+import { useSession } from './auth/useSession'
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -157,27 +159,60 @@ describe('App across tabs', () => {
     const last = fetchMock.mock.calls.at(-1) as unknown as [string, RequestInit]
     expect(bearerOf(last[1])).toBe('Bearer other')
   })
-})
 
-describe('ApiProvider', () => {
-  it('calls onUnauthorized with the token that made the request', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => unauthorized()))
-    const onUnauthorized = vi.fn()
-
-    function Probe() {
-      const api = useApi()
-      useEffect(() => {
-        api.listProjects().catch(() => undefined)
-      }, [api])
-      return null
-    }
-
-    render(
-      <ApiProvider token="stored" onUnauthorized={onUnauthorized}>
-        <Probe />
-      </ApiProvider>,
+  it('ignores a 401 from the previous token when another tab logs in during the request', async () => {
+    writeToken('token-1')
+    let release: (response: Response) => void = () => undefined
+    const gate = new Promise<Response>((resolve) => {
+      release = resolve
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => (url === '/projects' ? gate : projectsOk())),
     )
 
-    await vi.waitFor(() => expect(onUnauthorized).toHaveBeenCalledWith('stored'))
+    // Misma wiring que App: useSession + ApiProvider con handleUnauthorized.
+    let clientOfToken1: ApiClient | undefined
+    function Session() {
+      const { token, verified, handleUnauthorized } = useSession()
+      if (!token || verified !== token) return <p>sin sesión</p>
+      return (
+        <ApiProvider token={token} onUnauthorized={handleUnauthorized}>
+          <Capture onApi={(api) => (clientOfToken1 ??= api)} />
+          <p>con sesión</p>
+        </ApiProvider>
+      )
+    }
+
+    render(<Session />)
+    await screen.findByText('con sesión')
+    expect(clientOfToken1).toBeDefined()
+
+    // Request en vuelo con token-1.
+    const pending = clientOfToken1!.listProjects().catch((error: unknown) => error)
+
+    // Otra pestaña entra con token-2 mientras la request sigue en vuelo: escribe el
+    // storage y la pestaña recibe el evento.
+    window.localStorage.setItem('lifeos.token', 'token-2')
+    act(() => {
+      window.dispatchEvent(new StorageEvent('storage', { key: 'lifeos.token', newValue: 'token-2' }))
+    })
+    await screen.findByText('con sesión')
+
+    // Llega el 401 de token-1.
+    release(unauthorized())
+    await pending
+
+    expect(screen.getByText('con sesión')).toBeInTheDocument()
+    expect(window.localStorage.getItem('lifeos.token')).toBe('token-2')
   })
 })
+
+/** Entrega el cliente de API del render actual a quien lo pida. */
+function Capture({ onApi }: { onApi: (api: ApiClient) => void }) {
+  const api = useApi()
+  useEffect(() => {
+    onApi(api)
+  }, [api, onApi])
+  return null
+}
