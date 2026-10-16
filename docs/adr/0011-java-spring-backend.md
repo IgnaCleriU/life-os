@@ -25,8 +25,11 @@ The Java REST adapter matches the Python one's Projects/Tasks routes, JSON
 shape, status codes, and error codes. It does not yet port what
 [0009](0009-quickshell-desktop-client.md) added to the Python adapter (the
 local daemon, its bearer token and Host allowlist, `/revision`,
-`/quick-add`), so it is not a drop-in for the board. Until it has
-auth, it listens on loopback only.
+`/quick-add`), so it is not a drop-in for the board. Until it has the
+daemon's bearer token, it listens on loopback only and applies the same
+Host allowlist as the Python adapter (`localhost`, `127.0.0.1`, `::1`),
+which blocks DNS rebinding. Bodyless cross-origin POSTs from a web page
+are still possible until the token lands.
 
 ## Consequences
 
