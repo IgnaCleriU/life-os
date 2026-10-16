@@ -212,3 +212,96 @@ describe('TaskBoard columns', () => {
     expect(screen.getByText('De Viaje')).toBeInTheDocument()
   })
 })
+
+function card(title: string): HTMLElement {
+  return screen.getByText(title).closest('li') as HTMLElement
+}
+
+function dataTransfer() {
+  const data: Record<string, string> = {}
+  return {
+    setData: (type: string, value: string) => {
+      data[type] = value
+    },
+    getData: (type: string) => data[type] ?? '',
+    effectAllowed: 'all',
+    dropEffect: 'none',
+  }
+}
+
+describe('TaskBoard moves', () => {
+  it('offers every other column and no move to the current one', async () => {
+    renderBoard(createMockApi())
+    await screen.findByText('En marcha')
+
+    const todo = within(card('Baja sin fecha'))
+    expect(todo.getByRole('button', { name: 'Mover a En curso' })).toBeInTheDocument()
+    expect(todo.getByRole('button', { name: 'Mover a Hecho' })).toBeInTheDocument()
+    expect(todo.queryByRole('button', { name: 'Mover a Por hacer' })).not.toBeInTheDocument()
+
+    const done = within(card('Terminada'))
+    expect(done.getByRole('button', { name: 'Mover a En curso' })).toBeInTheDocument()
+    expect(done.getByRole('button', { name: 'Mover a Por hacer' })).toBeInTheDocument()
+    expect(done.queryByRole('button', { name: 'Mover a Hecho' })).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['Baja sin fecha', 'Mover a En curso', 'startTask', 'En curso'],
+    ['Baja sin fecha', 'Mover a Hecho', 'completeTask', 'Hecho'],
+    ['Terminada', 'Mover a Por hacer', 'reopenTask', 'Por hacer'],
+    ['Terminada', 'Mover a En curso', 'startTask', 'En curso'],
+  ] as const)('%s: "%s" calls %s', async (title, label, method, columnName) => {
+    const api = createMockApi()
+    renderBoard(api)
+    await screen.findByText('En marcha')
+
+    fireEvent.click(within(card(title)).getByRole('button', { name: label }))
+
+    await waitFor(() => expect(titlesIn(columnName)).toContain(title))
+    const id = TASKS.find((item) => item.title === title)?.id
+    expect(api[method]).toHaveBeenCalledWith(id)
+  })
+
+  it('rolls back and shows an error when the move fails', async () => {
+    const api = createMockApi()
+    api.startTask.mockRejectedValueOnce(new ApiError(500, 'boom', 'No anduvo'))
+    renderBoard(api)
+    await screen.findByText('En marcha')
+
+    fireEvent.click(
+      within(card('Baja sin fecha')).getByRole('button', { name: 'Mover a En curso' }),
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No anduvo')
+    expect(titlesIn('Por hacer')).toContain('Baja sin fecha')
+    expect(titlesIn('En curso')).toEqual(['En marcha'])
+  })
+
+  it('moves a card by drag and drop', async () => {
+    const api = createMockApi()
+    renderBoard(api)
+    await screen.findByText('En marcha')
+    const transfer = dataTransfer()
+
+    fireEvent.dragStart(card('Baja sin fecha'), { dataTransfer: transfer })
+    fireEvent.dragOver(column('Hecho'), { dataTransfer: transfer })
+    expect(column('Hecho')).toHaveClass('drop-target')
+    fireEvent.drop(column('Hecho'), { dataTransfer: transfer })
+
+    await waitFor(() => expect(titlesIn('Hecho')).toContain('Baja sin fecha'))
+    expect(api.completeTask).toHaveBeenCalledWith('t1')
+    expect(column('Hecho')).not.toHaveClass('drop-target')
+  })
+
+  it('dropping on the same column does nothing', async () => {
+    const api = createMockApi()
+    renderBoard(api)
+    await screen.findByText('En marcha')
+    const transfer = dataTransfer()
+
+    fireEvent.dragStart(card('En marcha'), { dataTransfer: transfer })
+    fireEvent.drop(column('En curso'), { dataTransfer: transfer })
+
+    expect(api.startTask).not.toHaveBeenCalled()
+  })
+})
