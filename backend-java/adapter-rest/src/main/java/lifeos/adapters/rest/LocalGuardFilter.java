@@ -11,6 +11,7 @@ import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Guardia de la API REST, como {@code auth.py} en Python (ADR 0009, 0010).
@@ -42,14 +44,17 @@ class LocalGuardFilter extends OncePerRequestFilter {
     private static final Set<String> LOOPBACK_HOSTS = Set.of("localhost", "127.0.0.1", "::1");
     private static final Set<String> OPEN_PATHS = Set.of("/health");
 
+    private final JsonMapper json;
     private final boolean authEnabled;
     private final byte[] token;
     private final Set<String> allowedHosts;
 
     LocalGuardFilter(
+            JsonMapper json,
             @Value("${lifeos.api.auth:enabled}") String auth,
             @Value("${lifeos.api.token:}") String token,
             @Value("${lifeos.api.allowed-hosts:}") String extraHosts) {
+        this.json = json;
         this.authEnabled = parseAuth(auth);
         this.token = token == null || token.isBlank() ? null : token.getBytes(StandardCharsets.UTF_8);
         Set<String> hosts = new HashSet<>(LOOPBACK_HOSTS);
@@ -99,14 +104,15 @@ class LocalGuardFilter extends OncePerRequestFilter {
                 && MessageDigest.isEqual(presented.getBytes(StandardCharsets.UTF_8), token);
     }
 
-    private static void reject(HttpServletResponse response, HttpStatus status, String code, String message)
+    private void reject(HttpServletResponse response, HttpStatus status, String code, String message)
             throws IOException {
         response.setStatus(status.value());
         if (status == HttpStatus.UNAUTHORIZED) {
             response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
         }
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.getWriter().write("{\"error\":{\"code\":\"" + code + "\",\"message\":\"" + message + "\"}}");
+        response.setCharacterEncoding(StandardCharsets.UTF_8);
+        json.writeValue(response.getOutputStream(), Map.of("error", Map.of("code", code, "message", message)));
     }
 
     /**

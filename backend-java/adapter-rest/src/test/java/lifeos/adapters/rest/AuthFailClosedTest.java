@@ -23,6 +23,13 @@ class AuthFailClosedTest extends RestTestSupport {
     }
 
     @Test
+    void guardErrorsAreUtf8Json() throws Exception {
+        mvc.perform(get("/projects").header("Authorization", "Bearer anything"))
+                .andExpect(header().string("Content-Type", containsString("application/json")))
+                .andExpect(header().string("Content-Type", containsString("charset=UTF-8")));
+    }
+
+    @Test
     void anEmptyBearerDoesNotMatchTheMissingToken() throws Exception {
         anonymousMvc().perform(get("/projects").header("Authorization", "Bearer "))
                 .andExpect(status().isUnauthorized());
