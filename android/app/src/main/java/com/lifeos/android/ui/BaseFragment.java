@@ -58,16 +58,39 @@ public abstract class BaseFragment extends Fragment {
 
     /** Runs {@code work} off the main thread; the callback runs on the main thread unless the view is gone. */
     protected <T> Async.Call async(Callable<T> work, Async.Callback<T> callback) {
-        Async.Call call = Async.run(work, callback);
-        pending.add(call);
-        return call;
+        Async.Call[] self = new Async.Call[1];
+        self[0] = Async.run(work, forgetWhenDone(self, callback));
+        pending.add(self[0]);
+        return self[0];
     }
 
     /** Same as {@link #async} for work without a result. */
     protected Async.Call asyncVoid(Async.VoidWork work, Async.Callback<Void> callback) {
-        Async.Call call = Async.runVoid(work, callback);
-        pending.add(call);
-        return call;
+        Async.Call[] self = new Async.Call[1];
+        self[0] = Async.runVoid(work, forgetWhenDone(self, callback));
+        pending.add(self[0]);
+        return self[0];
+    }
+
+    /**
+     * Drops the call from {@link #pending} once its callback runs, so finished
+     * calls (and the results their callbacks hold) don't pile up while the
+     * view lives. Callbacks run on the main thread, like every other access.
+     */
+    private <T> Async.Callback<T> forgetWhenDone(Async.Call[] self, Async.Callback<T> callback) {
+        return new Async.Callback<T>() {
+            @Override
+            public void onSuccess(T result) {
+                pending.remove(self[0]);
+                callback.onSuccess(result);
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                pending.remove(self[0]);
+                callback.onError(error);
+            }
+        };
     }
 
     /** Shows the error as a Snackbar, with a Settings action when the fix is there. */
