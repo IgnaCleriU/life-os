@@ -65,10 +65,9 @@ class LocalGuardFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        // Sin header (HTTP/1.0; en HTTP/1.1 Tomcat ya lo rechaza) vale el nombre
-        // del servidor. Un ataque de rebinding siempre manda su propio Host.
-        String hostHeader = request.getHeader(HttpHeaders.HOST);
-        String host = hostname(hostHeader == null ? request.getServerName() : hostHeader);
+        // Sin header Host (HTTP/1.0) no hay nombre al que confiar: como en Python,
+        // se trata como vacío y se rechaza.
+        String host = hostname(request.getHeader(HttpHeaders.HOST));
         if (host == null || !allowedHosts.contains(host)) {
             reject(response, HttpStatus.FORBIDDEN, "forbidden_host",
                     "The API only answers requests addressed to an allowed host.");
