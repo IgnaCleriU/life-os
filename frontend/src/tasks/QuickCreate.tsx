@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { errorMessage } from '../api/errorMessage'
 import type { Priority, Task } from '../api/types'
 import { useApi } from '../api/useApi'
@@ -19,6 +19,10 @@ export default function QuickCreate({ projectId, onCreated }: QuickCreateProps) 
   const [dueDate, setDueDate] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const current = useRef({ title, dueDate })
+  useEffect(() => {
+    current.current = { title, dueDate }
+  })
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -36,8 +40,9 @@ export default function QuickCreate({ projectId, onCreated }: QuickCreateProps) 
         due_date: dueDate || null,
       })
       onCreated(created)
-      setTitle('')
-      setDueDate('')
+      // Lo que se siguió escribiendo durante el pedido no se borra.
+      if (current.current.title === title) setTitle('')
+      if (current.current.dueDate === dueDate) setDueDate('')
     } catch (failure) {
       setError(errorMessage(failure))
     } finally {
