@@ -34,11 +34,12 @@ infrastructure (DB) ────────────────┘ (impleme
 | `application/ports/` | Interfaces (`Protocol`/`ABC`) defining persistence contracts, e.g. `ProjectRepository` | Concrete implementations |
 | `application/use_cases/` | Business logic (`CreateProject`, `CompleteTask`, ...), receives repositories via constructor | `sqlmodel`, `fastapi`, `mcp` |
 | `infrastructure/` | Concrete implementation of the ports (e.g. `SQLiteProjectRepository`), config, DB session | — |
-| `adapters/rest/` | FastAPI: routers, Pydantic DTOs, dependency injection | Its own business logic (delegates to `application`) |
+| `adapters/rest/` | FastAPI: routers, Pydantic DTOs, dependency injection, the local guard (bearer token + loopback `Host`, `auth.py`), and `lifeos-daemon` (`daemon.py`), which serves it on `127.0.0.1` for the desktop client | Its own business logic (delegates to `application`) |
 | `adapters/mcp/` | MCP server: each tool calls the same use case used by REST | Its own business logic (delegates to `application`) |
 | `adapters/cli/` | Typer CLI (`lifeos`): one command per use case, plus a `capture`/`add` quick-add wrapper, its own `deps.py` and `--json`/plain-text serialization | Its own business logic (delegates to `application`) |
 | `adapters/tui/` | Textual TUI: a generic shell (panes, focus, modes, keymap registry + dispatch, palette, `?` overlay, undo/redo, status bar) driving a pluggable `TuiModule`; `modules/projects_tasks.py` is the real one, `modules/stub.py` remains as the shell's own domain-agnostic test fixture | `application`, `domain`, `infrastructure` — the shell only knows the `TuiModule` contract; only `modules/projects_tasks.py` (not the shell itself) depends on `application` |
-| `adapters/shared/` | Code shared across colocated driver adapters that is not itself a use case — the quick-add tokenizer (`quick_add.py`, CLI and the TUI's real module) and the domain-error-code map (`error_codes.py`, CLI, MCP, and now the TUI's real module) | `application`, `infrastructure`, any single adapter |
+| `desktop/omarchy-plugin/` (QML, outside the Python package) | The primary human interface (ADR 0009): an Omarchy shell plugin that is a pure REST client of `lifeos-daemon` — the same use cases, reached over HTTP instead of in process | Any Python code; business logic (quick-add parsing and `#project` resolution are asked of the daemon) |
+| `adapters/shared/` | Code shared across driver adapters that is not itself a use case — the quick-add tokenizer (`quick_add.py`), the `#project` capture-target rule (`capture_target.py`, which receives use cases as plain callables), both used by the CLI, the TUI's real module and REST's quick-add routes; and the domain-error-code map (`error_codes.py`, CLI, MCP, and the TUI's real module) | `application`, `infrastructure`, any single adapter |
 
 ## Folder structure
 
@@ -59,7 +60,8 @@ life-os/
 │   │       ├── application/
 │   │       │   ├── ports/              # abstract interfaces (Protocol/ABC)
 │   │       │   │   ├── project_repository.py
-│   │       │   │   └── task_repository.py
+│   │       │   │   ├── task_repository.py
+│   │       │   │   └── revision_source.py  # opaque "data changed" token (ADR 0009)
 │   │       │   └── use_cases/          # un caso de uso por archivo
 │   │       │       ├── create_project.py    list_projects.py
 │   │       │       ├── get_project.py       update_project.py
@@ -70,13 +72,15 @@ life-os/
 │   │       │       ├── get_task.py          update_task.py
 │   │       │       ├── complete_task.py     start_task.py
 │   │       │       ├── reopen_task.py       move_task.py
-│   │       │       └── delete_task.py       restore_task.py
+│   │       │       ├── delete_task.py       restore_task.py
+│   │       │       └── get_revision.py
 │   │       │
 │   │       ├── infrastructure/
 │   │       │   ├── config.py           # settings (pydantic-settings)
 │   │       │   └── db/
 │   │       │       ├── models.py       # SQLModel: ProjectORM, TaskORM
 │   │       │       ├── session.py      # engine + sessionmaker
+│   │       │       ├── revision.py     # RevisionSource via PRAGMA data_version
 │   │       │       └── repositories/
 │   │       │           ├── sqlite_project_repository.py   # implements ProjectRepository
 │   │       │           └── sqlite_task_repository.py      # implements TaskRepository
@@ -84,11 +88,15 @@ life-os/
 │   │       └── adapters/
 │   │           ├── rest/
 │   │           │   ├── main.py         # FastAPI instance, includes routers
+│   │           │   ├── auth.py         # local guard: bearer token + loopback Host
+│   │           │   ├── daemon.py       # `lifeos-daemon`: token, daemon.json, 127.0.0.1
 │   │           │   ├── deps.py         # dependency injection (repos, use cases)
 │   │           │   ├── schemas.py      # Pydantic DTOs (request/response)
 │   │           │   └── routers/
 │   │           │       ├── projects.py
-│   │           │       └── tasks.py
+│   │           │       ├── tasks.py
+│   │           │       ├── quick_add.py  # /quick-add/preview, /quick-add
+│   │           │       └── sync.py       # /revision
 │   │           ├── mcp/
 │   │           │   ├── server.py       # MCP server (stdio)
 │   │           │   └── tools.py        # defines tools, calling the same use cases
@@ -116,7 +124,8 @@ life-os/
 │   │           │       ├── projects_tasks.py  # the real module
 │   │           │       └── stub.py            # kept as the shell's own domain-agnostic test fixture
 │   │           └── shared/
-│   │               ├── quick_add.py    # `!high @sat #casa` tokenizer (CLI and the TUI's real module)
+│   │               ├── quick_add.py    # `!high @sat #casa` tokenizer (CLI, TUI, REST)
+│   │               ├── capture_target.py  # which project a capture lands in (CLI, TUI, REST)
 │   │               └── error_codes.py  # domain exception → code string (CLI, MCP, and the TUI's real module)
 │   │
 │   └── tests/
@@ -195,6 +204,16 @@ same use cases exposed by the REST adapter. This guarantees that business
 rules (validation, permissions, auditing) are always applied, regardless of
 whether the action originated from an AI agent, the frontend, or the CLI.
 
+The desktop client lives next to the backend, not inside it:
+
+```
+desktop/
+├── omarchy-plugin/        # lifeos.board: Board.qml (entry), BoardView.qml, panes/, modals/, lib/*.js
+├── tests/                 # node tests for lib/, TUI keymap fixture, qml/ headless harness
+├── systemd/               # lifeos-daemon.service (template)
+└── install.sh             # unit + plugin link + enable
+```
+
 ## Where the data lives
 
 Every entry point (REST, MCP, the CLI, and the TUI) is a separate
@@ -210,8 +229,10 @@ normal case rather than an accident: the board, an MCP server spawned by an
 agent, and a REST process can all hold it open at once. `session.py` therefore
 sets `journal_mode=WAL` and a non-zero `busy_timeout` alongside
 `foreign_keys=ON`, so contention waits instead of raising `database is locked`.
-There is still no cross-process invalidation — a long-lived client must reload
-rather than assume its view is authoritative.
+There is no push-style cross-process invalidation. Instead, `GET /revision`
+(backed by `PRAGMA data_version` on a dedicated connection) exposes a token
+that changes after any process commits, so a long-lived client like the
+Quickshell board polls it and reloads only when something changed.
 
 This matters architecturally: sharing the application layer is only half of
 the guarantee above. Two adapters running the same use cases against two

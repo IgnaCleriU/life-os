@@ -102,3 +102,18 @@ jobs:
         env:
           LIFEOS_PYTHON_BACKEND: ${{ github.workspace }}/backend
         run: ./mvnw -B verify
+
+  # Librerías JavaScript del tablero de Quickshell (desktop/omarchy-plugin/lib):
+  # sin dependencias, con el runner de tests de node. El QML en sí se prueba
+  # a mano o con desktop/tests/qml/run_board.py (necesita PySide6 y EGL).
+  desktop-js:
+    name: Desktop board JS
+    runs-on: ubuntu-latest
+    needs: commit-lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: node --test
+        run: node --test desktop/tests/*.test.mjs

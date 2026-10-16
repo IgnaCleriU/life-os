@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -35,6 +36,13 @@ class Settings(BaseSettings):
     app_name: str = "Life OS"
     app_port: int = 8000
     database_url: str = Field(default_factory=default_database_url)
+    # Auth de la API REST (ADR 0009): encendida por defecto. Solo los tests y
+    # las corridas ad-hoc de uvicorn la apagan, y de forma explícita.
+    api_auth: Literal["enabled", "disabled"] = Field(
+        default="enabled", validation_alias="LIFEOS_API_AUTH"
+    )
+    # Token para una corrida manual; `lifeos-daemon` genera el suyo propio.
+    api_token: str | None = Field(default=None, validation_alias="LIFEOS_API_TOKEN")
 
 
 @lru_cache

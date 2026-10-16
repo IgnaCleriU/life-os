@@ -22,11 +22,11 @@ For architectural principles, see [../ARCHITECTURE.md](../ARCHITECTURE.md).
 - Monorepo structure with hexagonal architecture (ports and adapters). **Done.**
 - Docker Compose local environment (backend service + SQLite volume). **Done.**
 - Basic CI (commit-lint gate + ruff + pytest). **Done.**
-- Base data model (users, JWT auth). **Pending** — blocked on the
-  desktop-app ADR that will supersede
-  [adr/0005-deployment-target.md](adr/0005-deployment-target.md). Whether
-  JWT still fits is itself an open question for that ADR: it was chosen for
-  a networked backend, which a local desktop app is not.
+- Base data model (users, JWT auth). **Resolved for the local case** by
+  [adr/0009-quickshell-desktop-client.md](adr/0009-quickshell-desktop-client.md):
+  one local user, no accounts, a per-install token on a loopback-only
+  daemon (Step 14). Users and JWT return only if remote/multi-device
+  access (Phase 6) is taken on.
 
 ### Phase 1 — MVP: Projects + Tasks
 
@@ -52,6 +52,8 @@ Task breakdown and current status:
 | 11. CLI adapter | `adapters/cli/` (Typer): one command per use case, plus `adapters/shared/quick_add.py` (the `!high @sat #casa` parser) and a `capture`/`add` wrapper | **Done** |
 | 12. TUI shell | `adapters/tui/`: generic Textual shell (panes, focus, modes, keymap registry + dispatch, palette, `?` overlay, undo/redo, status bar), built against a stub module so it stays free of Projects/Tasks code | **Done** |
 | 13. TUI module + desktop wiring | `adapters/tui/modules/projects_tasks.py` implementing the shell's module contract, `lifeos-tui`/`lifeos-capture` console scripts, `docs/tui.md` with the Hyprland/Omarchy binds | **Done** |
+| 14. REST as a local product surface | Token auth + `Host` check, `lifeos-daemon` (systemd `--user`), `GET /revision`, quick-add over REST with shared `#project` resolution | **Done** |
+| 15. Quickshell board | `desktop/omarchy-plugin/` (Omarchy shell plugin `lifeos.board`): overlay with the TUI's panes, modes and keymap, plus mouse, live quick-add preview, live refresh and notifications | **Done** |
 
 Steps 9-13 implement
 [adr/0008-keyboard-driven-tui-adapter.md](adr/0008-keyboard-driven-tui-adapter.md).
@@ -90,6 +92,13 @@ previous one's contract:
   console scripts and example Omarchy keybindings. No installer and no
   desktop-app ADR — packaging stays out of scope, as decided when this work
   was planned.
+
+Steps 14-15 implement
+[adr/0009-quickshell-desktop-client.md](adr/0009-quickshell-desktop-client.md),
+which makes a Quickshell overlay the primary interface in place of the
+TUI (kept as a fallback); the full design and task breakdown are in
+[specs/0002-quickshell-desktop-client.md](specs/0002-quickshell-desktop-client.md).
+Step 14 is backend-only and lands first; Step 15 depends on it.
 
 The domain layer (`backend/src/lifeos/domain/`), the application ports and
 use cases (`backend/src/lifeos/application/`), the SQLite infrastructure
@@ -176,18 +185,19 @@ correctly through both the REST API and the MCP tools.
 
 ## Immediate next steps
 
-Steps 9-13 are now all done — the TUI (`lifeos-tui`) is a fully working
-reference client for Projects/Tasks, alongside REST, MCP, and the CLI.
+Steps 9-15 are done — the Omarchy board (`lifeos.board`, over
+`lifeos-daemon`) is the primary interface for Projects/Tasks, with the TUI,
+the CLI, REST and MCP alongside it. The desktop-app direction is recorded in
+[adr/0009-quickshell-desktop-client.md](adr/0009-quickshell-desktop-client.md),
+superseding 0005.
 
 1. Reach the Phase 1 Definition of Done (Step 8): load the roadmap phases
    as a Project + Tasks in a single Claude conversation over MCP, and
    confirm the same data is visible through REST. Independent of Steps
-   9-13; can happen whenever convenient.
-2. Record the desktop-app direction as an ADR superseding
-   [adr/0005-deployment-target.md](adr/0005-deployment-target.md): Life OS
-   is being built as a native TUI desktop app for Omarchy that launches the
-   backend and the TUI together, rather than a hosted backend. This
-   conditions auth, packaging, and whether remote/multi-device access
-   (Phase 6) stays in scope. Still deferred — Step 13 intentionally shipped
-   without it (console scripts and example keybinds only, no installer).
+   14-15; can happen whenever convenient.
+2. Try the board on the real desktop (`desktop/install.sh`, then the
+   bind in [desktop.md](desktop.md)): the automated checks run it headless,
+   but layer-shell focus, blur and notifications only show up on Omarchy.
+   Then the bar widget and a standalone quick-capture popup, each in its
+   own spec.
 3. Iterate on this roadmap as phases complete and priorities shift.

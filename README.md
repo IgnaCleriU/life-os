@@ -10,13 +10,14 @@ CLI, or mobile app — never a workaround that talks to files or screenshots.
 ## Status
 
 **Phase 1 (MVP: Projects + Tasks) is in progress.** The domain layer,
-application use cases, SQLite infrastructure, REST adapter, MCP adapter, and
-CLI adapter are implemented and merged — a full REST API, MCP server, and
-`lifeos` command-line tool for Projects and Tasks are all available (see
+application use cases, SQLite infrastructure, and the REST (served by
+`lifeos-daemon`), MCP, CLI and TUI adapters are implemented, and the primary
+interface is the **Life OS board**, an Omarchy shell plugin over the local
+daemon (see [docs/desktop.md](docs/desktop.md) to install it,
 [docs/mcp-setup.md](docs/mcp-setup.md) to connect an agent, or
-[docs/cli.md](docs/cli.md) for the CLI). The TUI (Steps 12-13) and Step 8
-(loading the roadmap into the app itself via an agent) remain to reach the
-Phase 1 Definition of Done.
+[docs/cli.md](docs/cli.md) for the CLI). Step 8 (loading the roadmap into
+the app itself via an agent) remains to reach the Phase 1 Definition of
+Done.
 
 See [docs/roadmap.md](docs/roadmap.md) for the full phase breakdown and
 current status of each step.
@@ -29,6 +30,7 @@ current status of each step.
 | ORM / DB | SQLModel + SQLite (MVP) → PostgreSQL (multi-device) |
 | MCP Server | Official Python `mcp` SDK (stdio → HTTP/SSE) |
 | Frontend | React + Vite + TypeScript, TailwindCSS |
+| Desktop board | Quickshell (QML) plugin for Omarchy's shell |
 | CLI/TUI | `Typer` + `Textual` |
 | Android | Kotlin + Jetpack Compose, Retrofit |
 | Containers | Docker + docker-compose |
@@ -74,7 +76,9 @@ single source of truth for phasing and status.
 - **Local environment:** run `uv sync --all-extras` from `backend/` — it
   creates `.venv` and installs the exact versions pinned in
   `backend/uv.lock`, the same ones CI uses. Then run
-  `uv run uvicorn lifeos.adapters.rest.main:app` for the REST API,
+  `uv run lifeos-daemon` for the REST API (token-guarded; see
+  [docs/desktop.md](docs/desktop.md), or `desktop/install.sh` to run it as
+  a user service),
   `uv run lifeos-mcp` for the MCP server, or `uv run lifeos --help` for the
   CLI (see [docs/cli.md](docs/cli.md)). All three use the shared database
   described in [ARCHITECTURE.md](ARCHITECTURE.md#where-the-data-lives).
@@ -84,5 +88,6 @@ single source of truth for phasing and status.
   manifest disagree.
 - **Docker Compose** (`docker compose up`, after copying `.env.example` to
   `.env`) still works, but is no longer the target way to run Life OS — it
-  is being built as a native TUI desktop app instead, see
-  [docs/adr/0005-deployment-target.md](docs/adr/0005-deployment-target.md).
+  is being built as a local desktop app instead (a Quickshell client over a
+  local REST daemon), see
+  [docs/adr/0009-quickshell-desktop-client.md](docs/adr/0009-quickshell-desktop-client.md).

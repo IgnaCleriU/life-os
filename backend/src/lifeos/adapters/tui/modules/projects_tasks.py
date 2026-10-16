@@ -3,6 +3,12 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
+from lifeos.adapters.shared.capture_target import (
+    AmbiguousProjectName,
+    ProjectNameNotFound,
+    find_projects_by_name,
+    resolve_capture_target,
+)
 from lifeos.adapters.shared.error_codes import DOMAIN_ERROR_CODES
 from lifeos.adapters.shared.quick_add import parse_quick_add
 from lifeos.adapters.tui import deps
@@ -390,19 +396,20 @@ class ProjectsTasksModule:
         parsed = parse_quick_add(text)
         if not parsed.title:
             return
-        if parsed.project_name is not None:
-            matches = self._find_projects_by_name(parsed.project_name)
-            if not matches:
-                self.shell.show_error(  # type: ignore[attr-defined]
-                    f"project_name_not_found: no project named {parsed.project_name!r}"
-                )
-                return
-            if len(matches) > 1:
-                self._show_ambiguous_project_error(parsed.project_name, matches)
-                return
-            target = matches[0]
-        else:
-            target = default_project
+        try:
+            target = resolve_capture_target(
+                parsed.project_name,
+                list_projects=self._all_projects,
+                default=lambda: default_project,
+            )
+        except ProjectNameNotFound as exc:
+            self.shell.show_error(  # type: ignore[attr-defined]
+                f"project_name_not_found: no project named {exc.name!r}"
+            )
+            return
+        except AmbiguousProjectName as exc:
+            self._show_ambiguous_project_error(exc.name, len(exc.candidates))
+            return
         with deps.create_task_use_case() as use_case:
             task = use_case.execute(
                 target.id,
@@ -417,23 +424,23 @@ class ProjectsTasksModule:
         )
         self.shell.action_reload()  # type: ignore[attr-defined]
 
-    def _find_projects_by_name(self, name: str) -> list[Project]:
-        """All active-or-not projects whose name case-folds to `name`.
-
-        Project names have no uniqueness constraint (unlike the CLI's
-        equivalent resolver in `cli/capture.py`, this doesn't live in
-        `adapters/shared/` yet - see that module's docstring), so callers
-        must handle 0, 1, and >1 matches distinctly rather than picking a
-        match silently.
-        """
-        needle = name.strip().casefold()
+    def _all_projects(self) -> list[Project]:
         with deps.list_projects_use_case() as use_case:
-            projects = use_case.execute()
-        return [p for p in projects if p.name.casefold() == needle]
+            return use_case.execute()
 
-    def _show_ambiguous_project_error(self, name: str, matches: list[Project]) -> None:
+    def _find_projects_by_name(self, name: str) -> list[Project]:
+        """All projects whose name matches `name` exactly (case-insensitive).
+
+        Project names have no uniqueness constraint, so callers must handle
+        0, 1, and >1 matches distinctly rather than picking one silently -
+        the same rule as `adapters/shared/capture_target.py`, which this
+        delegates to.
+        """
+        return find_projects_by_name(self._all_projects(), name)
+
+    def _show_ambiguous_project_error(self, name: str, count: int) -> None:
         self.shell.show_error(  # type: ignore[attr-defined]
-            f"ambiguous_project_name: {len(matches)} projects named {name!r} - "
+            f"ambiguous_project_name: {count} projects named {name!r} - "
             "rename one to disambiguate"
         )
 
@@ -677,7 +684,7 @@ class ProjectsTasksModule:
         if not matches:
             return
         if len(matches) > 1:
-            self._show_ambiguous_project_error(choice, matches)
+            self._show_ambiguous_project_error(choice, len(matches))
             return
         target = matches[0]
         self._move_task(task_id, target.id)

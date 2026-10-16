@@ -6,9 +6,11 @@ Guide for AI agents (e.g. Claude Code) working on this repo. Read it before star
 projects/tasks, home inventory) accessible by AI agents through a custom
 MCP server.
 **Current status:** Phase 1 MVP of **Projects + Tasks** — domain, ports,
-use cases, SQLite infrastructure, and the REST adapter are implemented;
-the MCP adapter (Step 7) is next (see [docs/roadmap.md](docs/roadmap.md)
-for details).
+use cases, SQLite infrastructure, the REST (as `lifeos-daemon`), MCP, CLI,
+and TUI adapters, and the Omarchy board (`desktop/omarchy-plugin/`,
+[ADR 0009](docs/adr/0009-quickshell-desktop-client.md)) are implemented.
+Next is closing the MVP (Step 8); see [docs/roadmap.md](docs/roadmap.md)
+for details.
 
 ## Mandatory documentation
 
@@ -57,13 +59,17 @@ Before designing or implementing, review these documents:
 ## How to run / verify
 
 - **Tests:** run `uv run pytest` from `backend/` (domain and use-case tests
-  run without a database, using in-memory fake repositories).
+  run without a database, using in-memory fake repositories), and
+  `node --test desktop/tests/*.test.mjs` for the board's JS libraries. The
+  board's QML has a headless harness, see
+  [docs/desktop.md](docs/desktop.md#4-testing-the-board).
 - **Commit validation:** `pre-commit install --hook-type commit-msg` (once
   per clone); validates the message format before a commit is created.
 - **Local environment:** `uv sync --all-extras` from `backend/` creates
   `.venv` from the pinned versions in `backend/uv.lock`, then
-  `uv run uvicorn lifeos.adapters.rest.main:app` (REST) or
-  `uv run lifeos-mcp` (MCP). Both share one database, see
+  `uv run lifeos-daemon` (REST, token-guarded, see
+  [docs/desktop.md](docs/desktop.md)) or `uv run lifeos-mcp` (MCP). Both
+  share one database, see
   [ARCHITECTURE.md](ARCHITECTURE.md#where-the-data-lives).
 - **Dependencies are locked.** Never add a bare, unconstrained requirement:
   every entry in `backend/pyproject.toml` carries a version range with an
@@ -71,6 +77,8 @@ Before designing or implementing, review these documents:
   manifest run `uv lock` and commit the result — CI installs with
   `uv sync --locked` and fails if the two disagree.
 - **Docker Compose** still works but is no longer the target runtime; Life
-  OS is being built as a native TUI desktop app. Do not treat
+  OS is being built as a local desktop app (a Quickshell client over a
+  local REST daemon, see
+  [docs/adr/0009-quickshell-desktop-client.md](docs/adr/0009-quickshell-desktop-client.md)).
   [docs/adr/0005-deployment-target.md](docs/adr/0005-deployment-target.md)
-  as current — it is deprecated.
+  is superseded — do not treat it as current.
