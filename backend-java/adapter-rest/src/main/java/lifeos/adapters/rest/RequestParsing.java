@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 /**
  * Conversión de los valores crudos del request a tipos de dominio. Cualquier
@@ -14,7 +15,19 @@ import java.util.function.Function;
  */
 final class RequestParsing {
 
+    /** Forma canónica 8-4-4-4-12; {@link UUID#fromString} acepta cosas como {@code 1-1-1-1-1}. */
+    private static final Pattern CANONICAL_UUID =
+            Pattern.compile("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+
     private RequestParsing() {}
+
+    /** Parser estricto de UUID, también registrado para los path variables en {@link WebConfiguration}. */
+    static UUID canonicalUuid(String value) {
+        if (!CANONICAL_UUID.matcher(value).matches()) {
+            throw new IllegalArgumentException("UUID inválido: " + value);
+        }
+        return UUID.fromString(value);
+    }
 
     static String required(String field, String value) {
         if (value == null) {
@@ -34,20 +47,31 @@ final class RequestParsing {
         }
     }
 
+    /** Un filtro presente pero vacío ({@code ?status=}) es inválido, no "sin filtro". */
     static <T> List<T> parseAll(String field, List<String> values, Function<String, T> parser) {
-        return values == null ? null : values.stream().map(value -> parse(field, value, parser)).toList();
+        if (values == null) {
+            return null;
+        }
+        if (values.isEmpty()) {
+            throw new RequestValidationException("'" + field + "' no puede estar vacío");
+        }
+        return values.stream().map(value -> parse(field, value, parser)).toList();
     }
 
     static UUID uuid(String field, String value) {
-        return parse(field, value, UUID::fromString);
+        return parse(field, value, RequestParsing::canonicalUuid);
     }
 
     static LocalDate date(String field, String value) {
         return parse(field, value, LocalDate::parse);
     }
 
-    /** Valor de un campo de un body PATCH ya presente: debe ser string o null. */
-    static String patchString(Map<String, Object> body, String field) {
+    /**
+     * Campo de texto de un body JSON (ausente o null → null). Los bodies se leen
+     * como mapa para que un número no se convierta en string en silencio, como
+     * haría Jackson; Pydantic lo rechaza con 422.
+     */
+    static String string(Map<String, Object> body, String field) {
         Object value = body.get(field);
         if (value != null && !(value instanceof String)) {
             throw new RequestValidationException("'" + field + "' debe ser un string");

@@ -3,8 +3,6 @@ package lifeos.adapters.rest;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import lifeos.adapters.rest.dto.TaskCreateRequest;
-import lifeos.adapters.rest.dto.TaskMoveRequest;
 import lifeos.adapters.rest.dto.TaskResponse;
 import lifeos.application.port.TaskFilter;
 import lifeos.application.usecase.CompleteTask;
@@ -73,16 +71,17 @@ class TaskController {
     /** Crea una tarea bajo un proyecto existente. */
     @PostMapping("/projects/{projectId}/tasks")
     @ResponseStatus(HttpStatus.CREATED)
-    TaskResponse create(@PathVariable UUID projectId, @RequestBody TaskCreateRequest body) {
-        Priority priority = body.priority() == null
+    TaskResponse create(@PathVariable UUID projectId, @RequestBody Map<String, Object> body) {
+        String rawPriority = RequestParsing.string(body, "priority");
+        Priority priority = rawPriority == null
                 ? Priority.MEDIUM
-                : RequestParsing.parse("priority", body.priority(), Priority::fromValue);
+                : RequestParsing.parse("priority", rawPriority, Priority::fromValue);
         return TaskResponse.from(createTask.execute(
                 projectId,
-                RequestParsing.required("title", body.title()),
+                RequestParsing.required("title", RequestParsing.string(body, "title")),
                 priority,
-                RequestParsing.date("due_date", body.dueDate()),
-                body.description()));
+                RequestParsing.date("due_date", RequestParsing.string(body, "due_date")),
+                RequestParsing.string(body, "description")));
     }
 
     /** Lista las tareas de un proyecto, con los mismos filtros que {@code GET /tasks}. */
@@ -129,15 +128,15 @@ class TaskController {
     @PatchMapping("/tasks/{taskId}")
     TaskResponse update(@PathVariable UUID taskId, @RequestBody Map<String, Object> body) {
         TaskUpdate update = TaskUpdate.none()
-                .withTitle(RequestParsing.patchString(body, "title"))
+                .withTitle(RequestParsing.string(body, "title"))
                 .withPriority(RequestParsing.parse(
-                        "priority", RequestParsing.patchString(body, "priority"), Priority::fromValue));
+                        "priority", RequestParsing.string(body, "priority"), Priority::fromValue));
         if (body.containsKey("description")) {
-            update = update.withDescription(RequestParsing.patchString(body, "description"));
+            update = update.withDescription(RequestParsing.string(body, "description"));
         }
         if (body.containsKey("due_date")) {
             update = update.withDueDate(
-                    RequestParsing.date("due_date", RequestParsing.patchString(body, "due_date")));
+                    RequestParsing.date("due_date", RequestParsing.string(body, "due_date")));
         }
         return TaskResponse.from(updateTask.execute(taskId, update));
     }
@@ -168,8 +167,9 @@ class TaskController {
 
     /** Mueve una tarea a otro proyecto. */
     @PostMapping("/tasks/{taskId}/move")
-    TaskResponse move(@PathVariable UUID taskId, @RequestBody TaskMoveRequest body) {
-        UUID projectId = RequestParsing.uuid("project_id", RequestParsing.required("project_id", body.projectId()));
+    TaskResponse move(@PathVariable UUID taskId, @RequestBody Map<String, Object> body) {
+        UUID projectId = RequestParsing.uuid(
+                "project_id", RequestParsing.required("project_id", RequestParsing.string(body, "project_id")));
         return TaskResponse.from(moveTask.execute(taskId, projectId));
     }
 

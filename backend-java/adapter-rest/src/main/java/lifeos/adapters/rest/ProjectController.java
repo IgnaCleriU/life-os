@@ -3,7 +3,6 @@ package lifeos.adapters.rest;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import lifeos.adapters.rest.dto.ProjectCreateRequest;
 import lifeos.adapters.rest.dto.ProjectResponse;
 import lifeos.application.Change;
 import lifeos.application.port.ProjectFilter;
@@ -69,9 +68,10 @@ class ProjectController {
     /** Crea un proyecto nuevo. */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    ProjectResponse create(@RequestBody ProjectCreateRequest body) {
-        return ProjectResponse.from(
-                createProject.execute(RequestParsing.required("name", body.name()), body.description()));
+    ProjectResponse create(@RequestBody Map<String, Object> body) {
+        return ProjectResponse.from(createProject.execute(
+                RequestParsing.required("name", RequestParsing.string(body, "name")),
+                RequestParsing.string(body, "description")));
     }
 
     /** Lista los proyectos, opcionalmente filtrados por estado (repetible) y/o texto. */
@@ -96,9 +96,9 @@ class ProjectController {
      */
     @PatchMapping("/{projectId}")
     ProjectResponse update(@PathVariable UUID projectId, @RequestBody Map<String, Object> body) {
-        String name = RequestParsing.patchString(body, "name");
+        String name = RequestParsing.string(body, "name");
         Change<String> description = body.containsKey("description")
-                ? Change.to(RequestParsing.patchString(body, "description"))
+                ? Change.to(RequestParsing.string(body, "description"))
                 : Change.unset();
         return ProjectResponse.from(updateProject.execute(projectId, name, description));
     }
