@@ -6,6 +6,7 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.chip.Chip;
 import com.lifeos.android.R;
@@ -13,6 +14,7 @@ import com.lifeos.android.api.model.Project;
 import com.lifeos.android.api.model.ProjectStatus;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /** Rows of the Projects list: section headers and project rows. */
 final class ProjectsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
@@ -35,9 +37,45 @@ final class ProjectsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     void submit(List<ProjectListItems.Item> newItems) {
+        List<ProjectListItems.Item> oldItems = new ArrayList<>(items);
+        DiffUtil.DiffResult diff = DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override
+            public int getOldListSize() {
+                return oldItems.size();
+            }
+
+            @Override
+            public int getNewListSize() {
+                return newItems.size();
+            }
+
+            @Override
+            public boolean areItemsTheSame(int oldPosition, int newPosition) {
+                ProjectListItems.Item before = oldItems.get(oldPosition);
+                ProjectListItems.Item after = newItems.get(newPosition);
+                if (before.isHeader() || after.isHeader()) {
+                    return before.isHeader() && after.isHeader() && before.getStatus() == after.getStatus();
+                }
+                return Objects.equals(before.getProject().getId(), after.getProject().getId());
+            }
+
+            @Override
+            public boolean areContentsTheSame(int oldPosition, int newPosition) {
+                ProjectListItems.Item before = oldItems.get(oldPosition);
+                ProjectListItems.Item after = newItems.get(newPosition);
+                if (before.isHeader()) {
+                    return true;
+                }
+                Project a = before.getProject();
+                Project b = after.getProject();
+                return Objects.equals(a.getName(), b.getName())
+                        && Objects.equals(a.getDescription(), b.getDescription())
+                        && a.getStatus() == b.getStatus();
+            }
+        });
         items.clear();
         items.addAll(newItems);
-        notifyDataSetChanged();
+        diff.dispatchUpdatesTo(this);
     }
 
     /** The label of a status, shared by section headers and status chips. */
