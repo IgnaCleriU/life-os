@@ -73,8 +73,9 @@ jobs:
       - name: Pytest
         run: uv run --no-sync pytest
 
-  # Backend Java (ADR 0011). Convive con el de Python hasta el corte: cada uno
-  # corre su propia suite. El test de interop con Python es opt-in y no corre acá.
+  # Backend Java (ADR 0011). Convive con el de Python hasta el corte y los dos
+  # escriben la misma base, así que acá también corre el test de interop
+  # (PythonInteropTest), que necesita el entorno de backend/.
   java-test:
     name: Java build & test
     runs-on: ubuntu-latest
@@ -89,5 +90,15 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          version: "0.11.17"
+          enable-cache: true
+          working-directory: backend
+      - name: Install python backend for the interop test
+        working-directory: backend
+        run: uv sync --locked --all-extras
       - name: Maven verify
+        env:
+          LIFEOS_PYTHON_BACKEND: ${{ github.workspace }}/backend
         run: ./mvnw -B verify
