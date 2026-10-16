@@ -24,4 +24,13 @@
             android:layout_weight="1" />
     </LinearLayout>
 
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/task_board_new"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="16dp"
+        android:text="@string/task_new"
+        app:icon="@drawable/ic_task_add" />
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

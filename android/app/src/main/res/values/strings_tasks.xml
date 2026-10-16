@@ -13,4 +13,14 @@
     </string-array>
     <string name="task_due">Due %1$s</string>
     <string name="task_overdue">Overdue, due %1$s</string>
+
+    <string name="task_new">New task</string>
+    <string name="task_dialog_new_title">New task</string>
+    <string name="task_dialog_edit_title">Edit task</string>
+    <string name="task_field_title">Title</string>
+    <string name="task_field_description">Description</string>
+    <string name="task_field_priority">Priority</string>
+    <string name="task_field_due">Due date</string>
+    <string name="task_due_clear">Clear</string>
+    <string name="task_title_required">Enter a title.</string>
 </resources>

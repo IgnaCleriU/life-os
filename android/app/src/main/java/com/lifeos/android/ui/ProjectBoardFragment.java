@@ -5,17 +5,21 @@ import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.viewpager2.widget.ViewPager2;
+import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 import com.lifeos.android.R;
+import com.lifeos.android.api.model.Priority;
 import com.lifeos.android.api.model.Project;
 import com.lifeos.android.api.model.Task;
+import com.lifeos.android.api.model.TaskPatch;
 import com.lifeos.android.api.model.TaskQuery;
 import com.lifeos.android.api.model.TaskStatus;
 import com.lifeos.android.util.Async;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 /**
  * Task board of one project: three swipeable columns (To do / Doing / Done). All tasks are
@@ -27,6 +31,9 @@ public class ProjectBoardFragment extends BaseFragment {
     private static final String ARG_PROJECT_ID = "project_id";
 
     private final Clock clock = Clock.systemDefaultZone();
+
+    /** Page index of the To do column: new tasks are created there. */
+    private static final int TODO_PAGE = 0;
 
     private TabLayout tabs;
     private ViewPager2 pager;
@@ -65,7 +72,7 @@ public class ProjectBoardFragment extends BaseFragment {
         columnAdapter = new TaskColumnPagerAdapter(new TaskColumnPagerAdapter.Listener() {
             @Override
             public void onTaskClicked(Task task) {
-                // Task actions are wired in a later step.
+                showEditor(task);
             }
 
             @Override
@@ -77,6 +84,9 @@ public class ProjectBoardFragment extends BaseFragment {
         tabMediator = new TabLayoutMediator(tabs, pager, (tab, position) ->
                 tab.setText(tabTitle(position, TaskColumns.split(tasks))));
         tabMediator.attach();
+
+        ExtendedFloatingActionButton newTask = view.findViewById(R.id.task_board_new);
+        newTask.setOnClickListener(v -> showEditor(null));
 
         render();
         loadBoard();
@@ -128,6 +138,65 @@ public class ProjectBoardFragment extends BaseFragment {
                 if (seq == loadSeq) {
                     setLoading(false);
                 }
+                showError(error);
+            }
+        });
+    }
+
+    /** Opens the form for {@code task}, or a blank one for a new task. */
+    private void showEditor(@Nullable Task task) {
+        TaskEditDialog.show(this, task, draft -> {
+            if (task == null) {
+                createTask(draft);
+            } else {
+                saveChanges(task, draft);
+            }
+        });
+    }
+
+    private void createTask(TaskDraft draft) {
+        String projectId = getProjectId();
+        Priority priority = draft.priorityOrDefault();
+        async(() -> api().createTask(
+                projectId,
+                draft.trimmedTitle(),
+                priority,
+                draft.dueDate(),
+                draft.descriptionOrNull()), new Async.Callback<Task>() {
+            @Override
+            public void onSuccess(Task created) {
+                // The backend always creates tasks in To do: show that column.
+                pager.setCurrentItem(TODO_PAGE, true);
+                loadBoard();
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                showError(error);
+            }
+        });
+    }
+
+    /** Sends only the fields that changed; an unchanged form makes no call. */
+    private void saveChanges(Task task, TaskDraft draft) {
+        TaskPatch patch = draft.changesFrom(task);
+        if (patch.isEmpty()) {
+            return;
+        }
+        String taskId = task.getId();
+        runThenReload(() -> api().updateTask(taskId, patch));
+    }
+
+    /** Runs a server call, then reloads the board; errors are shown. */
+    private <T> void runThenReload(Callable<T> work) {
+        async(work, new Async.Callback<T>() {
+            @Override
+            public void onSuccess(T result) {
+                loadBoard();
+            }
+
+            @Override
+            public void onError(Throwable error) {
                 showError(error);
             }
         });
