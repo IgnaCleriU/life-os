@@ -31,10 +31,6 @@ Host allowlist as the Python adapter (`localhost`, `127.0.0.1`, `::1`),
 which blocks DNS rebinding. Bodyless cross-origin POSTs from a web page
 are still possible until the token lands.
 
-> Update: [0012](0012-java-api-over-tailscale.md) ports the bearer token,
-> `LIFEOS_ALLOWED_HOSTS` and a configurable bind address to the Java
-> adapter. The paragraph above describes the state before it.
-
 ## Consequences
 
 - **Until the cutover, two implementations of the use cases share one

@@ -9,16 +9,13 @@ then the Azure tooling used for the current deployment.
 
 ```
 your PC ──ssh (22, your IP only)──▶ VPS
-   │                                 ├─ backend-java (Spring Boot) ◀── published API
-   │                                 └─ backend (uvicorn)  ◀── MCP only, no port
+   │                                 └─ docker compose: backend (uvicorn)
    └─ localhost:8000 ◀─tunnel──────────── 127.0.0.1:8000
                                           volume lifeos-data → /app/data/lifeos.db
 ```
 
-- **Only port 22 is open, and only from your IP.** The API (the Java
-  backend, [ADR 0012](adr/0012-java-api-over-tailscale.md)) listens on the
-  VPS's loopback (`deploy/vps/compose.override.yml`). The Python container
-  keeps running for MCP but publishes no port. You reach it through
+- **Only port 22 is open, and only from your IP.** The API listens on the
+  VPS's loopback (`deploy/vps/compose.override.yml`). You reach it through
   an SSH tunnel.
 - **Every route except `/health` needs `Authorization: Bearer <token>`.**
   The token is generated on first boot and lives only in `~/life-os/.env`
@@ -113,53 +110,6 @@ A VM that is shut down from inside (`sudo shutdown`) is *stopped*, not
 deallocated, and **its compute is still billed**. Use `stop` or the
 portal's Stop button instead.
 
-## Phone access over Tailscale
-
-[ADR 0012](adr/0012-java-api-over-tailscale.md). An Android phone can't
-open an SSH tunnel comfortably, so the VPS joins a Tailscale tailnet and
-`tailscale serve` publishes the loopback API as HTTPS **inside the tailnet
-only**. The port 22 rule still holds: no public port is added, and nothing
-is exposed through Tailscale Funnel.
-
-1. Install Tailscale on the VPS and join the tailnet:
-
-   ```sh
-   curl -fsSL https://tailscale.com/install.sh | sh
-   sudo tailscale up
-   ```
-
-2. In the Tailscale admin console, enable **MagicDNS** and **HTTPS
-   Certificates** (DNS page). Install Tailscale on the phone and sign in to
-   the same tailnet.
-3. Publish the API to the tailnet over HTTPS:
-
-   ```sh
-   sudo tailscale serve --bg --https=443 http://127.0.0.1:8000
-   tailscale serve status
-   ```
-
-4. Allow the tailnet names in the API. `tailscale serve` forwards the
-   original `Host` header, which the Host check would otherwise refuse. In
-   `~/life-os/.env` on the VPS:
-
-   ```sh
-   LIFEOS_ALLOWED_HOSTS=<machine>,<machine>.<tailnet>.ts.net
-   ```
-
-   Then recreate the containers: `cd ~/life-os && docker compose up -d`.
-5. Check it from another device in the tailnet:
-
-   ```sh
-   curl -i https://<machine>.<tailnet>.ts.net/health            # 200, no token
-   curl -i https://<machine>.<tailnet>.ts.net/projects          # 401
-   curl -i -H "Authorization: Bearer <token>" https://<machine>.<tailnet>.ts.net/projects   # 200
-   ```
-
-The bearer token is still required on every route except `/health`. The
-phone app must send `Authorization: Bearer <token>`, with the token from the
-VPS's `.env`. A VM that is deallocated daily (see Azure above) is unreachable
-until it is started again, and `tailscale` reconnects by itself on boot.
-
 ## Operating the VPS
 
 - **Update the app:** run
@@ -173,7 +123,6 @@ until it is started again, and `tailscale` reconnects by itself on boot.
   docker compose cp backend:/app/data/backup.db ./lifeos-backup.db
   ```
 
-- **Logs:** `docker compose logs -f backend-java` (the API) or
-  `docker compose logs -f backend` (Python, MCP).
+- **Logs:** `docker compose logs -f backend`.
 - **Rotate the token:** change `LIFEOS_API_TOKEN` in `.env`, then run
   `docker compose up -d`.
