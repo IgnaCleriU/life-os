@@ -4,18 +4,22 @@ import android.os.Bundle;
 import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import androidx.viewpager2.widget.ViewPager2;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 import com.lifeos.android.R;
 import com.lifeos.android.api.model.Priority;
 import com.lifeos.android.api.model.Project;
+import com.lifeos.android.api.model.ProjectStatus;
 import com.lifeos.android.api.model.Task;
 import com.lifeos.android.api.model.TaskPatch;
 import com.lifeos.android.api.model.TaskQuery;
 import com.lifeos.android.api.model.TaskStatus;
 import com.lifeos.android.util.Async;
+import com.lifeos.android.util.Snackbars;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
@@ -72,7 +76,7 @@ public class ProjectBoardFragment extends BaseFragment {
         columnAdapter = new TaskColumnPagerAdapter(new TaskColumnPagerAdapter.Listener() {
             @Override
             public void onTaskClicked(Task task) {
-                showEditor(task);
+                showActions(task);
             }
 
             @Override
@@ -138,6 +142,127 @@ public class ProjectBoardFragment extends BaseFragment {
                 if (seq == loadSeq) {
                     setLoading(false);
                 }
+                showError(error);
+            }
+        });
+    }
+
+    /** The action menu of a task: only the actions that make sense for its column. */
+    private void showActions(Task task) {
+        List<TaskMenu.Action> actions = TaskMenu.actionsFor(task.getStatus());
+        String[] labels = new String[actions.size()];
+        for (int i = 0; i < labels.length; i++) {
+            labels[i] = getString(labelRes(actions.get(i)));
+        }
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(task.getTitle())
+                .setItems(labels, (dialog, which) -> perform(task, actions.get(which)))
+                .show();
+    }
+
+    private static @StringRes int labelRes(TaskMenu.Action action) {
+        switch (action) {
+            case START:
+                return R.string.task_action_start;
+            case COMPLETE:
+                return R.string.task_action_complete;
+            case REOPEN:
+                return R.string.task_action_reopen;
+            case EDIT:
+                return R.string.task_action_edit;
+            case MOVE:
+                return R.string.task_action_move;
+            case DELETE:
+            default:
+                return R.string.task_action_delete;
+        }
+    }
+
+    private void perform(Task task, TaskMenu.Action action) {
+        String taskId = task.getId();
+        switch (action) {
+            case START:
+                runThenReload(() -> api().startTask(taskId));
+                break;
+            case COMPLETE:
+                runThenReload(() -> api().completeTask(taskId));
+                break;
+            case REOPEN:
+                runThenReload(() -> api().reopenTask(taskId));
+                break;
+            case EDIT:
+                showEditor(task);
+                break;
+            case MOVE:
+                chooseMoveTarget(task);
+                break;
+            case DELETE:
+            default:
+                confirmDelete(task);
+                break;
+        }
+    }
+
+    private void chooseMoveTarget(Task task) {
+        String currentProjectId = getProjectId();
+        String taskId = task.getId();
+        async(() -> api().listProjects(List.of(ProjectStatus.ACTIVE), null), new Async.Callback<List<Project>>() {
+            @Override
+            public void onSuccess(List<Project> projects) {
+                List<Project> targets = TaskMenu.moveTargets(projects, currentProjectId);
+                if (targets.isEmpty()) {
+                    Snackbars.info(requireView(), getString(R.string.task_move_none));
+                    return;
+                }
+                String[] names = new String[targets.size()];
+                for (int i = 0; i < names.length; i++) {
+                    names[i] = targets.get(i).getName();
+                }
+                new MaterialAlertDialogBuilder(requireContext())
+                        .setTitle(R.string.task_move_title)
+                        .setItems(names, (dialog, which) -> moveTask(taskId, targets.get(which)))
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show();
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                showError(error);
+            }
+        });
+    }
+
+    private void moveTask(String taskId, Project target) {
+        runThenReload(() -> api().moveTask(taskId, target.getId()));
+    }
+
+    private void confirmDelete(Task task) {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.task_delete_title)
+                .setMessage(getString(R.string.task_delete_message, task.getTitle()))
+                .setPositiveButton(R.string.task_delete_confirm, (dialog, which) -> deleteTask(task.getId()))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    /** Deletes the task, then offers Undo (the only way back: deleted tasks cannot be listed). */
+    private void deleteTask(String taskId) {
+        async(() -> {
+            api().deleteTask(taskId);
+            return taskId;
+        }, new Async.Callback<String>() {
+            @Override
+            public void onSuccess(String deletedId) {
+                loadBoard();
+                View root = getView();
+                if (root != null) {
+                    Snackbars.undo(root, getString(R.string.task_deleted), () ->
+                            runThenReload(() -> api().restoreTask(deletedId)));
+                }
+            }
+
+            @Override
+            public void onError(Throwable error) {
                 showError(error);
             }
         });
