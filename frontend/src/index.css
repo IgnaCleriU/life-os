@@ -90,6 +90,18 @@ button.secondary {
   color: var(--color-text);
 }
 
+button.danger {
+  background-color: transparent;
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 input,
 select,
 textarea {
