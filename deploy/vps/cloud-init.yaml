@@ -1,0 +1,43 @@
+#cloud-config
+# Bootstrap de Life OS en un VPS Ubuntu (24.04 probado). Independiente del
+# proveedor: cualquier nube que acepte cloud-init como user-data/custom-data.
+# Instala Docker, clona el repo, genera un `.env` con un token de API propio y
+# levanta el backend con la API solo en loopback (ver compose.override.yml).
+#
+# El script es idempotente: si el repo o el `.env` ya existen, no los pisa, así
+# que volver a correrlo (o arrancar una VM desde un disco copiado) no rota el
+# token ni toca la base.
+package_update: true
+package_upgrade: true
+packages:
+  - git
+  - unattended-upgrades
+  - ca-certificates
+  - curl
+  - python3
+timezone: America/Argentina/Cordoba
+write_files:
+  - path: /opt/lifeos/bootstrap.sh
+    permissions: "0755"
+    content: |
+      #!/bin/sh
+      set -eu
+      USER_NAME="${1:-azureuser}"
+      REPO_DIR="/home/$USER_NAME/life-os"
+      command -v docker >/dev/null || curl -fsSL https://get.docker.com | sh
+      usermod -aG docker "$USER_NAME"
+      [ -d "$REPO_DIR/.git" ] || git clone https://github.com/IgnaCleri/life-os.git "$REPO_DIR"
+      cp "$REPO_DIR/deploy/vps/compose.override.yml" "$REPO_DIR/docker-compose.override.yml"
+      if [ ! -f "$REPO_DIR/.env" ]; then
+        TOKEN=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
+        {
+          echo "APP_PORT=8000"
+          echo "DATABASE_URL=sqlite:////app/data/lifeos.db"
+          echo "LIFEOS_API_TOKEN=$TOKEN"
+        } > "$REPO_DIR/.env"
+        chmod 600 "$REPO_DIR/.env"
+      fi
+      chown -R "$USER_NAME:$USER_NAME" "$REPO_DIR"
+      cd "$REPO_DIR" && docker compose up -d --build
+runcmd:
+  - [/opt/lifeos/bootstrap.sh, azureuser]

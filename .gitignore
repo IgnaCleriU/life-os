@@ -14,3 +14,6 @@ node_modules/
 dist/
 build/
 .claude/
+
+# Override local de compose (en un VPS se copia desde deploy/vps/).
+docker-compose.override.yml
