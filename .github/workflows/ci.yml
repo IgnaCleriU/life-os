@@ -145,3 +145,14 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+
+  # La imagen del backend Java lleva la web (etapa node + etapa Maven): se
+  # construye acá para que un Dockerfile roto falle en el PR. No se publica.
+  docker-image:
+    name: Docker image
+    runs-on: ubuntu-latest
+    needs: commit-lint
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend-java image
+        run: docker build -f backend-java/Dockerfile .
