@@ -87,6 +87,21 @@
                                     </arguments>
                                 </configuration>
                             </execution>
+                            <!-- copy-resources ignora en silencio un dist ausente: sin build no hay jar. -->
+                            <execution>
+                                <id>web-dist-exists</id>
+                                <phase>prepare-package</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>node</executable>
+                                    <arguments>
+                                        <argument>-e</argument>
+                                        <argument>require('fs').accessSync('dist/index.html')</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
                         </executions>
                     </plugin>
                     <plugin>
