@@ -8,8 +8,6 @@
     <string name="title_board">Board</string>
     <string name="title_settings">Settings</string>
 
-    <string name="placeholder_projects">Projects list goes here.</string>
-    <string name="placeholder_open_board">Open board (placeholder)</string>
     <string name="placeholder_board">Task board for project %1$s goes here.</string>
 
     <string name="url_hint">API URL</string>
