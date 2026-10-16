@@ -1,23 +1,24 @@
+# syntax=docker/dockerfile:1
 # Imagen del backend Java (Spring Boot, ADR 0011). Contexto de build:
 # backend-java/. Dos etapas: se compila con el JDK y se corre solo con el JRE.
 
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /build
 
-# Primero lo que cambia poco (wrapper y POMs) para aprovechar la cache de capas.
+# Primero lo que cambia poco (wrapper y POMs); el repositorio Maven se cachea
+# con un cache mount en el paso de package.
 COPY .mvn .mvn
 COPY mvnw pom.xml ./
 COPY domain/pom.xml domain/pom.xml
 COPY application/pom.xml application/pom.xml
 COPY infrastructure/pom.xml infrastructure/pom.xml
 COPY adapter-rest/pom.xml adapter-rest/pom.xml
-RUN ./mvnw -B -q dependency:go-offline -pl adapter-rest -am || true
 
 COPY domain domain
 COPY application application
 COPY infrastructure infrastructure
 COPY adapter-rest adapter-rest
-RUN ./mvnw -B -DskipTests -pl adapter-rest -am package \
+RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -DskipTests -pl adapter-rest -am package \
     && cp adapter-rest/target/lifeos-adapter-rest-*.jar /build/app.jar
 
 FROM eclipse-temurin:21-jre
