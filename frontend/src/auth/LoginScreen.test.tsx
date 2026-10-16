@@ -74,6 +74,42 @@ describe('LoginScreen', () => {
     expect(readToken()).toBeNull()
   })
 
+  it('shows the server message as detail when no API token is configured', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse(401, {
+          error: {
+            code: 'unauthorized',
+            message: 'No API token is configured. Set LIFEOS_API_TOKEN (or LIFEOS_API_AUTH=disabled).',
+          },
+        }),
+      ),
+    )
+    const onLogin = vi.fn()
+    render(<LoginScreen onLogin={onLogin} />)
+
+    submitToken('any-token')
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('La API no tiene un token configurado')
+    expect(alert).toHaveTextContent('Set LIFEOS_API_TOKEN')
+    expect(alert).not.toHaveTextContent('Token inválido')
+    expect(onLogin).not.toHaveBeenCalled()
+  })
+
+  it('shows a specific message when the response is not valid JSON', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<html></html>', { status: 200 })))
+    const onLogin = vi.fn()
+    render(<LoginScreen onLogin={onLogin} />)
+
+    submitToken('any-token')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('La respuesta de la API no es válida')
+    expect(screen.queryByText('No se pudo conectar con la API')).not.toBeInTheDocument()
+    expect(onLogin).not.toHaveBeenCalled()
+  })
+
   it('shows the API error status on 500, not a connection error', async () => {
     vi.stubGlobal(
       'fetch',
