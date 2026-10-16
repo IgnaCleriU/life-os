@@ -1,5 +1,6 @@
 package lifeos.adapters.rest;
 
+import java.util.Locale;
 import java.util.Map;
 import lifeos.domain.DomainValidationException;
 import lifeos.domain.ProjectNotEmptyException;
@@ -9,16 +10,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
-import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
-import org.springframework.web.servlet.NoHandlerFoundException;
-import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * Traduce excepciones de dominio y de request a respuestas con la forma uniforme
@@ -68,31 +68,43 @@ class ErrorHandler {
         return error(HttpStatus.UNPROCESSABLE_CONTENT, "request_validation_error", e.getMessage());
     }
 
-    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
-    ResponseEntity<Map<String, Object>> notFound(Exception e) {
-        return error(HttpStatus.NOT_FOUND, "not_found", e.getMessage());
-    }
-
-    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    ResponseEntity<Map<String, Object>> methodNotAllowed(HttpRequestMethodNotSupportedException e) {
-        return error(HttpStatus.METHOD_NOT_ALLOWED, "method_not_allowed", e.getMessage());
-    }
-
     /** Una restricción de la base (ej. FK) que los casos de uso no anticiparon. */
     @ExceptionHandler(DataIntegrityViolationException.class)
     ResponseEntity<Map<String, Object>> integrity(DataIntegrityViolationException e) {
         return error(HttpStatus.CONFLICT, "integrity_error", e.getMostSpecificCause().getMessage());
     }
 
-    /** Último recurso: se loguea el detalle y al cliente no se le filtra. */
+    /**
+     * Resto de las excepciones. Las de Spring que ya traen su status (404 de ruta,
+     * 405, 406, {@code ResponseStatusException}...) lo conservan, con sus headers
+     * (ej. {@code Allow} en el 405) y un código derivado del status:
+     * {@code not_found}, {@code method_not_allowed}... Lo demás es un 500 que se
+     * loguea y no le filtra el detalle al cliente.
+     */
     @ExceptionHandler(Exception.class)
     ResponseEntity<Map<String, Object>> unexpected(Exception e) {
+        if (e instanceof ErrorResponse response) {
+            HttpStatusCode status = response.getStatusCode();
+            return ResponseEntity.status(status)
+                    .headers(response.getHeaders())
+                    .body(body(codeFor(status), e.getMessage()));
+        }
         log.error("Error inesperado procesando el request", e);
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "Error interno");
     }
 
+    private static String codeFor(HttpStatusCode status) {
+        HttpStatus known = HttpStatus.resolve(status.value());
+        return known == null
+                ? "http_" + status.value()
+                : known.name().toLowerCase(Locale.ROOT);
+    }
+
     private static ResponseEntity<Map<String, Object>> error(HttpStatus status, String code, String message) {
-        return ResponseEntity.status(status)
-                .body(Map.of("error", Map.of("code", code, "message", message == null ? "" : message)));
+        return ResponseEntity.status(status).body(body(code, message));
+    }
+
+    private static Map<String, Object> body(String code, String message) {
+        return Map.of("error", Map.of("code", code, "message", message == null ? "" : message));
     }
 }
