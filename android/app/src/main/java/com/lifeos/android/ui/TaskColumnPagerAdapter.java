@@ -107,7 +107,8 @@ final class TaskColumnPagerAdapter extends RecyclerView.Adapter<TaskColumnPagerA
             cards.setItems(tasks);
             boolean isEmpty = tasks.isEmpty();
             list.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
-            empty.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+            // Not while loading: the first load would flash "No tasks" before any task arrives.
+            empty.setVisibility(isEmpty && !loading ? View.VISIBLE : View.GONE);
             refresh.setRefreshing(loading);
         }
     }
