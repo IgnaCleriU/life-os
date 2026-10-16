@@ -15,5 +15,8 @@ dist/
 build/
 .claude/
 
+# Maven
+target/
+
 # Override local de compose (en un VPS se copia desde deploy/vps/).
 docker-compose.override.yml
