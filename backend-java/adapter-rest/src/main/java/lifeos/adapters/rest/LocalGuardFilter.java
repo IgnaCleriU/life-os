@@ -28,7 +28,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *       más los nombres de {@code LIFEOS_ALLOWED_HOSTS} (por ejemplo los de
  *       Tailscale en un VPS). Bloquea el DNS rebinding: una página de
  *       {@code evil.example} que resuelve a 127.0.0.1 sigue mandando su Host.
- *   <li><b>Token:</b> toda ruta salvo {@code /health} exige
+ *   <li><b>Token:</b> toda ruta salvo {@code /health} y la web estática
+ *       ({@code /}, {@code /app/**}, ver {@link WebPaths}) exige
  *       {@code Authorization: Bearer <token>}. El host se chequea primero.
  * </ul>
  *
@@ -72,6 +73,12 @@ class LocalGuardFilter extends OncePerRequestFilter {
         if (host == null || !allowedHosts.contains(host)) {
             reject(response, HttpStatus.FORBIDDEN, "forbidden_host",
                     "The API only answers requests addressed to an allowed host.");
+            return;
+        }
+        // La web estática (/, /app, /app/**) no lleva datos personales: se sirve
+        // con el host validado pero sin token (WebPaths falla cerrado).
+        if (WebPaths.isWeb(request)) {
+            chain.doFilter(request, response);
             return;
         }
         if (token == null) {
