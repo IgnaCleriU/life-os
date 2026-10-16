@@ -57,9 +57,14 @@ class ErrorHandler {
      * Body ilegible, path o query con el tipo equivocado, o campo inválido: 422,
      * no el 400 por defecto de Spring, que chocaría con {@code domain_validation_error}.
      */
+    /** Body que no es JSON válido: mensaje estable, sin el detalle interno del parser. */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    ResponseEntity<Map<String, Object>> unreadableBody(HttpMessageNotReadableException e) {
+        return error(HttpStatus.UNPROCESSABLE_CONTENT, "request_validation_error", "El body no es JSON válido");
+    }
+
     @ExceptionHandler({
         RequestValidationException.class,
-        HttpMessageNotReadableException.class,
         MethodArgumentTypeMismatchException.class,
         MissingServletRequestParameterException.class,
         HttpMediaTypeNotSupportedException.class,
