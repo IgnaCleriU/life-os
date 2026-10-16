@@ -34,6 +34,19 @@ export function writeToken(token: string): void {
 }
 
 /**
+ * Avisa cuando otra pestaña cambia el token guardado (evento `storage`). Recibe
+ * el valor nuevo, o null si se borró. Devuelve la función para dejar de escuchar.
+ */
+export function subscribeToTokenChanges(onChange: (token: string | null) => void): () => void {
+  const listener = (event: StorageEvent) => {
+    // key null: localStorage.clear() en otra pestaña.
+    if (event.key === null || event.key === TOKEN_KEY) onChange(event.newValue)
+  }
+  window.addEventListener('storage', listener)
+  return () => window.removeEventListener('storage', listener)
+}
+
+/**
  * Borra el token solo si el guardado sigue siendo `expected`. Evita que un 401
  * tardío de un token anterior cierre la sesión del token nuevo. Devuelve si borró.
  */
