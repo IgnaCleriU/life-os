@@ -23,8 +23,24 @@ export function writeToken(token: string): void {
   try {
     window.localStorage.setItem(TOKEN_KEY, token)
   } catch {
-    // Storage no disponible: queda solo en memoria.
+    // No se pudo guardar el nuevo: si queda uno viejo en storage, se borra para
+    // que no vuelva a leerse tras recargar. El token nuevo queda en memoria.
+    try {
+      window.localStorage.removeItem(TOKEN_KEY)
+    } catch {
+      // Storage no disponible del todo.
+    }
   }
+}
+
+/**
+ * Borra el token solo si el guardado sigue siendo `expected`. Evita que un 401
+ * tardío de un token anterior cierre la sesión del token nuevo. Devuelve si borró.
+ */
+export function clearTokenIfCurrent(expected: string | null): boolean {
+  if (readToken() !== expected) return false
+  clearToken()
+  return true
 }
 
 /** Borra el token. Nunca lanza. */

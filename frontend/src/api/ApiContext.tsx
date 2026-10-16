@@ -4,8 +4,8 @@ import { ApiContext } from './useApi'
 
 interface ApiProviderProps {
   token: string
-  /** Se llama ante un 401 de cualquier ruta autenticada (la app cierra la sesión). */
-  onUnauthorized: () => void
+  /** Se llama ante un 401 de cualquier ruta autenticada, con el token que lo causó. */
+  onUnauthorized: (token: string | null) => void
   children: ReactNode
 }
 
