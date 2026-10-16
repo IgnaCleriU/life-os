@@ -150,10 +150,8 @@ class LocalGuardFilter extends OncePerRequestFilter {
             if (host.startsWith("[") && host.endsWith("]")) {
                 host = host.substring(1, host.length() - 1);
             }
-            // Un FQDN con punto final ("localhost.") es el mismo host.
-            if (host.endsWith(".")) {
-                host = host.substring(0, host.length() - 1);
-            }
+            // Sin quitar el punto final: urlsplit().hostname de Python lo conserva,
+            // así que "localhost." es 403 en los dos backends.
             return host.toLowerCase(Locale.ROOT);
         } catch (IllegalArgumentException e) {
             return null;
