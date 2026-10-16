@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Life OS</string>
+    <string name="settings">Settings</string>
+    <string name="undo">Undo</string>
+
+    <string name="title_projects">Projects</string>
+    <string name="title_board">Board</string>
+    <string name="title_settings">Settings</string>
+
+    <string name="placeholder_projects">Projects list goes here.</string>
+    <string name="placeholder_open_board">Open board (placeholder)</string>
+    <string name="placeholder_board">Task board for project %1$s goes here.</string>
+
+    <string name="url_hint">API URL</string>
+    <string name="url_helper">e.g. https://lifeos-vps.your-tailnet.ts.net</string>
+    <string name="token_hint">Token</string>
+    <string name="token_saved_hint">Token (saved; leave blank to keep it)</string>
+    <string name="test_connection">Test connection</string>
+    <string name="save">Save</string>
+
+    <string name="test_ok">Connection OK: the server answered and the token works.</string>
+    <string name="test_unreachable">Server unreachable. Check the URL, that Tailscale is connected and that the server is running.</string>
+    <string name="test_bad_token">The server rejected the token (401). Check the token.</string>
+    <string name="test_forbidden_host">The server refused this host name (403 forbidden_host). Add it to LIFEOS_ALLOWED_HOSTS on the server.</string>
+    <string name="test_error">Unexpected answer from the server.</string>
+
+    <string name="error_token_required">Enter the token.</string>
+    <string name="error_save_failed">Could not save the settings: %1$s</string>
+
+    <string name="error_network">Can\'t reach the server. Check your connection and Tailscale.</string>
+    <string name="error_unauthorized">The server rejected the token. Update it in Settings.</string>
+    <string name="error_forbidden_host">The server refused this host name. Add it to LIFEOS_ALLOWED_HOSTS on the server.</string>
+    <string name="error_forbidden">The server refused the request.</string>
+    <string name="error_not_found">Not found. It may have been deleted.</string>
+    <string name="error_project_not_empty">This project still has tasks. Delete or move them first.</string>
+    <string name="error_server">Server error (HTTP %1$d). Try again later.</string>
+    <string name="error_not_configured">Set the API URL and token in Settings first.</string>
+    <string name="error_with_server_message">%1$s</string>
+    <string name="error_unexpected">Something went wrong: %1$s</string>
+</resources>

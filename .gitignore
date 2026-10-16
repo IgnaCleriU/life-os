@@ -20,3 +20,15 @@ target/
 
 # Override local de compose (en un VPS se copia desde deploy/vps/).
 docker-compose.override.yml
+
+# Android (android/)
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/*.iml
+android/captures/
+*.jks
+*.keystore
+*.p12
