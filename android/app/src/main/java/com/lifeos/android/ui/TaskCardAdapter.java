@@ -6,6 +6,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.color.MaterialColors;
 import com.lifeos.android.R;
@@ -14,8 +15,10 @@ import com.lifeos.android.api.model.Task;
 import java.time.Clock;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /** Task cards of one board column. */
 final class TaskCardAdapter extends RecyclerView.Adapter<TaskCardAdapter.Holder> {
@@ -33,9 +36,38 @@ final class TaskCardAdapter extends RecyclerView.Adapter<TaskCardAdapter.Holder>
         this.clock = clock;
     }
 
+    /** Replaces the cards, animating only what changed so the scroll position survives reloads. */
     void setItems(List<Task> tasks) {
-        items = tasks;
-        notifyDataSetChanged();
+        List<Task> oldItems = items;
+        List<Task> newItems = new ArrayList<>(tasks);
+        DiffUtil.DiffResult diff = DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override
+            public int getOldListSize() {
+                return oldItems.size();
+            }
+
+            @Override
+            public int getNewListSize() {
+                return newItems.size();
+            }
+
+            @Override
+            public boolean areItemsTheSame(int oldPosition, int newPosition) {
+                return Objects.equals(oldItems.get(oldPosition).getId(), newItems.get(newPosition).getId());
+            }
+
+            @Override
+            public boolean areContentsTheSame(int oldPosition, int newPosition) {
+                Task a = oldItems.get(oldPosition);
+                Task b = newItems.get(newPosition);
+                return Objects.equals(a.getTitle(), b.getTitle())
+                        && Objects.equals(a.getDescription(), b.getDescription())
+                        && a.getPriority() == b.getPriority()
+                        && Objects.equals(a.getDueDate(), b.getDueDate());
+            }
+        });
+        items = newItems;
+        diff.dispatchUpdatesTo(this);
     }
 
     @NonNull
@@ -82,7 +114,12 @@ final class TaskCardAdapter extends RecyclerView.Adapter<TaskCardAdapter.Holder>
             bindPriority(context, task.getPriority());
             bindDue(context, task);
 
-            itemView.setOnClickListener(v -> listener.onTaskClicked(task));
+            itemView.setOnClickListener(v -> {
+                int position = getBindingAdapterPosition();
+                if (position != RecyclerView.NO_POSITION) {
+                    listener.onTaskClicked(items.get(position));
+                }
+            });
         }
 
         private void bindPriority(Context context, Priority value) {

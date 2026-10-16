@@ -28,6 +28,9 @@ final class TaskColumnPagerAdapter extends RecyclerView.Adapter<TaskColumnPagerA
         void onRefresh();
     }
 
+    /** Payload of an in-place refresh: lets RecyclerView reuse the page instead of recreating it. */
+    private static final Object REFRESH = new Object();
+
     private final Listener listener;
     private final Clock clock;
     private Map<TaskStatus, List<Task>> columns = Collections.emptyMap();
@@ -51,11 +54,14 @@ final class TaskColumnPagerAdapter extends RecyclerView.Adapter<TaskColumnPagerA
         }
     }
 
-    /** Replaces the tasks shown on every page and whether a reload is running. */
+    /**
+     * Replaces the tasks shown on every page and whether a reload is running. The pages are
+     * updated in place (a payload change keeps their views), so their lists keep scrolling.
+     */
     void setState(Map<TaskStatus, List<Task>> columns, boolean loading) {
         this.columns = columns;
         this.loading = loading;
-        notifyDataSetChanged();
+        notifyItemRangeChanged(0, getItemCount(), REFRESH);
     }
 
     @NonNull
