@@ -1,0 +1,87 @@
+plugins {
+    alias(libs.plugins.android.application)
+}
+
+// Release signing comes only from the environment (never from a committed
+// file). Without all four variables, any release build fails up front.
+def releaseSigningEnv = [
+        file    : System.getenv('LIFEOS_KEYSTORE_FILE'),
+        password: System.getenv('LIFEOS_KEYSTORE_PASSWORD'),
+        alias   : System.getenv('LIFEOS_KEY_ALIAS'),
+        keyPass : System.getenv('LIFEOS_KEY_PASSWORD'),
+]
+def hasReleaseSigning = releaseSigningEnv.values().every { it != null && !it.isEmpty() }
+
+android {
+    namespace 'com.lifeos.android'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.lifeos.android'
+        minSdk 26
+        targetSdk 35
+        // CI sets LIFEOS_VERSION_CODE so every build can update the previous one.
+        versionCode Integer.parseInt(System.getenv('LIFEOS_VERSION_CODE') ?: '1')
+        versionName '0.1.0'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(releaseSigningEnv.file)
+                storePassword releaseSigningEnv.password
+                keyAlias releaseSigningEnv.alias
+                keyPassword releaseSigningEnv.keyPass
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    buildFeatures {
+        viewBinding true
+    }
+
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+}
+
+gradle.taskGraph.whenReady { graph ->
+    def releaseRequested = graph.allTasks.any {
+        it.path in [':app:assembleRelease', ':app:bundleRelease', ':app:packageRelease']
+    }
+    if (releaseRequested && !hasReleaseSigning) {
+        throw new GradleException(
+                'Release signing is not configured. Set LIFEOS_KEYSTORE_FILE, LIFEOS_KEYSTORE_PASSWORD, ' +
+                'LIFEOS_KEY_ALIAS and LIFEOS_KEY_PASSWORD, or build ' +
+                'a debug APK with ./gradlew assembleDebug.')
+    }
+}
+
+dependencies {
+    implementation libs.androidx.appcompat
+    implementation libs.androidx.fragment
+    implementation libs.androidx.recyclerview
+    implementation libs.androidx.swiperefreshlayout
+    implementation libs.material
+    implementation libs.okhttp
+    implementation libs.gson
+
+    testImplementation libs.junit
+    testImplementation libs.okhttp.mockwebserver
+}
