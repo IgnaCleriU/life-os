@@ -59,12 +59,16 @@ def install_local_guard(
 ) -> None:
     """Registra el middleware de token + host en `app`.
 
-    Con `api_token=None` la guardia sigue activa pero rechaza todo: es el
+    Con `api_token=None` (o en blanco) la guardia sigue activa pero rechaza todo: es el
     caso de un `uvicorn` lanzado a mano sin token, y fallar cerrado es
     preferible a quedar abierto sin avisar. `extra_hosts` se suma a loopback
     y se espera ya normalizado (minúsculas, sin punto final).
     """
     allowed_hosts = LOOPBACK_HOSTS | extra_hosts
+    # Un token en blanco (`LIFEOS_API_TOKEN=` en el `.env`) cuenta como
+    # ausente: si no, `Authorization: Bearer ` sin nada pasaría la comparación.
+    if api_token is not None and not api_token.strip():
+        api_token = None
 
     @app.middleware("http")
     async def local_guard(
