@@ -1,6 +1,7 @@
 import { ApiProvider } from './api/ApiContext'
 import LoginScreen from './auth/LoginScreen'
 import { useSession } from './auth/useSession'
+import ProjectsPage from './projects/ProjectsPage'
 
 export default function App() {
   const { token, verified, login, logout, handleUnauthorized } = useSession()
@@ -31,7 +32,7 @@ export default function App() {
         </button>
       </header>
       <main className="app-main">
-        <p>Nada por aquí todavía.</p>
+        <ProjectsPage />
       </main>
     </ApiProvider>
   )
