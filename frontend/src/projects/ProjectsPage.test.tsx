@@ -160,6 +160,21 @@ describe('ProjectsPage selection', () => {
     expect(window.location.hash).toBe('#/projects/p2')
   })
 
+  it('keeps a hash selection when loading it fails and offers a retry', async () => {
+    window.history.replaceState(null, '', '#/projects/p2')
+    const api = createMockApi([CASA, VIAJE])
+    api.getProject.mockRejectedValueOnce(new ApiError(500, 'internal_error', 'Servidor caído'))
+    renderPage(api)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Servidor caído')
+    expect(window.location.hash).toBe('#/projects/p2')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Viaje' })).toBeInTheDocument()
+    expect(api.getProject).toHaveBeenCalledTimes(2)
+  })
+
   it('drops a hash selection whose project no longer exists', async () => {
     window.history.replaceState(null, '', '#/projects/gone')
     renderPage(createMockApi([CASA]))
@@ -197,6 +212,24 @@ describe('ProjectsPage after an action', () => {
     )
     expect(screen.getByRole('heading', { level: 2, name: 'Casa 2' })).toBeInTheDocument()
     expect(window.location.hash).toBe('#/projects/p1')
+  })
+
+  it('shows the updated project from the action response before the list reloads', async () => {
+    const store = [{ ...CASA }]
+    const api = createMockApi(store)
+    renderPage(api)
+    fireEvent.click(await screen.findByRole('button', { name: 'Casa' }))
+    // Las recargas de la lista quedan colgadas: lo que se ve debe venir de la respuesta de PATCH.
+    api.listProjects.mockImplementation(() => new Promise<Project[]>(() => undefined))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }))
+    fireEvent.change(screen.getByLabelText('Nombre', { selector: '#edit-project-name' }), {
+      target: { value: 'Casa 2' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Casa 2' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Casa 2' })).toHaveAttribute('aria-current', 'true')
   })
 
   it('removes the project from the list and clears the selection when it leaves the filter', async () => {
