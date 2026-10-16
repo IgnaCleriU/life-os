@@ -1,0 +1,20 @@
+# Contexto de build en la raíz del repo (backend-java/Dockerfile). El backend
+# Python usa ./backend como contexto y no lo ve.
+.git
+.github
+.claude
+.env
+**/.venv
+**/node_modules
+**/target
+**/dist
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/.idea
+**/*.iml
+**/*.db
+docs
+desktop
+deploy
+.dockerignore
