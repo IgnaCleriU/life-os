@@ -49,10 +49,12 @@ public class ProjectBoardFragment extends BaseFragment implements TaskEditDialog
     private ProjectBoardViewModel state;
 
     /** The tasks split into columns by the last {@link #render()}; the tab titles read it. */
-    private Map<TaskStatus, List<Task>> columns = Map.of();
+    private Map<TaskStatus, List<Task>> columns = TaskColumns.split(List.of());
     private int loadSeq;
     private int appliedSeq;
     private Async.Call loadCall;
+    /** Whether the load in flight also fetches the project name. */
+    private boolean loadFetchesProject;
 
     public static ProjectBoardFragment newInstance(String projectId) {
         ProjectBoardFragment fragment = new ProjectBoardFragment();
@@ -94,7 +96,10 @@ public class ProjectBoardFragment extends BaseFragment implements TaskEditDialog
             }
         }, clock);
         pager.setAdapter(columnAdapter);
-        tabMediator = new TabLayoutMediator(tabs, pager, (tab, position) ->
+        // The tab titles read the columns: fill them from the saved state before the tabs exist.
+        columns = TaskColumns.split(state.getTasks());
+        // No auto refresh: the mediator only creates the tabs; render() retitles them in place.
+        tabMediator = new TabLayoutMediator(tabs, pager, false, true, (tab, position) ->
                 tab.setText(tabTitle(position)));
         tabMediator.attach();
 
@@ -125,6 +130,8 @@ public class ProjectBoardFragment extends BaseFragment implements TaskEditDialog
             tabMediator.detach();
             tabMediator = null;
         }
+        loadCall = null;
+        loadFetchesProject = false;
         super.onDestroyView();
     }
 
@@ -139,19 +146,24 @@ public class ProjectBoardFragment extends BaseFragment implements TaskEditDialog
      * sequence check stays as a backstop.
      */
     void loadBoard(boolean withProject) {
-        if (loadCall != null) {
-            loadCall.cancel();
-        }
+        // A tasks-only reload must not drop the project-name fetch it replaces.
+        boolean fetchProject = withProject || (loadCall != null && loadFetchesProject);
+        cancel(loadCall);
+        loadFetchesProject = fetchProject;
         int seq = ++loadSeq;
         String projectId = getProjectId();
         setLoading(true);
         loadCall = async(() -> {
-            Project project = withProject ? api().getProject(projectId) : null;
+            Project project = fetchProject ? api().getProject(projectId) : null;
             List<Task> all = api().listProjectTasks(projectId, TaskQuery.all());
             return new Board(project, all);
         }, new Async.Callback<Board>() {
             @Override
             public void onSuccess(Board board) {
+                if (seq == loadSeq) {
+                    loadCall = null;
+                    loadFetchesProject = false;
+                }
                 if (seq < appliedSeq) {
                     return;
                 }
@@ -167,6 +179,8 @@ public class ProjectBoardFragment extends BaseFragment implements TaskEditDialog
             @Override
             public void onError(Throwable error) {
                 if (seq == loadSeq) {
+                    loadCall = null;
+                    loadFetchesProject = false;
                     setLoading(false);
                 }
                 showError(error);
@@ -311,12 +325,8 @@ public class ProjectBoardFragment extends BaseFragment implements TaskEditDialog
             createTask(draft);
             return;
         }
-        for (Task task : state.getTasks()) {
-            if (taskId.equals(task.getId())) {
-                saveChanges(task, draft);
-                return;
-            }
-        }
+        // Everything needed travels in the result: no lookup in the (possibly reloaded) cache.
+        saveChanges(taskId, TaskEditDialog.originalFrom(result), draft);
     }
 
     private void createTask(TaskDraft draft) {
@@ -343,12 +353,13 @@ public class ProjectBoardFragment extends BaseFragment implements TaskEditDialog
     }
 
     /** Sends only the fields that changed; an unchanged form makes no call. */
-    private void saveChanges(Task task, TaskDraft draft) {
-        TaskPatch patch = draft.changesFrom(task);
+    private void saveChanges(String taskId, TaskDraft original, TaskDraft draft) {
+        // Diffed against what the user saw when opening the form, so fields edited elsewhere
+        // since then are not overwritten. A deleted task answers 404, shown by runThenReload.
+        TaskPatch patch = draft.changesFrom(original);
         if (patch.isEmpty()) {
             return;
         }
-        String taskId = task.getId();
         runThenReload(() -> api().updateTask(taskId, patch));
     }
 
@@ -378,9 +389,14 @@ public class ProjectBoardFragment extends BaseFragment implements TaskEditDialog
             return;
         }
         columns = TaskColumns.split(state.getTasks());
-        // The adapter change also makes TabLayoutMediator rebuild the tabs from tabTitle(),
-        // which reads the columns just computed: one split per render.
         columnAdapter.setState(columns, state.isLoading());
+        // Retitle the existing tabs in place (the mediator does not rebuild them).
+        for (int i = 0; i < tabs.getTabCount(); i++) {
+            TabLayout.Tab tab = tabs.getTabAt(i);
+            if (tab != null) {
+                tab.setText(tabTitle(i));
+            }
+        }
     }
 
     /** Tab label: the column name and how many tasks it holds. */
