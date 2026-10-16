@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { ApiProvider } from './api/ApiContext'
 import LoginScreen from './auth/LoginScreen'
 import { clearToken, clearTokenIfCurrent, readToken } from './auth/token'
+import ProjectsPage from './projects/ProjectsPage'
 
 export default function App() {
   const [token, setToken] = useState<string | null>(() => readToken())
@@ -32,7 +33,7 @@ export default function App() {
         </button>
       </header>
       <main className="app-main">
-        <p>Nada por aquí todavía.</p>
+        <ProjectsPage />
       </main>
     </ApiProvider>
   )
