@@ -13,7 +13,9 @@ function messageFor(error: unknown): string {
     if (error.status === 403) {
       return 'Este host no está en LIFEOS_ALLOWED_HOSTS de la API'
     }
+    return `La API devolvió un error (${error.status})`
   }
+  // Sin respuesta HTTP (red caída, CORS, API apagada).
   return 'No se pudo conectar con la API'
 }
 
