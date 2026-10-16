@@ -82,7 +82,7 @@ public class ProjectBoardFragment extends BaseFragment {
 
             @Override
             public void onRefresh() {
-                loadBoard();
+                loadBoard(true);
             }
         }, clock);
         pager.setAdapter(columnAdapter);
@@ -94,7 +94,8 @@ public class ProjectBoardFragment extends BaseFragment {
         newTask.setOnClickListener(v -> showEditor(null));
 
         render();
-        loadBoard();
+        // The name is only fetched when the ViewModel does not have it yet (first open).
+        loadBoard(state.getProjectName() == null);
     }
 
     @Override
@@ -116,11 +117,17 @@ public class ProjectBoardFragment extends BaseFragment {
         super.onDestroyView();
     }
 
+    /** Reloads the tasks only: the project name does not change after an action on a task. */
+    void loadBoard() {
+        loadBoard(false);
+    }
+
     /**
-     * Loads the project name and all of its tasks. A newer request cancels the one in flight; the
+     * Loads all tasks of the project, and its name too when {@code withProject} (first load and
+     * pull-to-refresh) in the same background call. A newer request cancels the one in flight; the
      * sequence check stays as a backstop.
      */
-    void loadBoard() {
+    void loadBoard(boolean withProject) {
         if (loadCall != null) {
             loadCall.cancel();
         }
@@ -128,7 +135,7 @@ public class ProjectBoardFragment extends BaseFragment {
         String projectId = getProjectId();
         setLoading(true);
         loadCall = async(() -> {
-            Project project = api().getProject(projectId);
+            Project project = withProject ? api().getProject(projectId) : null;
             List<Task> all = api().listProjectTasks(projectId, TaskQuery.all());
             return new Board(project, all);
         }, new Async.Callback<Board>() {
@@ -138,9 +145,11 @@ public class ProjectBoardFragment extends BaseFragment {
                     return;
                 }
                 appliedSeq = seq;
-                state.setProjectName(board.project.getName());
+                if (board.project != null) {
+                    state.setProjectName(board.project.getName());
+                    setTitle(board.project.getName());
+                }
                 state.setTasks(board.tasks);
-                setTitle(board.project.getName());
                 setLoading(false);
             }
 
@@ -364,12 +373,12 @@ public class ProjectBoardFragment extends BaseFragment {
         return getString(R.string.task_tab_title, getString(TaskColumnPagerAdapter.titleRes(status)), count);
     }
 
-    /** Result of the board load: the project and every task in it. */
+    /** Result of the board load: the project (null when only tasks were reloaded) and every task. */
     private static final class Board {
-        final Project project;
+        @Nullable final Project project;
         final List<Task> tasks;
 
-        Board(Project project, List<Task> tasks) {
+        Board(@Nullable Project project, List<Task> tasks) {
             this.project = project;
             this.tasks = tasks;
         }
