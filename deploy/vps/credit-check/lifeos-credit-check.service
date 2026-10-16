@@ -1,0 +1,14 @@
+# Consulta el crédito de Azure que le queda al VPS (credit_check.py) y deja el
+# reporte en /var/lib/lifeos/credit.json. Lo dispara lifeos-credit-check.timer.
+[Unit]
+Description=Life OS: chequeo del crédito de Azure restante
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+DynamicUser=yes
+StateDirectory=lifeos
+EnvironmentFile=/etc/lifeos/credit-check.env
+Environment=LIFEOS_CREDIT_STATE=/var/lib/lifeos/credit.json
+ExecStart=/usr/bin/python3 /usr/local/lib/lifeos/credit_check.py
