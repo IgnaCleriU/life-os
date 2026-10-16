@@ -110,14 +110,18 @@ class LocalGuardFilter extends OncePerRequestFilter {
         response.getWriter().write("{\"error\":{\"code\":\"" + code + "\",\"message\":\"" + message + "\"}}");
     }
 
-    /** {@code enabled} (por defecto) o {@code disabled}; cualquier otro valor es un error de configuración. */
+    /**
+     * Exactamente {@code enabled} o {@code disabled}, como el {@code Literal} de Python:
+     * sin recortar ni pasar a minúsculas. Cualquier otro valor, incluido el vacío,
+     * es un error de configuración. (El valor por defecto lo pone el placeholder
+     * de {@code application.properties}.)
+     */
     static boolean parseAuth(String value) {
-        String normalized = value == null ? "" : value.strip().toLowerCase(Locale.ROOT);
-        return switch (normalized) {
-            case "", "enabled" -> true;
+        return switch (value == null ? "" : value) {
+            case "enabled" -> true;
             case "disabled" -> false;
             default -> throw new IllegalArgumentException(
-                    "LIFEOS_API_AUTH debe ser 'enabled' o 'disabled', no: " + value);
+                    "LIFEOS_API_AUTH debe ser exactamente 'enabled' o 'disabled', no: '" + value + "'");
         };
     }
 
