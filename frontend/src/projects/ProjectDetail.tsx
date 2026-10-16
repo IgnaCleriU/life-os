@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { ApiError } from '../api/client'
 import { errorMessage } from '../api/errorMessage'
 import type { Project } from '../api/types'
 import { useApi } from '../api/useApi'
@@ -11,15 +12,29 @@ function formatCreatedAt(iso: string): string {
   return Number.isNaN(date.getTime()) ? iso : CREATED_FORMAT.format(date)
 }
 
+/** Resultado de una acción sobre un proyecto, para que la página actualice su estado. */
+export type ProjectChange =
+  | { type: 'updated'; project: Project }
+  /** Eliminado por esta acción. */
+  | { type: 'deleted'; id: string }
+  /** La API respondió 404: ya no existe (p. ej. se eliminó desde otro cliente). */
+  | { type: 'missing'; id: string }
+
 interface ProjectDetailProps {
   project: Project
-  /** Se llama tras una acción con el proyecto actualizado, o con null si se eliminó. */
-  onChanged: (project: Project | null) => void
+  onChanged: (change: ProjectChange) => void
+  /** Avisa si hay una edición con cambios sin guardar. */
+  onDirtyChange?: (dirty: boolean) => void
   /** Contenido de la sección "Tablero" (el próximo cambio lo reemplaza por el kanban). */
   children?: ReactNode
 }
 
-export default function ProjectDetail({ project, onChanged, children }: ProjectDetailProps) {
+export default function ProjectDetail({
+  project,
+  onChanged,
+  onDirtyChange,
+  children,
+}: ProjectDetailProps) {
   const api = useApi()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState('')
@@ -31,6 +46,12 @@ export default function ProjectDetail({ project, onChanged, children }: ProjectD
   const nameInputRef = useRef<HTMLInputElement>(null)
   // Tras guardar, cambiar de estado o cancelar, el foco vuelve al título cuando el proyecto sigue visible.
   const focusHeadingNext = useRef(false)
+  const dirty = editing && (name !== project.name || description !== (project.description ?? ''))
+
+  useEffect(() => {
+    onDirtyChange?.(dirty)
+    return () => onDirtyChange?.(false)
+  }, [dirty, onDirtyChange])
 
   // Editar: el foco va al campo de nombre.
   useEffect(() => {
@@ -63,9 +84,13 @@ export default function ProjectDetail({ project, onChanged, children }: ProjectD
     try {
       const result = await action()
       focusHeadingNext.current = result !== null
-      onChanged(result)
+      onChanged(result ? { type: 'updated', project: result } : { type: 'deleted', id: project.id })
     } catch (error) {
-      setActionError(errorMessage(error))
+      if (error instanceof ApiError && error.status === 404) {
+        onChanged({ type: 'missing', id: project.id })
+      } else {
+        setActionError(errorMessage(error))
+      }
     } finally {
       setBusy(false)
     }

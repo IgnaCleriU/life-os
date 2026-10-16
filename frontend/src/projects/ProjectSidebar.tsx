@@ -17,6 +17,8 @@ interface ProjectSidebarProps {
   onCreated: (project: Project) => void
   /** Título de la lista: destino del foco cuando el proyecto seleccionado desaparece. */
   headingRef: RefObject<HTMLHeadingElement | null>
+  /** Pide confirmación antes de cambiar de proyecto (si hay una edición sin guardar). */
+  confirmDiscard: () => boolean
 }
 
 export default function ProjectSidebar({
@@ -30,6 +32,7 @@ export default function ProjectSidebar({
   onRetry,
   onCreated,
   headingRef,
+  confirmDiscard,
 }: ProjectSidebarProps) {
   return (
     <aside className="project-sidebar" aria-label="Proyectos">
@@ -87,12 +90,18 @@ export default function ProjectSidebar({
         )}
       </div>
 
-      <NewProjectForm onCreated={onCreated} />
+      <NewProjectForm onCreated={onCreated} confirmDiscard={confirmDiscard} />
     </aside>
   )
 }
 
-function NewProjectForm({ onCreated }: { onCreated: (project: Project) => void }) {
+function NewProjectForm({
+  onCreated,
+  confirmDiscard,
+}: {
+  onCreated: (project: Project) => void
+  confirmDiscard: () => boolean
+}) {
   const api = useApi()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -106,6 +115,8 @@ function NewProjectForm({ onCreated }: { onCreated: (project: Project) => void }
       setFormError('Ingresá un nombre para el proyecto.')
       return
     }
+    // Crear un proyecto cambia la selección: antes se confirma si hay una edición sin guardar.
+    if (!confirmDiscard()) return
     setSaving(true)
     setFormError(null)
     try {
