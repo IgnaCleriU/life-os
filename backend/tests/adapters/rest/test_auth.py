@@ -89,6 +89,47 @@ def test_other_hosts_are_403_even_with_the_token(
     assert _error_code(response) == "forbidden_host"
 
 
+class TestExtraAllowedHosts:
+    """Un VPS detrás de Tailscale Serve recibe `Host: lifeos-vps…` (ADR 0010).
+
+    Esos nombres se suman a loopback de forma explícita; el token se sigue
+    exigiendo igual.
+    """
+
+    EXTRA = frozenset({"lifeos-vps", "lifeos-vps.tailnet.ts.net"})
+
+    @pytest.fixture
+    def vps(self, engine):
+        with make_client(
+            engine, api_token=TOKEN, auth_enabled=True, extra_hosts=self.EXTRA
+        ) as client:
+            yield client
+
+    @pytest.mark.parametrize(
+        "host", ["lifeos-vps", "lifeos-vps.tailnet.ts.net:443", "LIFEOS-VPS"]
+    )
+    def test_configured_hosts_are_accepted(self, vps: TestClient, host: str) -> None:
+        response = vps.get("/projects", headers={**AUTH, "Host": host})
+
+        assert response.status_code == 200
+
+    def test_loopback_is_still_accepted(self, vps: TestClient) -> None:
+        response = vps.get("/projects", headers={**AUTH, "Host": "localhost:8000"})
+
+        assert response.status_code == 200
+
+    def test_other_hosts_are_still_403(self, vps: TestClient) -> None:
+        response = vps.get("/projects", headers={**AUTH, "Host": "evil.example"})
+
+        assert response.status_code == 403
+        assert _error_code(response) == "forbidden_host"
+
+    def test_configured_hosts_still_need_the_token(self, vps: TestClient) -> None:
+        response = vps.get("/projects", headers={"Host": "lifeos-vps"})
+
+        assert response.status_code == 401
+
+
 def test_cors_preflight_is_rejected_without_cors_headers(guarded: TestClient) -> None:
     response = guarded.options(
         "/projects",
@@ -137,6 +178,28 @@ class TestSettings:
 
         with make_client(engine) as client:
             assert client.get("/projects", headers=AUTH).status_code == 200
+
+    def test_extra_hosts_from_the_environment(self, engine, monkeypatch) -> None:
+        monkeypatch.delenv("LIFEOS_API_AUTH", raising=False)
+        monkeypatch.setenv("LIFEOS_API_TOKEN", TOKEN)
+        monkeypatch.setenv("LIFEOS_ALLOWED_HOSTS", " lifeos-vps , VPS.tailnet.ts.net.")
+
+        with make_client(engine) as client:
+            for host in ("lifeos-vps", "vps.tailnet.ts.net"):
+                response = client.get("/projects", headers={**AUTH, "Host": host})
+                assert response.status_code == 200, host
+            response = client.get("/projects", headers={**AUTH, "Host": "evil.example"})
+            assert response.status_code == 403
+
+    def test_no_extra_hosts_by_default(self, engine, monkeypatch) -> None:
+        monkeypatch.delenv("LIFEOS_API_AUTH", raising=False)
+        monkeypatch.delenv("LIFEOS_ALLOWED_HOSTS", raising=False)
+        monkeypatch.setenv("LIFEOS_API_TOKEN", TOKEN)
+
+        with make_client(engine) as client:
+            response = client.get("/projects", headers={**AUTH, "Host": "lifeos-vps"})
+
+        assert response.status_code == 403
 
     def test_auth_can_be_disabled_explicitly(self, engine, monkeypatch) -> None:
         monkeypatch.setenv("LIFEOS_API_AUTH", "disabled")
