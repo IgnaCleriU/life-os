@@ -50,6 +50,7 @@ public class ProjectBoardFragment extends BaseFragment {
     private boolean loading;
     private int loadSeq;
     private int appliedSeq;
+    private Async.Call loadCall;
 
     public static ProjectBoardFragment newInstance(String projectId) {
         ProjectBoardFragment fragment = new ProjectBoardFragment();
@@ -115,12 +116,18 @@ public class ProjectBoardFragment extends BaseFragment {
         super.onDestroyView();
     }
 
-    /** Loads the project name and all of its tasks; the newest response wins. */
+    /**
+     * Loads the project name and all of its tasks. A newer request cancels the one in flight; the
+     * sequence check stays as a backstop.
+     */
     void loadBoard() {
+        if (loadCall != null) {
+            loadCall.cancel();
+        }
         int seq = ++loadSeq;
         String projectId = getProjectId();
         setLoading(true);
-        async(() -> {
+        loadCall = async(() -> {
             Project project = api().getProject(projectId);
             List<Task> all = api().listProjectTasks(projectId, TaskQuery.all());
             return new Board(project, all);
