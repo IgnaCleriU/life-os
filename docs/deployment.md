@@ -110,6 +110,47 @@ A VM that is shut down from inside (`sudo shutdown`) is *stopped*, not
 deallocated, and **its compute is still billed**. Use `stop` or the
 portal's Stop button instead.
 
+### Daily credit check
+
+[`deploy/vps/credit-check/`](../deploy/vps/credit-check/) holds a
+stdlib-only Python script that checks how much Azure credit is left. It runs
+every day at 12:00 Argentina time (`lifeos-credit-check.timer`). If the VM
+was deallocated at that time, `Persistent=true` runs it right after the next
+boot.
+
+- **Where the result goes:** it logs to the journal
+  (`journalctl -u lifeos-credit-check`), at warning priority when the
+  balance is below `LIFEOS_CREDIT_THRESHOLD` (USD 10 by default). It also
+  writes `/var/lib/lifeos/credit.json`
+  (`{balance, currency, threshold, low, checked_at}`). That file is what
+  the web and Android apps will read to notify devices.
+- **Installation:** the cloud-init bootstrap installs it. The timer stays
+  off until you fill in `/etc/lifeos/credit-check.env` with your billing
+  profile scope. To find it, run:
+
+  ```sh
+  az billing account list --query "[].name" -o tsv              # <account>
+  az rest --method get --url "https://management.azure.com/providers/Microsoft.Billing/billingAccounts/<account>/billingProfiles?api-version=2024-04-01" --query "value[].name" -o tsv   # <profile>
+  ```
+
+- **Permissions, a one-time step you run yourself.** The script
+  authenticates with the VM's managed identity, so there are no secrets on
+  disk. That identity needs read-only access to billing. Run this from your
+  machine:
+
+  ```sh
+  PID=$(az vm identity assign -g rg-lifeos -n vm-lifeos --query systemAssignedIdentity -o tsv)
+  BP=/providers/Microsoft.Billing/billingAccounts/<account>/billingProfiles/<profile>
+  az rest --method post --url "https://management.azure.com$BP/createBillingRoleAssignment?api-version=2024-04-01" \
+    --body "{\"principalId\":\"$PID\",\"principalTenantId\":\"$(az account show --query tenantId -o tsv)\",\"roleDefinitionId\":\"$BP/billingRoleDefinitions/40000000-aaaa-bbbb-cccc-100000000002\"}"
+  ```
+
+  The role ID ending in `…0002` is *Billing profile reader*. Until this is
+  done, each run fails with `Identity not found`.
+
+- **Tests:** they run without network, with
+  `cd backend && uv run pytest ../deploy/vps/credit-check`.
+
 ## Operating the VPS
 
 - **Update the app:** run

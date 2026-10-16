@@ -1,0 +1,11 @@
+# Todos los días a las 12:00 de Argentina. `Persistent` lo corre al arrancar si
+# la VM estaba desasignada a esa hora (se apaga sola a la 1 AM).
+[Unit]
+Description=Life OS: chequeo diario del crédito de Azure
+
+[Timer]
+OnCalendar=*-*-* 12:00:00 America/Argentina/Cordoba
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -39,5 +39,6 @@ write_files:
       fi
       chown -R "$USER_NAME:$USER_NAME" "$REPO_DIR"
       cd "$REPO_DIR" && docker compose up -d --build
+      sh "$REPO_DIR/deploy/vps/credit-check/install.sh"
 runcmd:
   - [/opt/lifeos/bootstrap.sh, azureuser]
