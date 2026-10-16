@@ -7,8 +7,8 @@ import type { StatusFilter } from './projectStatus'
 const ALL_STATUSES: readonly ProjectStatus[] = ['active', 'completed', 'archived']
 
 interface ProjectsResult {
-  /** Clave de la petición que produjo este resultado (filtro + recargas). */
-  key: string
+  /** Número de la petición que produjo este resultado. */
+  key: number
   filter: StatusFilter
   projects: Project[]
   error: string | null
@@ -21,9 +21,12 @@ interface ProjectsResult {
  */
 export function useProjects(filter: StatusFilter) {
   const api = useApi()
-  const [reloads, setReloads] = useState(0)
+  // Cada cambio de filtro y cada recarga es una petición nueva con un número mayor, así volver
+  // a un filtro anterior no se confunde con el resultado viejo.
+  const [request, setRequest] = useState({ id: 0, filter })
+  if (request.filter !== filter) setRequest({ id: request.id + 1, filter })
+  const requestId = request.id
   const [result, setResult] = useState<ProjectsResult | null>(null)
-  const key = `${filter}:${reloads}`
 
   useEffect(() => {
     let stale = false
@@ -31,25 +34,25 @@ export function useProjects(filter: StatusFilter) {
     const status = filter === 'all' ? ALL_STATUSES : filter
     api.listProjects({ status }).then(
       (projects) => {
-        if (!stale) setResult({ key, filter, projects, error: null })
+        if (!stale) setResult({ key: requestId, filter, projects, error: null })
       },
       (error: unknown) => {
-        if (!stale) setResult({ key, filter, projects: [], error: errorMessage(error) })
+        if (!stale) setResult({ key: requestId, filter, projects: [], error: errorMessage(error) })
       },
     )
     return () => {
       stale = true
     }
-  }, [api, filter, key])
+  }, [api, filter, requestId])
 
   const current = result && result.filter === filter ? result : null
-  const loading = result?.key !== key
+  const loading = result?.key !== requestId
 
   return {
     projects: current?.projects ?? [],
     loading,
     error: !loading && current ? current.error : null,
-    reload: () => setReloads((count) => count + 1),
+    reload: () => setRequest((previous) => ({ id: previous.id + 1, filter: previous.filter })),
     /** Reemplaza en la lista un proyecto ya cargado (si está), sin esperar a una recarga. */
     replaceProject: (project: Project) =>
       setResult((previous) =>
