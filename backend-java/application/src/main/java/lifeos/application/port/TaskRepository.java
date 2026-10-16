@@ -33,6 +33,12 @@ public interface TaskRepository {
     /** Devuelve las tareas vivas que cumplen todos los filtros dados. */
     List<Task> list(TaskFilter filter);
 
+    /**
+     * Si el proyecto tiene alguna tarea viva. Lo usa {@code DeleteProject}: no
+     * hace falta cargar la lista entera para saber si está vacía.
+     */
+    boolean hasLiveTasks(UUID projectId);
+
     /** Persiste los cambios de una tarea existente; lanza {@link TaskNotFoundException} si ya no existe. */
     void update(Task task);
 }

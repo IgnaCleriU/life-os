@@ -84,6 +84,14 @@ public class SqliteTaskRepository implements TaskRepository {
         return jdbc.sql(sql.toString()).params(params).query(SqliteTaskRepository::toDomain).list();
     }
 
+    @Override
+    public boolean hasLiveTasks(UUID projectId) {
+        return jdbc.sql("SELECT EXISTS(" + LIVE + " AND project_id = ? LIMIT 1)")
+                .param(projectId.toString())
+                .query(Boolean.class)
+                .single();
+    }
+
     /**
      * Persiste el estado completo de una tarea existente con un {@code UPDATE} de
      * las columnas conocidas, nunca un {@code REPLACE}: las columnas que agregan

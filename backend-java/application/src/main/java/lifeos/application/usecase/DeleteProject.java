@@ -2,7 +2,6 @@ package lifeos.application.usecase;
 
 import java.util.UUID;
 import lifeos.application.port.ProjectRepository;
-import lifeos.application.port.TaskFilter;
 import lifeos.application.port.TaskRepository;
 import lifeos.domain.Project;
 import lifeos.domain.ProjectNotEmptyException;
@@ -29,7 +28,7 @@ public class DeleteProject {
     public Project execute(UUID projectId) {
         Project project = projectRepo.get(projectId)
                 .orElseThrow(() -> new ProjectNotFoundException(projectId));
-        if (!taskRepo.list(TaskFilter.all().inProject(projectId)).isEmpty()) {
+        if (taskRepo.hasLiveTasks(projectId)) {
             throw new ProjectNotEmptyException(projectId);
         }
 

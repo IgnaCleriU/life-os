@@ -45,6 +45,12 @@ public class InMemoryTaskRepository implements TaskRepository {
     }
 
     @Override
+    public boolean hasLiveTasks(UUID projectId) {
+        return tasks.values().stream()
+                .anyMatch(task -> !task.isDeleted() && task.projectId().equals(projectId));
+    }
+
+    @Override
     public void update(Task task) {
         if (!tasks.containsKey(task.id())) {
             throw new TaskNotFoundException(task.id());
