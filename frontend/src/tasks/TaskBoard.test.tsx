@@ -224,6 +224,9 @@ function dataTransfer() {
       data[type] = value
     },
     getData: (type: string) => data[type] ?? '',
+    get types() {
+      return Object.keys(data)
+    },
     effectAllowed: 'all',
     dropEffect: 'none',
   }
@@ -491,4 +494,156 @@ describe('TaskBoard editor', () => {
     expect(api.deleteTask).not.toHaveBeenCalled()
     expect(screen.getByText('En marcha')).toBeInTheDocument()
   })
+
+  it('keeps the dialog open on Escape while saving, so the error is visible', async () => {
+    const api = createMockApi()
+    let fail: (error: Error) => void = () => {}
+    api.updateTask.mockImplementationOnce(() => new Promise<Task>((_, reject) => (fail = reject)))
+    renderBoard(api)
+    await screen.findByText('En marcha')
+    const dialog = await openEditor('En marcha')
+
+    fireEvent.change(dialog.getByLabelText('Título'), { target: { value: 'Otro' } })
+    fireEvent.click(dialog.getByRole('button', { name: 'Guardar' }))
+    const cancel = new Event('cancel', { cancelable: true })
+    screen.getByRole('dialog').dispatchEvent(cancel)
+
+    expect(cancel.defaultPrevented).toBe(true)
+    fail(new ApiError(500, 'boom', 'Se cayó'))
+    expect(await dialog.findByRole('alert')).toHaveTextContent('Se cayó')
+
+    // Con el guardado terminado, Escape sí cierra.
+    screen.getByRole('dialog').dispatchEvent(new Event('cancel', { cancelable: true }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+
+  it('returns focus to the card that opened the dialog', async () => {
+    renderBoard(createMockApi())
+    await screen.findByText('En marcha')
+    const opener = within(card('En marcha')).getByRole('button', { name: 'En marcha' })
+    opener.focus()
+    const dialog = await openEditor('En marcha')
+
+    fireEvent.click(dialog.getByRole('button', { name: 'Cancelar' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(opener).toHaveFocus()
+  })
+
+  it('does not resend an unchanged description that has trailing spaces', async () => {
+    const api = createMockApi([task({ id: 'd1', title: 'Con espacio', description: 'Texto  ' })])
+    renderBoard(api)
+    await screen.findByText('Con espacio')
+    const dialog = await openEditor('Con espacio')
+
+    fireEvent.change(dialog.getByLabelText('Título'), { target: { value: 'Nuevo' } })
+    fireEvent.click(dialog.getByRole('button', { name: 'Guardar' }))
+
+    await waitFor(() => expect(api.updateTask).toHaveBeenCalledWith('d1', { title: 'Nuevo' }))
+  })
 })
+
+describe('TaskBoard robustness', () => {
+  it('overlapping moves of one card: only the latest request decides the state', async () => {
+    const api = createMockApi()
+    const first = deferred<Task>()
+    const second = deferred<Task>()
+    api.startTask.mockImplementationOnce(() => first.promise)
+    api.completeTask.mockImplementationOnce(() => second.promise)
+    renderBoard(api)
+    await screen.findByText('En marcha')
+
+    fireEvent.click(
+      within(card('Baja sin fecha')).getByRole('button', { name: 'Mover a En curso' }),
+    )
+    fireEvent.click(within(card('Baja sin fecha')).getByRole('button', { name: 'Mover a Hecho' }))
+    expect(titlesIn('Hecho')).toContain('Baja sin fecha')
+
+    // La segunda responde primero; la primera llega tarde (ok) y no debe pisarla.
+    second.resolve(task({ id: 't1', title: 'Baja sin fecha', priority: 'low', status: 'done' }))
+    await waitFor(() => expect(api.completeTask).toHaveBeenCalled())
+    first.resolve(task({ id: 't1', title: 'Baja sin fecha', priority: 'low', status: 'doing' }))
+    await Promise.resolve()
+    await waitFor(() => expect(titlesIn('Hecho')).toContain('Baja sin fecha'))
+    expect(titlesIn('En curso')).not.toContain('Baja sin fecha')
+  })
+
+  it('a failed latest move reverts to the last confirmed state, not the pre-click one', async () => {
+    const api = createMockApi()
+    const first = deferred<Task>()
+    const second = deferred<Task>()
+    api.startTask.mockImplementationOnce(() => first.promise)
+    api.completeTask.mockImplementationOnce(() => second.promise)
+    renderBoard(api)
+    await screen.findByText('En marcha')
+
+    fireEvent.click(
+      within(card('Baja sin fecha')).getByRole('button', { name: 'Mover a En curso' }),
+    )
+    fireEvent.click(within(card('Baja sin fecha')).getByRole('button', { name: 'Mover a Hecho' }))
+    first.resolve(task({ id: 't1', title: 'Baja sin fecha', priority: 'low', status: 'doing' }))
+    await waitFor(() => expect(api.startTask).toHaveBeenCalled())
+    await Promise.resolve()
+    second.reject(new ApiError(500, 'boom', 'Falló'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Falló')
+    await waitFor(() => expect(titlesIn('En curso')).toContain('Baja sin fecha'))
+    expect(titlesIn('Por hacer')).not.toContain('Baja sin fecha')
+  })
+
+  it('ignores drags that do not carry a task', async () => {
+    const api = createMockApi()
+    renderBoard(api)
+    await screen.findByText('En marcha')
+    const foreign = { ...dataTransfer(), types: ['Files'] }
+
+    const over = fireEvent.dragOver(column('Hecho'), { dataTransfer: foreign })
+
+    expect(over).toBe(true) // sin preventDefault: no es un destino válido
+    expect(column('Hecho')).not.toHaveClass('drop-target')
+  })
+
+  it('keeps the highlight while moving over children and clears it on leaving', async () => {
+    renderBoard(createMockApi())
+    await screen.findByText('En marcha')
+    const transfer = dataTransfer()
+    transfer.setData('application/x-lifeos-task', 't1')
+    const target = column('Hecho')
+
+    fireEvent.dragEnter(target, { dataTransfer: transfer })
+    fireEvent.dragOver(target, { dataTransfer: transfer })
+    fireEvent.dragEnter(card('Terminada'), { dataTransfer: transfer })
+    fireEvent.dragLeave(target, { dataTransfer: transfer, relatedTarget: null })
+    expect(target).toHaveClass('drop-target')
+    fireEvent.dragLeave(card('Terminada'), { dataTransfer: transfer, relatedTarget: null })
+    expect(target).not.toHaveClass('drop-target')
+  })
+
+  it('quick create keeps what was typed while the request was in flight', async () => {
+    const api = createMockApi()
+    const pending = deferred<Task>()
+    api.createTask.mockImplementationOnce(() => pending.promise)
+    renderBoard(api)
+    await screen.findByText('En marcha')
+    const form = within(screen.getByRole('form', { name: 'Nueva tarea' }))
+    const input = form.getByLabelText('Título de la nueva tarea')
+
+    fireEvent.change(input, { target: { value: 'Primera' } })
+    fireEvent.click(form.getByRole('button', { name: 'Agregar tarea' }))
+    fireEvent.change(input, { target: { value: 'Segunda' } })
+    pending.resolve(task({ id: 'n1', title: 'Primera' }))
+
+    await waitFor(() => expect(titlesIn('Por hacer')).toContain('Primera'))
+    expect(input).toHaveValue('Segunda')
+  })
+})
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (error: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}

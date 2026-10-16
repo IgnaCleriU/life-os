@@ -31,8 +31,13 @@ export default function TaskDialog({ task, onClose, onUpdated, onRemoved }: Task
   useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
+    // Al cerrar, el foco vuelve a quien abrió el diálogo (la tarjeta).
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
     if (typeof dialog.showModal === 'function') dialog.showModal()
     else dialog.setAttribute('open', '')
+    return () => {
+      if (opener?.isConnected) opener.focus()
+    }
   }, [])
 
   useEffect(() => {
@@ -73,8 +78,11 @@ export default function TaskDialog({ task, onClose, onUpdated, onRemoved }: Task
     const body: UpdateTaskBody = {}
     if (trimmedTitle !== task.title) body.title = trimmedTitle
     if (priority !== task.priority) body.priority = priority
+    // Se compara el texto crudo (un espacio final guardado no cuenta como cambio) y se recorta al enviar.
     const newDescription = description.trim() || null
-    if (newDescription !== task.description) body.description = newDescription
+    if (description !== (task.description ?? '') && newDescription !== task.description) {
+      body.description = newDescription
+    }
     const newDueDate = dueDate || null
     if (newDueDate !== task.due_date) body.due_date = newDueDate
     if (Object.keys(body).length === 0) {
@@ -111,7 +119,11 @@ export default function TaskDialog({ task, onClose, onUpdated, onRemoved }: Task
       className="task-dialog"
       aria-labelledby="task-dialog-title"
       onClose={onClose}
-      onCancel={onClose}
+      onCancel={(event) => {
+        // Escape durante un guardado en curso no cierra: el error tiene que poder verse.
+        if (busy) event.preventDefault()
+        else onClose()
+      }}
     >
       <form onSubmit={handleSave} noValidate>
         <h3 id="task-dialog-title">Editar tarea</h3>
