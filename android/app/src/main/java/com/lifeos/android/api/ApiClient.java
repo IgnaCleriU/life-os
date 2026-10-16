@@ -65,6 +65,9 @@ public final class ApiClient {
                 .readTimeout(30, TimeUnit.SECONDS)
                 .writeTimeout(30, TimeUnit.SECONDS)
                 .callTimeout(45, TimeUnit.SECONDS)
+                // A silent retry after a dropped connection could replay a
+                // POST the server already applied (duplicate project or task).
+                .retryOnConnectionFailure(false)
                 .build();
     }
 
@@ -260,11 +263,22 @@ public final class ApiClient {
 
     /** Runs the request and returns the parsed body, or null when {@code type} is null (204 / ignored body). */
     private <T> T execute(Request.Builder request, boolean authenticated, Class<T> type) throws ApiException {
-        request.header("Accept", "application/json");
-        if (authenticated) {
-            request.header("Authorization", "Bearer " + token);
+        Request built;
+        try {
+            request.header("Accept", "application/json");
+            if (authenticated) {
+                request.header("Authorization", "Bearer " + token);
+            }
+            built = request.build();
+        } catch (IllegalArgumentException e) {
+            // OkHttp rejects header values with control characters (e.g. a
+            // pasted newline in the token). Its message can echo the value,
+            // so it is not passed on.
+            throw new ApiException(
+                    ApiException.Kind.OTHER, 0, "invalid_token",
+                    "The API token contains invalid characters. Paste it again in Settings.", e);
         }
-        try (Response response = http.newCall(request.build()).execute()) {
+        try (Response response = http.newCall(built).execute()) {
             ResponseBody body = response.body();
             if (!response.isSuccessful()) {
                 throw errorFrom(response.code(), body == null ? "" : body.string());
@@ -286,10 +300,6 @@ public final class ApiClient {
             }
         } catch (IOException e) {
             throw ApiException.network(e);
-        } catch (IllegalArgumentException e) {
-            // OkHttp rejects header values with control characters (e.g. a pasted newline in the token).
-            throw new ApiException(
-                    ApiException.Kind.OTHER, 0, "invalid_request", "Invalid request: " + e.getMessage(), e);
         }
     }
 

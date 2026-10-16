@@ -31,7 +31,7 @@ public class BaseUrlTest {
 
     @Test
     public void keepsExplicitHttpAndPathPrefix() {
-        assertEquals("http://10.0.2.2:8000", BaseUrl.normalize("http://10.0.2.2:8000"));
+        assertEquals("http://10.0.2.2:8000", BaseUrl.normalize("http://10.0.2.2:8000", true));
         assertEquals("https://host.ts.net/lifeos", BaseUrl.normalize("host.ts.net/lifeos/"));
     }
 
@@ -44,6 +44,27 @@ public class BaseUrlTest {
             } catch (IllegalArgumentException expected) {
                 // ok
             }
+        }
+    }
+
+    @Test
+    public void rejectsCleartextWhenNotAllowed() {
+        assertEquals("https://host.ts.net", BaseUrl.normalize("host.ts.net", false));
+        try {
+            BaseUrl.normalize("http://host.ts.net", false);
+            fail("Expected rejection of plain http");
+        } catch (IllegalArgumentException expected) {
+            // ok
+        }
+    }
+
+    @Test
+    public void rejectsCredentialsInTheUrl() {
+        try {
+            BaseUrl.normalize("https://user:pass@host.ts.net");
+            fail("Expected rejection of userinfo");
+        } catch (IllegalArgumentException expected) {
+            // ok
         }
     }
 }

@@ -441,4 +441,22 @@ public class ApiClientTest {
         server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START));
         assertEquals(ConnectionCheck.Result.UNREACHABLE, ConnectionCheck.run(client).getResult());
     }
+
+    @Test
+    public void tokenWithControlCharactersFailsWithoutEchoingIt() throws Exception {
+        ApiClient bad = new ApiClient(server.url("/").toString(), "abc\ndef", ApiClient.defaultHttpClient());
+        try {
+            bad.listProjects(null, null);
+            fail("Expected ApiException");
+        } catch (ApiException e) {
+            assertEquals("invalid_token", e.getCode());
+            assertFalse(e.getMessage().contains("abc"));
+        }
+        assertEquals(0, server.getRequestCount());
+    }
+
+    @Test
+    public void defaultClientDoesNotReplayRequestsAfterAConnectionFailure() {
+        assertFalse(ApiClient.defaultHttpClient().retryOnConnectionFailure());
+    }
 }
