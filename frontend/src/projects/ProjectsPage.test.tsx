@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ApiClient } from '../api/client'
 import { ApiError } from '../api/client'
@@ -39,6 +39,7 @@ function patchStore(store: Project[], id: string, changes: Partial<Project>): Pr
 
 function createMockApi(store: Project[]) {
   return {
+    listProjectTasks: vi.fn(async () => []),
     listProjects: vi.fn(async (filter?: ProjectFilter) => listFrom(store, filter)),
     updateProject: vi.fn(async (id: string, body: { name?: string; description?: string | null }) =>
       patchStore(store, id, body),
@@ -183,13 +184,13 @@ describe('ProjectsPage selection', () => {
     expect(window.location.hash).toBe('')
   })
 
-  it('renders the board placeholder in the detail', async () => {
+  it('renders the task board in the detail', async () => {
     renderPage(createMockApi([CASA]))
 
     fireEvent.click(await screen.findByRole('button', { name: 'Casa' }))
 
     const board = screen.getByRole('region', { name: 'Tablero' })
-    expect(board).toHaveTextContent('El tablero de tareas llega en el próximo cambio.')
+    expect(await within(board).findByRole('region', { name: /Por hacer/ })).toBeInTheDocument()
   })
 })
 

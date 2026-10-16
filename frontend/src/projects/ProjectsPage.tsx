@@ -3,6 +3,7 @@ import { ApiError } from '../api/client'
 import { errorMessage } from '../api/errorMessage'
 import type { Project } from '../api/types'
 import { useApi } from '../api/useApi'
+import TaskBoard from '../tasks/TaskBoard'
 import ProjectDetail from './ProjectDetail'
 import ProjectSidebar from './ProjectSidebar'
 import type { StatusFilter } from './projectStatus'
@@ -78,7 +79,11 @@ export default function ProjectsPage() {
 
   let detail
   if (selected) {
-    detail = <ProjectDetail key={selected.id} project={selected} onChanged={handleChanged} />
+    detail = (
+      <ProjectDetail key={selected.id} project={selected} onChanged={handleChanged}>
+        <TaskBoard project={selected} />
+      </ProjectDetail>
+    )
   } else if (lookupFailed) {
     detail = (
       <div className="lookup-error">
