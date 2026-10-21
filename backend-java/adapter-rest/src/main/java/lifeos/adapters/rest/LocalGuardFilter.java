@@ -30,7 +30,8 @@ import tools.jackson.databind.json.JsonMapper;
  *       más los nombres de {@code LIFEOS_ALLOWED_HOSTS} (por ejemplo los de
  *       Tailscale en un VPS). Bloquea el DNS rebinding: una página de
  *       {@code evil.example} que resuelve a 127.0.0.1 sigue mandando su Host.
- *   <li><b>Token:</b> toda ruta salvo {@code /health} exige
+ *   <li><b>Token:</b> toda ruta salvo {@code /health} y la web estática
+ *       ({@code /}, {@code /app/**}, ver {@link WebPaths}) exige
  *       {@code Authorization: Bearer <token>}. El host se chequea primero.
  * </ul>
  *
@@ -78,6 +79,13 @@ class LocalGuardFilter extends OncePerRequestFilter {
                     "The API only answers requests addressed to an allowed host.");
             return;
         }
+        // La web estática (/, /app, /app/**) no lleva datos personales: se lee
+        // (GET/HEAD) con el host validado pero sin token (WebPaths falla cerrado).
+        // Cualquier otro método sigue exigiendo token.
+        if (WebPaths.isWeb(request) && isReadMethod(request.getMethod())) {
+            chain.doFilter(request, response);
+            return;
+        }
         if (token == null) {
             reject(response, HttpStatus.UNAUTHORIZED, "unauthorized",
                     "No API token is configured. Set LIFEOS_API_TOKEN (or LIFEOS_API_AUTH=disabled "
@@ -89,6 +97,10 @@ class LocalGuardFilter extends OncePerRequestFilter {
             return;
         }
         chain.doFilter(request, response);
+    }
+
+    private static boolean isReadMethod(String method) {
+        return "GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method);
     }
 
     private boolean hasValidToken(String authorization) {

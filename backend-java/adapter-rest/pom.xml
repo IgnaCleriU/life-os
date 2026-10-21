@@ -13,6 +13,10 @@
 
     <artifactId>lifeos-adapter-rest</artifactId>
 
+    <properties>
+        <lifeos.web.dir>${project.basedir}/../../frontend</lifeos.web.dir>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>lifeos</groupId>
@@ -37,4 +41,92 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>web</id>
+            <build>
+                <plugins>
+                    <!--
+                      Perfil `web` (mvn -Pweb package): arma el frontend con Node y lo
+                      empaqueta en el jar, en static/app/. Sin el perfil el build no
+                      necesita Node (el Dockerfile trae la web de otra etapa).
+                      Va en prepare-package: `test` nunca lo ejecuta.
+                    -->
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.6.4</version>
+                        <configuration>
+                            <executable>npm</executable>
+                            <workingDirectory>${lifeos.web.dir}</workingDirectory>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>web-npm-ci</id>
+                                <phase>prepare-package</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <arguments>
+                                        <argument>ci</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>web-build</id>
+                                <phase>prepare-package</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <arguments>
+                                        <argument>run</argument>
+                                        <argument>build</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                            <!-- copy-resources ignora en silencio un dist ausente: sin build no hay jar. -->
+                            <execution>
+                                <id>web-dist-exists</id>
+                                <phase>prepare-package</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>node</executable>
+                                    <arguments>
+                                        <argument>-e</argument>
+                                        <argument>require('fs').accessSync('dist/index.html')</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-resources-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>web-copy</id>
+                                <phase>prepare-package</phase>
+                                <goals>
+                                    <goal>copy-resources</goal>
+                                </goals>
+                                <configuration>
+                                    <outputDirectory>${project.build.outputDirectory}/static/app</outputDirectory>
+                                    <resources>
+                                        <resource>
+                                            <directory>${lifeos.web.dir}/dist</directory>
+                                        </resource>
+                                    </resources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
