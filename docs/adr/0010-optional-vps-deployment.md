@@ -4,6 +4,7 @@
 - Date: 2026-10
 - Amends: [0009-quickshell-desktop-client.md](0009-quickshell-desktop-client.md) ("nothing hosted and no remote access")
 - Guide: [../deployment.md](../deployment.md)
+- Superseded in part by: [0012-java-api-over-tailscale.md](0012-java-api-over-tailscale.md) (REST transport: Tailscale instead of an SSH tunnel)
 
 ## Context
 
