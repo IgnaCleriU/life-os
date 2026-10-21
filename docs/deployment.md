@@ -9,14 +9,18 @@ then the Azure tooling used for the current deployment.
 
 ```
 your PC ──ssh (22, your IP only)──▶ VPS
-   │                                 └─ docker compose: backend (uvicorn)
-   └─ localhost:8000 ◀─tunnel──────────── 127.0.0.1:8000
-                                          volume lifeos-data → /app/data/lifeos.db
+   │                                 ├─ backend-java (Spring) ── 127.0.0.1:8000
+   └─ localhost:8000 ◀─tunnel────────┤                     ▲
+phone/laptop ──tailnet (HTTPS)───────┤   tailscale serve ──┘
+                                     └─ backend (Python, MCP only, no port)
+                                        volume lifeos-data → /app/data/lifeos.db
 ```
 
-- **Only port 22 is open, and only from your IP.** The API listens on the
-  VPS's loopback (`deploy/vps/compose.override.yml`). You reach it through
-  an SSH tunnel.
+- **Only port 22 is open, and only from your IP.** The Java API
+  (`backend-java`, [ADR 0012](adr/0012-java-api-over-tailscale.md)) listens
+  on the VPS's loopback (`deploy/vps/compose.override.yml`). You reach it
+  through an SSH tunnel or, from the phone, over Tailscale (below). The
+  Python `backend` publishes no port; it stays for MCP.
 - **Every route except `/health` needs `Authorization: Bearer <token>`.**
   The token is generated on first boot and lives only in `~/life-os/.env`
   on the VPS.
@@ -34,7 +38,7 @@ Create an Ubuntu 24.04 x64 VM (1 GB of RAM is enough) with:
 - A firewall that allows only TCP 22 from your IP.
 
 cloud-init installs Docker and clones the repo into `~/life-os`. Then it
-copies the compose override, writes `.env` with a fresh token, and runs
+links the compose override, writes `.env` with a fresh token, and runs
 `docker compose up -d --build`. The whole thing takes about 10 minutes on
 a small VM. To check on it, run `cloud-init status --wait` on the VPS.
 
@@ -110,10 +114,62 @@ A VM that is shut down from inside (`sudo shutdown`) is *stopped*, not
 deallocated, and **its compute is still billed**. Use `stop` or the
 portal's Stop button instead.
 
+## Phone access over Tailscale
+
+[ADR 0012](adr/0012-java-api-over-tailscale.md). The Java API stays on the
+VPS's loopback; `tailscale serve` publishes it as HTTPS to your tailnet only.
+No new port is opened and Funnel is not used.
+
+**Once, in the Tailscale admin console:** enable MagicDNS and HTTPS
+Certificates. This needs **admin rights on the tailnet**; on a tailnet where
+you are not admin, `tailscale serve --https=443` fails with "Serve is not
+enabled on your tailnet" and you cannot fix it yourself.
+
+**VPS side:**
+
+1. Install Tailscale and join the tailnet:
+   `curl -fsSL https://tailscale.com/install.sh | sh`, then
+   `sudo tailscale up` and open the auth URL it prints. Fix the hostname with
+   `sudo tailscale set --hostname=<machine>`: otherwise the node takes the
+   cloud name (`vm-lifeos` on Azure) and the allowlist below won't match.
+2. Publish the API: `sudo tailscale serve --bg --https=443 http://127.0.0.1:8000`
+   (check with `tailscale serve status`).
+3. Allow the tailnet names in `~/life-os/.env`:
+   `LIFEOS_ALLOWED_HOSTS=<machine>,<machine>.<tailnet>.ts.net`, then
+   `docker compose up -d --no-build backend-java`. The value must match
+   `<hostname>,<hostname>.<tailnet>.ts.net` exactly: if you change the
+   hostname or move to another tailnet, edit `.env` and recreate
+   `backend-java` again.
+4. Verify from any tailnet device:
+
+   ```sh
+   curl https://<machine>.<tailnet>.ts.net/health                      # 200
+   curl https://<machine>.<tailnet>.ts.net/projects                    # 401
+   curl -H "Authorization: Bearer $TOKEN" https://<machine>.<tailnet>.ts.net/projects   # 200
+   ```
+
+**Client side (phone, laptop):** install the Tailscale app, sign in to the same
+tailnet, and use `https://<machine>.<tailnet>.ts.net` as the server URL
+(the web app is at `/app/`). The token is the `LIFEOS_API_TOKEN` line of
+`~/life-os/.env` on the VPS; paste it in the app's login screen.
+
+On a Linux client where `<machine>.<tailnet>.ts.net` does not resolve,
+`systemd-resolved` has no DNS for the `tailscale0` interface (check with
+`resolvectl status tailscale0`). Fix the DNS setup or reach the node by its
+`100.x` address with the `Host` header set to the allowed name, for testing.
+
+The token is still required on every route except `/health`. A deallocated VM
+is unreachable until you run `start`.
+
 ## Operating the VPS
 
 - **Update the app:** run
   `cd ~/life-os && git pull && docker compose up -d --build`.
+  The build now compiles the Java image with Maven, which may run out of
+  memory on a 1 GB VM (not tried). If it does, build on your machine
+  (`docker build -t life-os-backend-java:latest backend-java`), send it with
+  `docker save life-os-backend-java:latest | gzip | ssh <vps> 'gunzip | docker load'`
+  and run `docker compose up -d --no-build`.
 - **Back up the database.** SQLite's online backup is safe while the API
   is running:
 
@@ -123,6 +179,7 @@ portal's Stop button instead.
   docker compose cp backend:/app/data/backup.db ./lifeos-backup.db
   ```
 
-- **Logs:** `docker compose logs -f backend`.
+- **Logs:** `docker compose logs -f backend-java` (the API) or `backend`
+  (Python, MCP).
 - **Rotate the token:** change `LIFEOS_API_TOKEN` in `.env`, then run
   `docker compose up -d`.

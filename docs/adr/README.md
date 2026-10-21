@@ -35,3 +35,4 @@ it the next available number, and open a pull request.
 | [0009](0009-quickshell-desktop-client.md) | Quickshell desktop client over a local REST daemon | Accepted |
 | [0010](0010-optional-vps-deployment.md) | Optional VPS deployment over SSH | Accepted |
 | [0011](0011-java-spring-backend.md) | Port the backend core and REST adapter to Java + Spring Boot | Proposed |
+| [0012](0012-java-api-over-tailscale.md) | Java API as the VPS API, reached over Tailscale | Accepted |

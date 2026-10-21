@@ -22,14 +22,19 @@ so the build enforces the dependency rule ([0001](0001-hexagonal-monorepo.md)).
 Persistence uses plain JDBC (`JdbcClient` + `sqlite-jdbc`), not JPA.
 
 The Java REST adapter matches the Python one's Projects/Tasks routes, JSON
-shape, status codes, and error codes. It does not yet port what
-[0009](0009-quickshell-desktop-client.md) added to the Python adapter (the
-local daemon, its bearer token and Host allowlist, `/revision`,
-`/quick-add`), so it is not a drop-in for the board. Until it has the
-daemon's bearer token, it listens on loopback only and applies the same
-Host allowlist as the Python adapter (`localhost`, `127.0.0.1`, `::1`),
-which blocks DNS rebinding. Bodyless cross-origin POSTs from a web page
-are still possible until the token lands.
+shape, status codes, and error codes. It does not port the rest of
+what [0009](0009-quickshell-desktop-client.md) added to the Python adapter
+(the local daemon, `/revision`, `/quick-add`), so it is not a drop-in for
+the board; the web and Android clients use none of those. It listens
+on loopback by default and applies the same Host allowlist as the Python
+adapter (`localhost`, `127.0.0.1`, `::1`, plus `LIFEOS_ALLOWED_HOSTS`),
+which blocks DNS rebinding.
+
+> Update: [0012](0012-java-api-over-tailscale.md) ports the bearer token,
+> `LIFEOS_ALLOWED_HOSTS` and a configurable bind address to the Java
+> adapter. A cross-origin POST can no longer succeed without the token:
+> the `Authorization` header forces a CORS preflight, and the adapter has
+> no CORS configuration, so the preflight is rejected.
 
 ## Consequences
 
