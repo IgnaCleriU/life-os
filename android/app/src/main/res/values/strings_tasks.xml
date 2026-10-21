@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="task_column_todo">To do</string>
+    <string name="task_column_doing">Doing</string>
+    <string name="task_column_done">Done</string>
+    <string name="task_tab_title">%1$s (%2$d)</string>
+    <string name="task_column_empty">No tasks here yet.</string>
+
+    <string name="task_priority_low">Low</string>
+    <string name="task_priority_medium">Medium</string>
+    <string name="task_priority_high">High</string>
+    <string name="task_due">Due %1$s</string>
+    <string name="task_overdue">Overdue, due %1$s</string>
+
+    <string name="task_new">New task</string>
+    <string name="task_dialog_new_title">New task</string>
+    <string name="task_dialog_edit_title">Edit task</string>
+    <string name="task_field_title">Title</string>
+    <string name="task_field_description">Description</string>
+    <string name="task_field_priority">Priority</string>
+    <string name="task_field_due">Due date</string>
+    <string name="task_due_clear">Clear</string>
+    <string name="task_title_required">Enter a title.</string>
+
+    <string name="task_action_start">Start</string>
+    <string name="task_action_complete">Complete</string>
+    <string name="task_action_back_to_todo">Back to To do</string>
+    <string name="task_action_reopen">Reopen</string>
+    <string name="task_action_edit">Edit</string>
+    <string name="task_action_move">Move to project</string>
+    <string name="task_action_delete">Delete</string>
+    <string name="task_move_title">Move to project</string>
+    <string name="task_move_none">There is no other active project to move this task to.</string>
+    <string name="task_delete_title">Delete task?</string>
+    <string name="task_delete_message">Delete \"%1$s\"? You can undo this right after.</string>
+    <string name="task_delete_confirm">Delete</string>
+    <string name="task_deleted">Task deleted.</string>
+</resources>

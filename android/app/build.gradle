@@ -59,6 +59,16 @@ android {
 
     testOptions {
         unitTests.returnDefaultValues = true
+        // Robolectric needs the merged resources and manifest to inflate real screens.
+        unitTests.includeAndroidResources = true
+    }
+}
+
+// The UI smoke tests need fragment-testing (debug only), so unit tests run on the debug
+// variant alone; the release unit-test copy would not compile and would repeat the same tests.
+androidComponents {
+    beforeVariants(selector().withBuildType('release')) { variantBuilder ->
+        variantBuilder.enableUnitTest = false
     }
 }
 
@@ -85,4 +95,7 @@ dependencies {
 
     testImplementation libs.junit
     testImplementation libs.okhttp.mockwebserver
+    testImplementation libs.robolectric
+    // Hosts FragmentScenario's activity; debug-only so it never ships in release.
+    debugImplementation libs.androidx.fragment.testing
 }
