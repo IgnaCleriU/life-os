@@ -121,7 +121,8 @@ VPS's loopback; `tailscale serve` publishes it as HTTPS to your tailnet only.
 No new port is opened and Funnel is not used.
 
 **Once, in the Tailscale admin console:** enable MagicDNS and HTTPS
-Certificates.
+Certificates. Until HTTPS is enabled, `tailscale serve --https=443` fails
+with "Serve is not enabled on your tailnet" and prints the link to enable it.
 
 **VPS side:**
 
@@ -145,6 +146,11 @@ Certificates.
 tailnet, and use `https://<machine>.<tailnet>.ts.net` as the server URL
 (the web app is at `/app/`). The token is the `LIFEOS_API_TOKEN` line of
 `~/life-os/.env` on the VPS; paste it in the app's login screen.
+
+On a Linux client where `<machine>.<tailnet>.ts.net` does not resolve,
+`systemd-resolved` has no DNS for the `tailscale0` interface (check with
+`resolvectl status tailscale0`). Fix the DNS setup or reach the node by its
+`100.x` address with the `Host` header set to the allowed name, for testing.
 
 The token is still required on every route except `/health`. A deallocated VM
 is unreachable until you run `start`.
