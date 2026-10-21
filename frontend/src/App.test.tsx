@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useEffect } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -186,7 +186,8 @@ describe('App across tabs', () => {
 
     render(<Session />)
     await screen.findByText('con sesión')
-    expect(clientOfToken1).toBeDefined()
+    // Capture publica el cliente en un efecto pasivo: puede correr después del commit.
+    await waitFor(() => expect(clientOfToken1).toBeDefined())
 
     // Request en vuelo con token-1.
     const pending = clientOfToken1!.listProjects().catch((error: unknown) => error)
@@ -200,8 +201,12 @@ describe('App across tabs', () => {
     await screen.findByText('con sesión')
 
     // Llega el 401 de token-1.
-    release(unauthorized())
-    await pending
+    // Dentro de act, para que un setState provocado por el 401 llegue a renderizarse
+    // antes de afirmar: si no, el test pasaría aunque la sesión se cerrara.
+    await act(async () => {
+      release(unauthorized())
+      await pending
+    })
 
     expect(screen.getByText('con sesión')).toBeInTheDocument()
     expect(window.localStorage.getItem('lifeos.token')).toBe('token-2')
