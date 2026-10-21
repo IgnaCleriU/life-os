@@ -165,6 +165,11 @@ is unreachable until you run `start`.
 
 - **Update the app:** run
   `cd ~/life-os && git pull && docker compose up -d --build`.
+  The build now compiles the Java image with Maven, which may run out of
+  memory on a 1 GB VM (not tried). If it does, build on your machine
+  (`docker build -t life-os-backend-java:latest backend-java`), send it with
+  `docker save life-os-backend-java:latest | gzip | ssh <vps> 'gunzip | docker load'`
+  and run `docker compose up -d --no-build`.
 - **Back up the database.** SQLite's online backup is safe while the API
   is running:
 
