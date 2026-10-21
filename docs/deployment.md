@@ -121,19 +121,25 @@ VPS's loopback; `tailscale serve` publishes it as HTTPS to your tailnet only.
 No new port is opened and Funnel is not used.
 
 **Once, in the Tailscale admin console:** enable MagicDNS and HTTPS
-Certificates. Until HTTPS is enabled, `tailscale serve --https=443` fails
-with "Serve is not enabled on your tailnet" and prints the link to enable it.
+Certificates. This needs **admin rights on the tailnet**; on a tailnet where
+you are not admin, `tailscale serve --https=443` fails with "Serve is not
+enabled on your tailnet" and you cannot fix it yourself.
 
 **VPS side:**
 
 1. Install Tailscale and join the tailnet:
    `curl -fsSL https://tailscale.com/install.sh | sh`, then
-   `sudo tailscale up` and open the auth URL it prints.
+   `sudo tailscale up` and open the auth URL it prints. Fix the hostname with
+   `sudo tailscale set --hostname=<machine>`: otherwise the node takes the
+   cloud name (`vm-lifeos` on Azure) and the allowlist below won't match.
 2. Publish the API: `sudo tailscale serve --bg --https=443 http://127.0.0.1:8000`
    (check with `tailscale serve status`).
 3. Allow the tailnet names in `~/life-os/.env`:
    `LIFEOS_ALLOWED_HOSTS=<machine>,<machine>.<tailnet>.ts.net`, then
-   `docker compose up -d --force-recreate backend-java`.
+   `docker compose up -d --no-build backend-java`. The value must match
+   `<hostname>,<hostname>.<tailnet>.ts.net` exactly: if you change the
+   hostname or move to another tailnet, edit `.env` and recreate
+   `backend-java` again.
 4. Verify from any tailnet device:
 
    ```sh
