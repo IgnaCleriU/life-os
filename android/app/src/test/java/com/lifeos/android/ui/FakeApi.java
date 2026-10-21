@@ -1,6 +1,8 @@
 package com.lifeos.android.ui;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -26,15 +28,26 @@ final class FakeApi {
             + task("t3", "Call plumber", "doing", "medium") + ","
             + task("t4", "Sweep", "done", "low") + "]";
 
+    /** Id of a task the server no longer has: every call on it answers 404. */
+    static final String GONE_TASK_ID = "gone";
+
     private final MockWebServer server = new MockWebServer();
+    private final List<RecordedRequest> recorded = new CopyOnWriteArrayList<>();
 
     FakeApi() throws IOException {
         server.setDispatcher(new Dispatcher() {
             @Override
             public MockResponse dispatch(RecordedRequest request) {
                 String path = request.getPath() == null ? "" : request.getPath();
+                recorded.add(request);
                 String body;
-                if (path.startsWith("/projects/" + PROJECT_ID + "/tasks")) {
+                if (path.startsWith("/tasks/" + GONE_TASK_ID)) {
+                    return new MockResponse().setResponseCode(404)
+                            .setBody("{\"error\":{\"code\":\"task_not_found\",\"message\":\"gone\"}}");
+                } else if (path.startsWith("/tasks/")) {
+                    // PATCH and friends answer with the task; the tests only look at the request.
+                    body = task("t1", "Fix tap", "todo", "high");
+                } else if (path.startsWith("/projects/" + PROJECT_ID + "/tasks")) {
                     body = TASKS;
                 } else if (path.startsWith("/projects/" + PROJECT_ID)) {
                     body = PROJECT;
@@ -47,6 +60,22 @@ final class FakeApi {
             }
         });
         server.start();
+    }
+
+    /** Every request received so far, oldest first. */
+    List<RecordedRequest> requests() {
+        return recorded;
+    }
+
+    /** The PATCH requests received so far. */
+    List<RecordedRequest> patches() {
+        List<RecordedRequest> out = new java.util.ArrayList<>();
+        for (RecordedRequest r : recorded) {
+            if ("PATCH".equals(r.getMethod())) {
+                out.add(r);
+            }
+        }
+        return out;
     }
 
     String baseUrl() {
