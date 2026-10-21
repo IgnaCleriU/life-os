@@ -117,3 +117,30 @@ jobs:
           node-version: "22"
       - name: node --test
         run: node --test desktop/tests/*.test.mjs
+
+  # Frontend web (frontend/): React + Vite + TypeScript. Lint, tipos, tests y
+  # build; el build es lo que después sirve el backend Spring Boot bajo /app/.
+  web:
+    name: Web frontend
+    runs-on: ubuntu-latest
+    needs: commit-lint
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install from the lock file
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
