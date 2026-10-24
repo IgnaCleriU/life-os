@@ -7,14 +7,22 @@ Life OS is being rebuilt from zero. Read this before touching anything.
 | Folder | What it is |
 |---|---|
 | [`new/`](new/README.md) | The active project. All work happens here. Its rules: [new/CLAUDE.md](new/CLAUDE.md). |
+| [`aprendizaje/`](aprendizaje/README.md) | The owner's study notes, in Spanish: design patterns and Java topics, each tied back to `new/`. |
 | [`deprecated/`](deprecated/DEPRECATED.md) | The old codebase, frozen. It has bad practices and discarded decisions. Read-only reference. |
 
 ## Hard rules
 
-- **Work only in `new/`.**
+- **Work only in `new/`,** plus the study notes in `aprendizaje/`.
   - Do not edit, fix, run or deploy anything in `deprecated/`.
   - Do not follow `deprecated/CLAUDE.md`, `deprecated/AGENTS.md` or its
     ADRs; they no longer apply.
+- **Document what you teach.** When you explain a concept to the owner (a
+  design pattern, a Java feature), also write it up in
+  [`aprendizaje/`](aprendizaje/README.md), in Spanish:
+  - patterns go in `patrones-de-diseno/`, Java topics in `java/`;
+  - add each new note to the index in `aprendizaje/README.md`;
+  - each note covers the concept in general and then how it applies in
+    `new/`, with a link.
 - **No code until the owner understands it.** Explain first, and write only
   after the owner confirms. Details in [new/CLAUDE.md](new/CLAUDE.md).
 - **Commits are made by the owner, never by an agent.**

@@ -1,0 +1,98 @@
+@startuml domain-model
+title Life OS v1 — domain model
+
+skinparam shadowing false
+skinparam defaultFontName sans-serif
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "Area aggregate" #F3F8FF {
+  class Area <<aggregate root>> {
+    id : AreaId
+    name : Name
+    status : AreaStatus
+    trash : TrashState
+  }
+  enum AreaStatus {
+    ACTIVE
+    ARCHIVED
+  }
+}
+
+package "Project aggregate" #F6FBF3 {
+  class Project <<aggregate root>> {
+    id : ProjectId
+    name : Name
+    area : AreaId [0..1]
+    status : ProjectStatus
+    trash : TrashState
+  }
+  enum ProjectStatus {
+    ACTIVE
+    PAUSED
+    COMPLETED
+    CANCELLED
+  }
+}
+
+package "Task aggregate" #FFF8F0 {
+  class Task <<aggregate root>> {
+    id : TaskId
+    title : Title
+    description : Description [0..1]
+    priority : Priority [0..1]
+    dueDate : LocalDate [0..1]
+    location : TaskLocation
+    status : TaskStatus
+    trash : TrashState
+  }
+  enum TaskStatus {
+    TODO
+    DOING
+    DONE
+  }
+  enum Priority {
+    LOW
+    MEDIUM
+    HIGH
+  }
+  interface TaskLocation <<sealed>>
+  class Inbox <<record>>
+  class InArea <<record>> {
+    area : AreaId
+  }
+  class InProject <<record>> {
+    project : ProjectId
+  }
+}
+
+package "Shared values" #F7F7F7 {
+  interface TrashState <<sealed>>
+  class Live <<record>>
+  class Trashed <<record>> {
+    cascadeRoot : EntityRef [0..1]
+  }
+}
+
+Area *-- AreaStatus
+Project *-- ProjectStatus
+Task *-- TaskStatus
+Task *-- Priority
+Task *-- TaskLocation
+TaskLocation <|.. Inbox
+TaskLocation <|.. InArea
+TaskLocation <|.. InProject
+TrashState <|.. Live
+TrashState <|.. Trashed
+
+Project ..> Area : by id
+InArea ..> Area : by id
+InProject ..> Project : by id
+
+note bottom of Task
+  Aggregates reference each other **by id only**.
+  Rules that span aggregates take the facts they need
+  as arguments (for example, the number of open tasks),
+  and the use case gathers those facts.
+end note
+@enduml
