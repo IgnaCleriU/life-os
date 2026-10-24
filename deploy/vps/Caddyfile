@@ -1,0 +1,30 @@
+# Caddy delante de la API de Java en un VPS (ADR 0013). Solo corre con el
+# perfil `public` de compose (ver compose.override.yml).
+#
+# Escucha únicamente el 443: el 80 queda cerrado, así que el certificado de
+# Let's Encrypt sale por el desafío TLS-ALPN y no hay redirect de HTTP. Sin
+# HTTP/3 para no tener que abrir también 443/udp.
+{
+	auto_https disable_redirects
+	servers {
+		protocols h1 h2
+	}
+}
+
+{$LIFEOS_PUBLIC_HOST} {
+	tls {
+		issuer acme {
+			disable_http_challenge
+		}
+	}
+	request_body {
+		max_size 1MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+	# Caddy reenvía el Host original: la guardia de Java lo valida contra
+	# LIFEOS_ALLOWED_HOSTS, que tiene que incluir LIFEOS_PUBLIC_HOST.
+	reverse_proxy backend-java:8000
+}

@@ -1,7 +1,8 @@
 # Override de docker-compose para un VPS. Se enlaza (symlink) en la raíz del
 # repo como `docker-compose.override.yml` (compose lo carga solo) y deja la API escuchando
-# únicamente en loopback: desde afuera se llega por túnel SSH o por Tailscale
-# Serve, nunca por un puerto público.
+# únicamente en loopback: desde afuera se llega por túnel SSH o, con el perfil
+# `public`, por HTTPS a través de Caddy (ADR 0013). El 8000 nunca se publica
+# directo.
 #
 # La API publicada es la de Java. El contenedor de Python sigue
 # corriendo —MCP entra por `docker compose exec backend lifeos-mcp`— pero sin
@@ -15,3 +16,24 @@ services:
     ports: !override
       - "127.0.0.1:8000:8000"
     restart: unless-stopped
+  # Opt-in: `COMPOSE_PROFILES=public` y `LIFEOS_PUBLIC_HOST=<dominio>` en el
+  # `.env`. Sin el perfil, este servicio no se crea.
+  caddy:
+    image: caddy:2.11.7@sha256:504a44d7d74bd2bc28a66afc4774912fc21223ca8a67734af1c54ab2f999b489
+    profiles: [public]
+    depends_on: [backend-java]
+    ports:
+      - "443:443"
+    environment:
+      LIFEOS_PUBLIC_HOST: ${LIFEOS_PUBLIC_HOST:-}
+    volumes:
+      - ./deploy/vps/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificados y cuenta ACME: sin volumen, cada recreación del contenedor
+      # pediría un certificado nuevo y chocaría con los límites de Let's Encrypt.
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:

@@ -10,6 +10,8 @@
 #   lifeos-vm.sh status            estado, región, tamaño e IP
 #   lifeos-vm.sh tunnel [puerto]   túnel SSH a la API (localhost:8000 por defecto)
 #   lifeos-vm.sh allow-ip          restringe SSH a tu IP pública actual
+#   lifeos-vm.sh open-https        abre el 443 a internet (Caddy, ADR 0013)
+#   lifeos-vm.sh close-https       lo vuelve a cerrar
 #   lifeos-vm.sh relocate REGION [TAMAÑO]
 #                                  copia el disco a otra región y levanta ahí
 #                                  una VM nueva con los mismos datos
@@ -58,6 +60,27 @@ allow_ssh() {
   az network nsg rule create -g "$RG" --nsg-name "$nsg" -n allow-ssh-home \
     --priority 1000 --direction Inbound --access Allow --protocol Tcp \
     --source-address-prefixes "$cidr" --destination-port-ranges 22 -o none
+}
+
+# El 443 va abierto a cualquier origen: es el acceso público de ADR 0013 y el
+# token es la única barrera. `close-https` es el corte rápido si el token se
+# filtra, mientras se rota.
+open_https() {
+  local nsg
+  nsg=$(nsg_name)
+  [ -n "$nsg" ] || die "no encontré el NSG de $VM"
+  log "HTTPS (443) abierto a internet ($nsg)"
+  az network nsg rule create -g "$RG" --nsg-name "$nsg" -n allow-https-public \
+    --priority 1010 --direction Inbound --access Allow --protocol Tcp \
+    --source-address-prefixes Internet --destination-port-ranges 443 -o none
+}
+
+close_https() {
+  local nsg
+  nsg=$(nsg_name)
+  [ -n "$nsg" ] || die "no encontré el NSG de $VM"
+  log "HTTPS (443) cerrado ($nsg)"
+  az network nsg rule delete -g "$RG" --nsg-name "$nsg" -n allow-https-public -o none
 }
 
 auto_shutdown() {
@@ -177,6 +200,8 @@ case ${1:-} in
   status) cmd_status ;;
   tunnel) shift; cmd_tunnel "$@" ;;
   allow-ip) allow_ssh "$VM" ;;
+  open-https) open_https ;;
+  close-https) close_https ;;
   relocate) shift; cmd_relocate "$@" ;;
-  *) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+  *) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

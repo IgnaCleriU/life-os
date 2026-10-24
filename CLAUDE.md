@@ -82,8 +82,11 @@ Before designing or implementing, review these documents:
   [docs/adr/0009-quickshell-desktop-client.md](docs/adr/0009-quickshell-desktop-client.md)).
   [docs/adr/0005-deployment-target.md](docs/adr/0005-deployment-target.md)
   is superseded — do not treat it as current.
-- **VPS deployment** is an optional second target (ADR 0010): Docker
-  Compose with the API bound to loopback, reached over SSH, with its own
-  database. Files live in `deploy/` and the procedure in
-  [docs/deployment.md](docs/deployment.md). Never publish the API port or
-  set `LIFEOS_API_AUTH=disabled` on a VPS.
+- **VPS deployment** is an optional second target (ADR 0010, 0013): Docker
+  Compose with the Java API bound to loopback and its own database. It is
+  reached over SSH, and publicly over HTTPS only through Caddy on 443 (the
+  opt-in `public` profile). Files live in `deploy/` and the procedure in
+  [docs/deployment.md](docs/deployment.md). Never publish port 8000
+  directly, and never set `LIFEOS_API_AUTH=disabled` on a VPS: with public
+  HTTPS the token is the only barrier. After any deploy change, run the
+  post-deploy check in that guide.

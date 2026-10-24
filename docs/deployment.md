@@ -11,19 +11,21 @@ then the Azure tooling used for the current deployment.
 your PC ──ssh (22, your IP only)──▶ VPS
    │                                 ├─ backend-java (Spring) ── 127.0.0.1:8000
    └─ localhost:8000 ◀─tunnel────────┤                     ▲
-phone/laptop ──tailnet (HTTPS)───────┤   tailscale serve ──┘
+any device ──HTTPS (443, public)─────┤   caddy ────────────┘  (profile `public`)
                                      └─ backend (Python, MCP only, no port)
                                         volume lifeos-data → /app/data/lifeos.db
 ```
 
-- **Only port 22 is open, and only from your IP.** The Java API
-  (`backend-java`, [ADR 0012](adr/0012-java-api-over-tailscale.md)) listens
-  on the VPS's loopback (`deploy/vps/compose.override.yml`). You reach it
-  through an SSH tunnel or, from the phone, over Tailscale (below). The
-  Python `backend` publishes no port; it stays for MCP.
-- **Every route except `/health` needs `Authorization: Bearer <token>`.**
-  The token is generated on first boot and lives only in `~/life-os/.env`
-  on the VPS.
+- **Port 22 is open only from your IP. Port 443 is open to everyone** once
+  you enable public HTTPS ([ADR 0013](adr/0013-public-https-with-caddy.md),
+  below). The Java API (`backend-java`) listens on the VPS's loopback
+  (`deploy/vps/compose.override.yml`); Caddy is the only thing that reaches
+  it from outside. The Python `backend` publishes no port; it stays for MCP.
+- **Every route except `/health` and the web app (`/`, `/app/`) needs
+  `Authorization: Bearer <token>`.** The token is generated on first boot and
+  lives only in `~/life-os/.env` on the VPS. With public HTTPS it is the only
+  barrier between the internet and your data: **never set
+  `LIFEOS_API_AUTH=disabled` on a VPS.**
 - **The VPS has its own database, separate from the one on your desktop.**
   Nothing syncs them.
 
@@ -35,7 +37,8 @@ Create an Ubuntu 24.04 x64 VM (1 GB of RAM is enough) with:
   user has another name, change the `runcmd` argument in the file.
 - [`deploy/vps/cloud-init.yaml`](../deploy/vps/cloud-init.yaml) as the
   user-data / custom-data.
-- A firewall that allows only TCP 22 from your IP.
+- A firewall that allows only TCP 22 from your IP. Open TCP 443 to everyone
+  only when you enable [public HTTPS](#public-https).
 
 cloud-init installs Docker and clones the repo into `~/life-os`. Then it
 links the compose override, writes `.env` with a fresh token, and runs
@@ -61,7 +64,9 @@ with an environment variable (`LIFEOS_RG`, `LIFEOS_VM`, `LIFEOS_SSH_KEY`,
 | `status` | Prints power state, region, size and IP. |
 | `tunnel [port]` | Forwards `localhost:<port>` (default 8000) to the API. |
 | `allow-ip` | Points the SSH rule at your current public IP. Run it when your home IP changes. |
-| `relocate REGION [SIZE]` | Last resort when a whole region has no capacity. It snapshots the disk, copies it to `REGION` and boots a new VM from that disk, so the data comes along. |
+| `open-https` | Opens TCP 443 to any source, for [public HTTPS](#public-https). |
+| `close-https` | Removes that rule. Use it to cut access at once if the token leaks, then rotate it. |
+| `relocate REGION [SIZE]` | Last resort when a whole region has no capacity. It snapshots the disk, copies it to `REGION` and boots a new VM from that disk, so the data comes along. The new VM has a new IP: update the DNS record and run `open-https` with `LIFEOS_VM` set to it. |
 
 You need the SSH key `~/.ssh/lifeos-azure`. Generate it with
 `ssh-keygen -t ed25519 -f ~/.ssh/lifeos-azure`.
@@ -114,52 +119,52 @@ A VM that is shut down from inside (`sudo shutdown`) is *stopped*, not
 deallocated, and **its compute is still billed**. Use `stop` or the
 portal's Stop button instead.
 
-## Phone access over Tailscale
+## Public HTTPS
 
-[ADR 0012](adr/0012-java-api-over-tailscale.md). The Java API stays on the
-VPS's loopback; `tailscale serve` publishes it as HTTPS to your tailnet only.
-No new port is opened and Funnel is not used.
+[ADR 0013](adr/0013-public-https-with-caddy.md). Caddy listens on 443 for your
+domain, gets a Let's Encrypt certificate and proxies to the Java API. Port 80
+stays closed: the certificate comes through the TLS-ALPN challenge on 443.
+The current deployment uses `lifeos.ignacleri.dev`.
 
-**Once, in the Tailscale admin console:** enable MagicDNS and HTTPS
-Certificates. This needs **admin rights on the tailnet**; on a tailnet where
-you are not admin, `tailscale serve --https=443` fails with "Serve is not
-enabled on your tailnet" and you cannot fix it yourself.
-
-**VPS side:**
-
-1. Install Tailscale and join the tailnet:
-   `curl -fsSL https://tailscale.com/install.sh | sh`, then
-   `sudo tailscale up` and open the auth URL it prints. Fix the hostname with
-   `sudo tailscale set --hostname=<machine>`: otherwise the node takes the
-   cloud name (`vm-lifeos` on Azure) and the allowlist below won't match.
-2. Publish the API: `sudo tailscale serve --bg --https=443 http://127.0.0.1:8000`
-   (check with `tailscale serve status`).
-3. Allow the tailnet names in `~/life-os/.env`:
-   `LIFEOS_ALLOWED_HOSTS=<machine>,<machine>.<tailnet>.ts.net`, then
-   `docker compose up -d --no-build backend-java`. The value must match
-   `<hostname>,<hostname>.<tailnet>.ts.net` exactly: if you change the
-   hostname or move to another tailnet, edit `.env` and recreate
-   `backend-java` again.
-4. Verify from any tailnet device:
+1. **DNS:** an `A` record for the domain pointing at the VM's public IP
+   (`deploy/azure/lifeos-vm.sh status`). Check it with
+   `resolvectl query <domain>` before going on: Caddy can't get a certificate
+   until the name resolves to the VM.
+2. **Firewall:** `deploy/azure/lifeos-vm.sh open-https` (or open TCP 443 on
+   your provider).
+3. **VPS `.env`** (`~/life-os/.env`): add these lines. If
+   `LIFEOS_ALLOWED_HOSTS` already exists, append the domain to it with a
+   comma instead of adding a second line.
 
    ```sh
-   curl https://<machine>.<tailnet>.ts.net/health                      # 200
-   curl https://<machine>.<tailnet>.ts.net/projects                    # 401
-   curl -H "Authorization: Bearer $TOKEN" https://<machine>.<tailnet>.ts.net/projects   # 200
+   COMPOSE_PROFILES=public
+   LIFEOS_PUBLIC_HOST=<domain>
+   LIFEOS_ALLOWED_HOSTS=<domain>
    ```
 
-**Client side (phone, laptop):** install the Tailscale app, sign in to the same
-tailnet, and use `https://<machine>.<tailnet>.ts.net` as the server URL
-(the web app is at `/app/`). The token is the `LIFEOS_API_TOKEN` line of
-`~/life-os/.env` on the VPS; paste it in the app's login screen.
+   Then run `cd ~/life-os && git pull && docker compose up -d`.
+   `docker compose logs -f caddy` shows the certificate being issued
+   ("certificate obtained successfully").
+4. **Verify, every time you change the deploy.** Do not skip this: it is the
+   check that the token still guards everything.
 
-On a Linux client where `<machine>.<tailnet>.ts.net` does not resolve,
-`systemd-resolved` has no DNS for the `tailscale0` interface (check with
-`resolvectl status tailscale0`). Fix the DNS setup or reach the node by its
-`100.x` address with the `Host` header set to the allowed name, for testing.
+   ```sh
+   curl -s -o /dev/null -w '%{http_code}\n' https://<domain>/health                 # 200
+   curl -s -o /dev/null -w '%{http_code}\n' https://<domain>/projects               # 401
+   curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOKEN" https://<domain>/projects   # 200
+   curl -s -o /dev/null -w '%{http_code}\n' https://<vm-ip>/health                  # 000: no certificate for a bare IP
+   ```
 
-The token is still required on every route except `/health`. A deallocated VM
-is unreachable until you run `start`.
+**Clients:** open `https://<domain>/app/` in any browser and paste the token
+(the `LIFEOS_API_TOKEN` line of `~/life-os/.env`) in the login screen. Other
+clients use `https://<domain>` as the server URL.
+
+**If the token leaks:** run `close-https` first, then rotate the token (see
+below) and `open-https` again.
+
+The URL is down from 01:00, when the VM is deallocated, until you run
+`start`. Caddy keeps its certificates in the `caddy-data` volume, so a restart
+does not request new ones.
 
 ## Operating the VPS
 
@@ -179,7 +184,7 @@ is unreachable until you run `start`.
   docker compose cp backend:/app/data/backup.db ./lifeos-backup.db
   ```
 
-- **Logs:** `docker compose logs -f backend-java` (the API) or `backend`
+- **Logs:** `docker compose logs -f backend-java` (the API), `caddy` (HTTPS) or `backend`
   (Python, MCP).
 - **Rotate the token:** change `LIFEOS_API_TOKEN` in `.env`, then run
   `docker compose up -d`.
