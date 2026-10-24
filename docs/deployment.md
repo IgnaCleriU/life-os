@@ -159,6 +159,14 @@ The current deployment uses `lifeos.ignacleri.dev`.
 (the `LIFEOS_API_TOKEN` line of `~/life-os/.env`) in the login screen. Other
 clients use `https://<domain>` as the server URL.
 
+**If Caddy fails to start** with "failed to bind host port 0.0.0.0:443":
+something else holds 443 on the VM (`sudo ss -ltnp 'sport = :443'`). On the
+current VM it was `tailscale serve`, left from ADR 0012; turn it off with
+`sudo tailscale serve --https=443 off`. Then run
+`docker compose up -d --force-recreate caddy`: the container left by the
+failed start has no ports and no working DNS, so the certificate request
+fails with "lookup … on 127.0.0.53:53: connection refused".
+
 **If the token leaks:** run `close-https` first, then rotate the token (see
 below) and `open-https` again.
 
