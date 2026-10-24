@@ -43,6 +43,15 @@ def test_a_opens_insert_prompt_and_commits_a_new_project(module, fake_shell) -> 
     assert fake_shell.reload_count == 1
 
 
+def test_a_selects_the_newly_created_project(module, fake_shell) -> None:
+    _entry(module, "a").action()
+    fake_shell.commit_pending_prompt("casa")
+
+    with deps.list_projects_use_case() as use_case:
+        casa = next(p for p in use_case.execute() if p.name == "casa")
+    assert fake_shell.last_context_select_id == str(casa.id)
+
+
 def test_undo_create_soft_deletes_and_redo_restores(module, fake_shell) -> None:
     _entry(module, "a").action()
     fake_shell.commit_pending_prompt("casa")

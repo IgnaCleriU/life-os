@@ -69,6 +69,18 @@ def test_a_and_o_open_insert_prompt_for_quick_add(module, fake_shell) -> None:
     assert task.project_id == project.id
 
 
+def test_a_selects_the_newly_created_task(module, fake_shell) -> None:
+    _create_project("life os")
+    fake_shell.current_context_item = module.context_pane().items[0]
+
+    _entry(module, "a").action()
+    fake_shell.commit_pending_prompt("buy air filters")
+
+    tasks = module.collection_pane(fake_shell.current_context_item).items
+    assert len(tasks) == 1
+    assert fake_shell.last_collection_select_id == str(tasks[0].payload.id)
+
+
 def test_quick_add_hash_project_targets_a_different_project(module, fake_shell) -> None:
     _create_project("life os")
     casa = _create_project("casa")

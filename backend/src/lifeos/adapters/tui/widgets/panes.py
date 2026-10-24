@@ -4,7 +4,7 @@ from typing import ClassVar
 
 from textual.binding import BindingType
 from textual.widgets import OptionList, Static
-from textual.widgets.option_list import Option
+from textual.widgets.option_list import Option, OptionDoesNotExist
 
 from lifeos.adapters.tui.module import DetailContents, PaneContents, PaneItem
 
@@ -30,11 +30,19 @@ class ItemListPane(OptionList):
         self._items_by_id: dict[str, PaneItem] = {}
         self._all_items: list[PaneItem] = []
 
-    def update_contents(self, contents: PaneContents) -> None:
+    def update_contents(
+        self, contents: PaneContents, select_id: str | None = None
+    ) -> None:
         self._all_items = list(contents.items)
-        self._render_items(self._all_items)
+        self._render_items(self._all_items, select_id=select_id)
 
-    def _render_items(self, items: list[PaneItem]) -> None:
+    def _render_items(
+        self, items: list[PaneItem], select_id: str | None = None
+    ) -> None:
+        # Captured before clear_options() wipes them - the only state this
+        # class needs to remember "where the user was" across a re-render.
+        previous_item = self.selected_item
+        previous_index = self.highlighted
         self.clear_options()
         self._items_by_id = {item.id: item for item in items}
         for item in items:
@@ -42,8 +50,44 @@ class ItemListPane(OptionList):
             self.add_option(Option(text, id=item.id))
         # ADR 0008: "no pane holds state that is invisible in the interface"
         # - a freshly populated pane always has something highlighted (when
-        # non-empty) so the pane to its right has something to sync against.
-        self.highlighted = 0 if items else None
+        # non-empty). Written exactly once, so a single re-render posts at
+        # most one OptionHighlighted message.
+        self.highlighted = self._resolve_highlight(
+            items,
+            select_id=select_id,
+            previous_id=None if previous_item is None else previous_item.id,
+            previous_index=previous_index,
+        )
+
+    def _resolve_highlight(
+        self,
+        items: list[PaneItem],
+        *,
+        select_id: str | None,
+        previous_id: str | None,
+        previous_index: int | None,
+    ) -> int | None:
+        """Where the highlight lands after a re-render, in priority order:
+        an explicit `select_id` (e.g. the item just created) if it's
+        actually rendered; else wherever the pane's own prior selection
+        still is - so an id that isn't in this render (a create routed
+        elsewhere, or hidden by a filter) leaves the pane exactly where the
+        user was instead of resetting it; else the same row position,
+        clamped, so removing the selected row lands on the row that took
+        its place rather than jumping to the top; else row 0, or nothing
+        for an empty pane."""
+        if not items:
+            return None
+        for candidate_id in (select_id, previous_id):
+            if candidate_id is None:
+                continue
+            try:
+                return self.get_option_index(candidate_id)
+            except OptionDoesNotExist:
+                continue
+        if previous_index is not None:
+            return min(previous_index, len(items) - 1)
+        return 0
 
     def filter(self, text: str) -> None:
         """Live substring filter (case-insensitive) over the full item set
