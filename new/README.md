@@ -10,9 +10,11 @@ one. Nothing here inherits its decisions, its ADRs, its schema or its data.
 
 ## Status
 
-Empty. Each piece is added through a concrete, scoped job (see
-[How we work](#how-we-work)), and this README is updated as the structure
-appears.
+No code yet. The v1 domain is designed in
+[docs/domain-model.md](docs/domain-model.md), which also holds the plan for
+the first implementation jobs. Each piece is added through a concrete,
+scoped job (see [How we work](#how-we-work)), and this README is updated as
+the structure appears.
 
 ## Stack
 
