@@ -173,6 +173,48 @@ The URL is down from 01:00, when the VM is deallocated, until you run
 `start`. Caddy keeps its certificates in the `caddy-data` volume, so a restart
 does not request new ones.
 
+## Resource monitor
+
+[ADR 0014](adr/0014-vps-resource-monitor.md). Two records of CPU, RAM, swap
+and disk use, per host and per container.
+
+**Files on the VM.** cloud-init installs a systemd timer that takes a sample
+every minute and appends it to `/var/log/lifeos-metrics/host-YYYY-MM-DD.csv`
+and `containers-YYYY-MM-DD.csv`. Files older than 30 days are deleted. To
+install or update it on an existing VM after a `git pull`, run
+`sudo ~/life-os/deploy/vps/metrics/install.sh`. Read them with
+`column -s, -t < /var/log/lifeos-metrics/host-$(date +%F).csv`, or copy them
+with `scp`. sysstat also keeps its own history (`sar -r`, 7 days).
+
+**Web: Beszel at `https://<domain>/monitor/`.** It needs public HTTPS. To
+turn it on:
+
+1. In `~/life-os/.env`, add `monitor` to the profiles and set the admin
+   account. Beszel creates that account the first time it starts. **Never
+   start the hub without these two lines:** a hub with no users lets whoever
+   arrives first create the admin account.
+
+   ```sh
+   COMPOSE_PROFILES=public,monitor
+   BESZEL_USER_EMAIL=<your email>
+   BESZEL_USER_PASSWORD=<a long password>
+   ```
+
+2. Start the hub only: `docker compose up -d beszel`. Then log in at
+   `https://<domain>/monitor/`. You can delete the two `BESZEL_USER_*` lines
+   now. They are only read when the hub has no users.
+3. Give the agent the hub's public key. It is not a secret. It is shown in
+   **Add System**, or you can print it:
+
+   ```sh
+   sudo ssh-keygen -y -f "$(sudo docker volume inspect -f '{{.Mountpoint}}' life-os_beszel-data)/id_ed25519"
+   ```
+
+   Put it in `.env` as `BESZEL_AGENT_KEY="ssh-ed25519 …"`, then run
+   `docker compose up -d beszel-agent`.
+4. In the web UI, **Add System**: any name, and host
+   `/beszel_socket/beszel.sock`. Ignore the token: the agent connects without one.
+
 ## Operating the VPS
 
 - **Update the app:** run
@@ -194,7 +236,7 @@ does not request new ones.
   sudo python3 -c "import sqlite3,sys; s=sqlite3.connect(sys.argv[1]); d=sqlite3.connect(sys.argv[2]); s.backup(d); d.close()" "$DB" ~/backups/lifeos-$(date +%Y%m%d-%H%M).db
   ```
 
-- **Logs:** `docker compose logs -f backend-java` (the API) or `caddy`
-  (HTTPS).
+- **Logs:** `docker compose logs -f backend-java` (the API), `caddy`
+  (HTTPS) or `beszel` / `beszel-agent` (monitor).
 - **Rotate the token:** change `LIFEOS_API_TOKEN` in `.env`, then run
   `docker compose up -d`.
