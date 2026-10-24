@@ -158,6 +158,16 @@ def test_auth_enabled_without_a_token_fails_closed(engine) -> None:
     assert "lifeos-daemon" in response.json()["error"]["message"]
 
 
+@pytest.mark.parametrize("token", ["", "   "])
+def test_blank_token_fails_closed(engine, token: str) -> None:
+    # Un `LIFEOS_API_TOKEN=` vacío no es un token: si contara, un
+    # `Authorization: Bearer ` sin nada pasaría la comparación.
+    with make_client(engine, api_token=token, auth_enabled=True) as client:
+        for header in ("Bearer ", "Bearer    ", "Bearer"):
+            response = client.get("/projects", headers={"Authorization": header})
+            assert response.status_code == 401, header
+
+
 class TestSettings:
     @pytest.fixture(autouse=True)
     def _fresh_settings(self):
@@ -171,6 +181,16 @@ class TestSettings:
 
         with make_client(engine) as client:
             assert client.get("/projects").status_code == 401
+
+    def test_empty_token_in_the_environment_fails_closed(
+        self, engine, monkeypatch
+    ) -> None:
+        monkeypatch.delenv("LIFEOS_API_AUTH", raising=False)
+        monkeypatch.setenv("LIFEOS_API_TOKEN", "")
+
+        with make_client(engine) as client:
+            response = client.get("/projects", headers={"Authorization": "Bearer "})
+            assert response.status_code == 401
 
     def test_token_from_the_environment(self, engine, monkeypatch) -> None:
         monkeypatch.delenv("LIFEOS_API_AUTH", raising=False)
