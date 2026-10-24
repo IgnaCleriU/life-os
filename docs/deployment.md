@@ -40,7 +40,9 @@ Create an Ubuntu 24.04 x64 VM (1 GB of RAM is enough) with:
 - A firewall that allows only TCP 22 from your IP. Open TCP 443 to everyone
   only when you enable [public HTTPS](#public-https).
 
-cloud-init installs Docker and clones the repo into `~/life-os`. Then it
+cloud-init adds a 2 GB swapfile (`/swapfile`, swappiness 10) so a 1 GB VM
+does not run out of memory, installs Docker and clones the repo into
+`~/life-os`. Then it
 links the compose override, writes `.env` with a fresh token, and runs
 `docker compose up -d --build`. The whole thing takes about 10 minutes on
 a small VM. To check on it, run `cloud-init status --wait` on the VPS.
@@ -179,7 +181,8 @@ does not request new ones.
 - **Update the app:** run
   `cd ~/life-os && git pull && docker compose up -d --build`.
   The build now compiles the Java image with Maven, which may run out of
-  memory on a 1 GB VM (not tried). If it does, build on your machine
+  memory on a 1 GB VM even with the swapfile (not tried). If it does, build
+  on your machine
   (`docker build -t life-os-backend-java:latest backend-java`), send it with
   `docker save life-os-backend-java:latest | gzip | ssh <vps> 'gunzip | docker load'`
   and run `docker compose up -d --no-build`.
