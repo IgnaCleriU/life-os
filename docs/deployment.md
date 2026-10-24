@@ -11,16 +11,16 @@ then the Azure tooling used for the current deployment.
 your PC ──ssh (22, your IP only)──▶ VPS
    │                                 ├─ backend-java (Spring) ── 127.0.0.1:8000
    └─ localhost:8000 ◀─tunnel────────┤                     ▲
-any device ──HTTPS (443, public)─────┤   caddy ────────────┘  (profile `public`)
-                                     └─ backend (Python, MCP only, no port)
-                                        volume lifeos-data → /app/data/lifeos.db
+any device ──HTTPS (443, public)─────┘   caddy ────────────┘  (profile `public`)
+                                         volume lifeos-data → /app/data/lifeos.db
 ```
 
 - **Port 22 is open only from your IP. Port 443 is open to everyone** once
   you enable public HTTPS ([ADR 0013](adr/0013-public-https-with-caddy.md),
   below). The Java API (`backend-java`) listens on the VPS's loopback
   (`deploy/vps/compose.override.yml`); Caddy is the only thing that reaches
-  it from outside. The Python `backend` publishes no port; it stays for MCP.
+  it from outside. The deprecated Python `backend` does not run on the VPS:
+  it sits behind the `python` compose profile, which is never enabled there.
 - **Every route except `/health` and the web app (`/`, `/app/`) needs
   `Authorization: Bearer <token>`.** The token is generated on first boot and
   lives only in `~/life-os/.env` on the VPS. With public HTTPS it is the only
@@ -85,11 +85,8 @@ curl -H "Authorization: Bearer $TOKEN" localhost:8000/projects
 The VM is **deallocated every day at 01:00 Argentina time** (04:00 UTC).
 Nothing starts it again on its own: run `start` when you need it.
 
-To use MCP against the VPS, point the MCP client at this command:
-
-```sh
-ssh -i ~/.ssh/lifeos-azure azureuser@<ip> docker compose -f life-os/docker-compose.yml exec -T backend lifeos-mcp
-```
+There is no MCP on the VPS: it was served by the deprecated Python backend,
+which no longer runs there, and the Java backend has no MCP adapter yet.
 
 ### Why these regions and sizes
 
@@ -183,19 +180,21 @@ does not request new ones.
   The build now compiles the Java image with Maven, which may run out of
   memory on a 1 GB VM even with the swapfile (not tried). If it does, build
   on your machine
-  (`docker build -t life-os-backend-java:latest backend-java`), send it with
+  (`docker build -t life-os-backend-java:latest -f backend-java/Dockerfile .`
+  from the repo root), send it with
   `docker save life-os-backend-java:latest | gzip | ssh <vps> 'gunzip | docker load'`
   and run `docker compose up -d --no-build`.
 - **Back up the database.** SQLite's online backup is safe while the API
-  is running:
+  is running. It uses the host's `python3` (installed by cloud-init) on the
+  `lifeos-data` volume, so it needs no container:
 
   ```sh
-  cd ~/life-os
-  docker compose exec -T backend python -c "import sqlite3; s=sqlite3.connect('/app/data/lifeos.db'); d=sqlite3.connect('/app/data/backup.db'); s.backup(d); d.close()"
-  docker compose cp backend:/app/data/backup.db ./lifeos-backup.db
+  DB=$(sudo docker volume inspect -f '{{.Mountpoint}}' life-os_lifeos-data)/lifeos.db
+  mkdir -p ~/backups
+  sudo python3 -c "import sqlite3,sys; s=sqlite3.connect(sys.argv[1]); d=sqlite3.connect(sys.argv[2]); s.backup(d); d.close()" "$DB" ~/backups/lifeos-$(date +%Y%m%d-%H%M).db
   ```
 
-- **Logs:** `docker compose logs -f backend-java` (the API), `caddy` (HTTPS) or `backend`
-  (Python, MCP).
+- **Logs:** `docker compose logs -f backend-java` (the API) or `caddy`
+  (HTTPS).
 - **Rotate the token:** change `LIFEOS_API_TOKEN` in `.env`, then run
   `docker compose up -d`.
