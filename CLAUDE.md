@@ -28,6 +28,19 @@ Before designing or implementing, review these documents:
 
 ## Hard rules
 
+- **No new code until the user understands it.** The user is reviewing
+  `backend-java/` with Claude as a tutor
+  ([docs/backend-java/README.md](docs/backend-java/README.md)). Until the
+  user declares that review finished, Claude writes **no code at all**
+  (production or tests, in any language): it reads, explains, and writes
+  the study material under `docs/backend-java/`. After the review, any
+  code change is explained first, and Claude writes it only once the user
+  confirms they understand what it does and why. This rule overrides the
+  "implement" steps of the agentic workflow below.
+- **Commits are made by the user, never by Claude.** Claude does not run
+  `git commit` (nor amend, rebase or push on the user's behalf). It leaves
+  the changes in the working tree and proposes the Conventional Commit
+  message(s); the user reviews and commits.
 - **Hexagonal architecture:** the domain (`domain/`) is pure Python and
   **does not import** `fastapi`, `sqlmodel`, or `mcp`. Dependencies point
   inward (`adapters → application → domain`). Detail in
@@ -50,7 +63,8 @@ Before designing or implementing, review these documents:
   worktree option in Claude Code) so their branches don't collide. See
   [docs/agentic-workflow.md](docs/agentic-workflow.md#5-parallel-agents-isolation-with-git-worktrees).
 - **Commits:** [Conventional Commits](CONTRIBUTING.md#commit-convention)
-  and **atomic** (several commits per task, one per logical change).
+  and **atomic** (several commits per task, one per logical change),
+  made by the user (see above).
 - **PRs:** never commit directly to `master`; work on a branch
   `<type>/<short-description>` and open a PR against `master`. The branch name
   must reflect the task — do **not** keep the auto-generated `claude/...`
