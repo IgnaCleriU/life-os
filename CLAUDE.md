@@ -25,6 +25,19 @@ Life OS is being rebuilt from zero. Read this before touching anything.
   - The `commit-msg` hook in
     [.pre-commit-config.yaml](.pre-commit-config.yaml) enforces Conventional
     Commits.
-- **There is no CI right now.** The old workflow was retired with the
-  codebase. A new one is built under `.github/` when `new/` has code to
-  check.
+- **Every commit is authored by IgnaCleriU, with no AI co-authorship.**
+  - No `Co-authored-by` trailers and no "Generated with Claude Code" lines,
+    in commits or in pull request titles and bodies. A PR body becomes the
+    squash commit body on `master`.
+  - The `pr-rules` check
+    ([.github/workflows/pr-rules.yml](.github/workflows/pr-rules.yml))
+    rejects any PR that breaks this.
+- **GitHub flow.**
+  - `master` only changes through pull requests, which are squash-merged.
+    The PR title is the commit title, so it must be a Conventional Commit.
+  - The `master` ruleset has no bypass actors, admin included. Never
+    disable or edit it to get a change through; ask the owner.
+  - Stacked pull requests (GitHub native stacks, `gh stack`) are welcome
+    for work that splits into dependent steps.
+- **CI.** For now the only check is `pr-rules`. Build and test jobs for
+  `new/` are added under `.github/workflows/` once it has code to check.

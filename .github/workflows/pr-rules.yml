@@ -1,0 +1,75 @@
+# Repository rules every pull request must pass. Required by the `master`
+# ruleset (check name: `pr-rules`).
+#
+# Runs on `pull_request_target`, so the version of this file that executes is
+# the one on the base branch, not the one in the pull request: a PR cannot
+# edit this workflow to make itself pass. It never checks out or runs the
+# pull request's code; it only reads metadata through the API.
+name: PR rules
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  pr-rules:
+    name: pr-rules
+    runs-on: ubuntu-latest
+    steps:
+      # GitHub credits the squash commit to the pull request's author.
+      - name: PR is opened by IgnaCleriU
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          if [ "$PR_AUTHOR" != "IgnaCleriU" ]; then
+            echo "::error::PR opened by $PR_AUTHOR, expected IgnaCleriU"
+            exit 1
+          fi
+
+      # The title becomes the squash commit title on master.
+      - name: Title is a Conventional Commit
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|docs|refactor|test|chore|build|ci|style|perf|revert)(\([^)]+\))?!?: .+$'
+          if ! printf '%s' "$TITLE" | grep -Eq "$pattern"; then
+            echo "::error::PR title is not a Conventional Commit: $TITLE"
+            exit 1
+          fi
+
+      # The body becomes the squash commit body on master.
+      - name: Body has no co-author trailers
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if printf '%s' "$BODY" | grep -iq 'co-authored-by:'; then
+            echo "::error::PR body contains a Co-authored-by trailer"
+            exit 1
+          fi
+
+      # Every commit is authored by IgnaCleriU and carries no co-authors.
+      # The committer may also be GitHub itself (web-flow), which rewrites
+      # commits when it rebases a stack.
+      - name: Commits are by IgnaCleriU, without co-authors
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          bad=$(gh api --paginate "repos/$REPO/pulls/$PR/commits" --jq '
+            .[]
+            | select(
+                (.author.login // "") != "IgnaCleriU"
+                or ((.committer.login // "") | IN("IgnaCleriU", "web-flow") | not)
+                or (.commit.message | test("co-authored-by:"; "i"))
+              )
+            | "\(.sha[0:7]) author=\(.author.login // .commit.author.email) committer=\(.committer.login // .commit.committer.email)"')
+          if [ -n "$bad" ]; then
+            echo "::error::Commits that break the authorship rule:"
+            printf '%s\n' "$bad"
+            exit 1
+          fi
