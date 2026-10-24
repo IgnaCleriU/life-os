@@ -1,0 +1,185 @@
+# DEPRECATED: old CI, kept for reference only. GitHub does not run it from here.
+# See deprecated/DEPRECATED.md. The new CI lives in .github/ at the repository root.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  # Gate: valida los mensajes de commit contra Conventional Commits antes de
+  # gastar tiempo instalando dependencias o corriendo tests. Reusa los tipos
+  # permitidos definidos en .pre-commit-config.yaml.
+  commit-lint:
+    name: Commit message lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install conventional-pre-commit
+        run: pip install conventional-pre-commit
+      - name: Validate commit messages
+        env:
+          TYPES: "feat fix docs refactor test chore build ci style perf revert"
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            commits=$(git rev-list "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}")
+          else
+            commits="HEAD"
+          fi
+          if [ -z "$commits" ]; then
+            echo "No commits to validate."
+            exit 0
+          fi
+          for sha in $commits; do
+            echo "Checking $sha: $(git log -1 --format=%s "$sha")"
+            git log -1 --format=%B "$sha" > /tmp/commit-msg
+            conventional-pre-commit $TYPES /tmp/commit-msg
+          done
+
+  # Solo corre si el gate de mensajes pasó.
+  lint-test:
+    name: Lint & test
+    runs-on: ubuntu-latest
+    needs: commit-lint
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      # uv va pinneado: la herramienta que resuelve el entorno también forma
+      # parte de lo que hay que reproducir. El intérprete lo fija
+      # backend/.python-version, así que CI y local usan el mismo Python.
+      # setup-uv dejó de publicar tag mayor móvil después de v7: v8 y v9 solo
+      # existen como semver completo, así que @v9 no resuelve.
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          version: "0.11.17"
+          enable-cache: true
+          working-directory: backend
+      # `--locked` no resuelve nada: instala exactamente lo que dice uv.lock y
+      # falla si el lock quedó desfasado de pyproject.toml. Es lo que evita que
+      # un release nuevo en PyPI (p. ej. mcp 2.0) entre solo en un build.
+      - name: Install backend (dev) from the lock file
+        run: uv sync --locked --all-extras
+      # --no-sync: el paso anterior ya preparó el entorno.
+      - name: Ruff
+        run: uv run --no-sync ruff check .
+      - name: Pytest
+        run: uv run --no-sync pytest
+
+  # Backend Java (ADR 0011). Convive con el de Python hasta el corte y los dos
+  # escriben la misma base, así que acá también corre el test de interop
+  # (PythonInteropTest), que necesita el entorno de backend/.
+  java-test:
+    name: Java build & test
+    runs-on: ubuntu-latest
+    needs: commit-lint
+    defaults:
+      run:
+        working-directory: backend-java
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          version: "0.11.17"
+          enable-cache: true
+          working-directory: backend
+      - name: Install python backend for the interop test
+        working-directory: backend
+        run: uv sync --locked --all-extras
+      - name: Maven verify
+        env:
+          LIFEOS_PYTHON_BACKEND: ${{ github.workspace }}/backend
+        # Sin el perfil `web`: no hace falta Node (la web se prueba en el job `web`).
+        run: ./mvnw -B verify
+
+  # El jar con la web: sin `-Pweb` Maven arma un jar sin interfaz y sin avisar,
+  # y ningún otro job lo notaría. Acá se construye con el perfil y se verifica
+  # que el jar lleve el index.html que Spring sirve bajo /app/.
+  web-jar:
+    name: Java jar with web UI
+    runs-on: ubuntu-latest
+    needs: commit-lint
+    defaults:
+      run:
+        working-directory: backend-java
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Package with the web profile
+        run: ./mvnw -B -Pweb -DskipTests package
+      - name: Check the jar contains the web UI
+        run: unzip -l adapter-rest/target/lifeos-adapter-rest-*.jar | grep -F BOOT-INF/classes/static/app/index.html
+
+  # Librerías JavaScript del tablero de Quickshell (desktop/omarchy-plugin/lib):
+  # sin dependencias, con el runner de tests de node. El QML en sí se prueba
+  # a mano o con desktop/tests/qml/run_board.py (necesita PySide6 y EGL).
+  desktop-js:
+    name: Desktop board JS
+    runs-on: ubuntu-latest
+    needs: commit-lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: node --test
+        run: node --test desktop/tests/*.test.mjs
+
+  # Frontend web (frontend/): React + Vite + TypeScript. Lint, tipos, tests y
+  # build; el build es lo que después sirve el backend Spring Boot bajo /app/.
+  web:
+    name: Web frontend
+    runs-on: ubuntu-latest
+    needs: commit-lint
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install from the lock file
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+
+  # La imagen del backend Java lleva la web (etapa node + etapa Maven): se
+  # construye acá para que un Dockerfile roto falle en el PR. No se publica.
+  docker-image:
+    name: Docker image
+    runs-on: ubuntu-latest
+    needs: commit-lint
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend-java image
+        run: docker build -f backend-java/Dockerfile .

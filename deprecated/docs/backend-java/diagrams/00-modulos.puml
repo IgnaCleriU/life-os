@@ -1,0 +1,46 @@
+@startuml 00-modulos
+title backend-java: módulos Maven y dependencias de compilación
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName sans-serif
+skinparam packageStyle rectangle
+
+package "lifeos-parent (pom raíz)" as parent {
+
+  package "Sin Spring en el classpath" #EEF7EE {
+    component "domain" as domain
+    component "application" as application
+  }
+
+  package "Con Spring en el classpath" #FDF1E4 {
+    component "infrastructure" as infrastructure
+    component "adapter-rest" as rest
+  }
+}
+
+component "spring-jdbc\nsqlite-jdbc" as jdbc #F5F5F5
+component "spring-boot-starter-webmvc" as webmvc #F5F5F5
+
+application --> domain
+infrastructure --> application
+rest --> infrastructure
+infrastructure --> jdbc
+rest --> webmvc
+
+rest ..> application : transitiva
+rest ..> domain : transitiva
+
+note right of parent
+  Hereda de spring-boot-starter-parent:
+  aporta versiones y configuración de
+  plugins, **no** agrega librerías.
+  Lo único que el pom raíz pone en todos
+  los módulos es JUnit 5 + AssertJ (scope test).
+end note
+
+legend bottom
+  Flecha llena: dependencia declarada en el pom del módulo.
+  Flecha punteada: visible por transitividad, sin declarar.
+endlegend
+@enduml
