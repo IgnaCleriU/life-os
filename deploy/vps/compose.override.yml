@@ -4,14 +4,14 @@
 # `public`, por HTTPS a través de Caddy (ADR 0013). El 8000 nunca se publica
 # directo.
 #
-# La API publicada es la de Java. El contenedor de Python sigue
-# corriendo —MCP entra por `docker compose exec backend lifeos-mcp`— pero sin
-# publicar ningún puerto. `!reset` vacía la lista del compose base y `!override`
-# la reemplaza en vez de sumarse a ella (requiere Docker Compose >= 2.24).
+# La API publicada es la de Java. El backend de Python está deprecado y en el
+# VPS no corre: queda detrás del perfil `python`, que nunca se activa ahí, así
+# no ocupa RAM. `!reset` vacía la lista del compose base y `!override` la
+# reemplaza en vez de sumarse a ella (requiere Docker Compose >= 2.24).
 services:
   backend:
+    profiles: [python]
     ports: !reset []
-    restart: unless-stopped
   backend-java:
     ports: !override
       - "127.0.0.1:8000:8000"

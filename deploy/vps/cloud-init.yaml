@@ -24,7 +24,7 @@ write_files:
       set -eu
       USER_NAME="${1:-azureuser}"
       REPO_DIR="/home/$USER_NAME/life-os"
-      # Swap de 2 GB: con 1 GB de RAM el build y los dos backends pueden
+      # Swap de 2 GB: con 1 GB de RAM el build de la imagen de Java puede
       # agotar la memoria y colgar la VM. swappiness bajo para usarlo solo
       # como colchón.
       if [ ! -f /swapfile ]; then
