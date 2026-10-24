@@ -1,6 +1,6 @@
 # 0012. Java API as the VPS API, reached over Tailscale
 
-- Status: Accepted
+- Status: Accepted; transport superseded by [0013](0013-public-https-with-caddy.md)
 - Date: 2026-10
 - Supersedes: the transport part of [0010-optional-vps-deployment.md](0010-optional-vps-deployment.md) ("SSH tunnel for REST, no TLS or reverse proxy"). SSH stays for administration and MCP.
 - Amends: [0011-java-spring-backend.md](0011-java-spring-backend.md) (the Java adapter now has the token and Host allowlist)
