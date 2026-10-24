@@ -37,3 +37,4 @@ it the next available number, and open a pull request.
 | [0011](0011-java-spring-backend.md) | Port the backend core and REST adapter to Java + Spring Boot | Proposed |
 | [0012](0012-java-api-over-tailscale.md) | Java API as the VPS API, reached over Tailscale | Accepted; transport superseded by 0013 |
 | [0013](0013-public-https-with-caddy.md) | Public HTTPS for the VPS API, behind Caddy | Accepted |
+| [0014](0014-vps-resource-monitor.md) | VPS resource monitor: Beszel on the web, CSV files on the VM | Accepted |
