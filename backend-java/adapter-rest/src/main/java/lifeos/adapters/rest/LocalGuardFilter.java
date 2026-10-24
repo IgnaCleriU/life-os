@@ -27,8 +27,8 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <ul>
  *   <li><b>Host:</b> solo {@code localhost}, {@code 127.0.0.1} y {@code ::1},
- *       más los nombres de {@code LIFEOS_ALLOWED_HOSTS} (por ejemplo los de
- *       Tailscale en un VPS). Bloquea el DNS rebinding: una página de
+ *       más los nombres de {@code LIFEOS_ALLOWED_HOSTS} (por ejemplo el dominio
+ *       público de un VPS, ADR 0013). Bloquea el DNS rebinding: una página de
  *       {@code evil.example} que resuelve a 127.0.0.1 sigue mandando su Host.
  *   <li><b>Token:</b> toda ruta salvo {@code /health} y la web estática
  *       ({@code /}, {@code /app/**}, ver {@link WebPaths}) exige
