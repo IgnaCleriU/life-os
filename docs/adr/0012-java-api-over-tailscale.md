@@ -4,7 +4,7 @@
 - Date: 2026-10
 - Supersedes: the transport part of [0010-optional-vps-deployment.md](0010-optional-vps-deployment.md) ("SSH tunnel for REST, no TLS or reverse proxy"). SSH stays for administration and MCP.
 - Amends: [0011-java-spring-backend.md](0011-java-spring-backend.md) (the Java adapter now has the token and Host allowlist)
-- Guide: [../deployment.md](../deployment.md#phone-access-over-tailscale)
+- Guide: [../deployment.md](../deployment.md) (its Tailscale section was removed with 0013)
 
 ## Context
 
