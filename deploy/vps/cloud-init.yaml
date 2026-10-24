@@ -24,6 +24,15 @@ write_files:
       set -eu
       USER_NAME="${1:-azureuser}"
       REPO_DIR="/home/$USER_NAME/life-os"
+      # Swap de 2 GB: con 1 GB de RAM el build y los dos backends pueden
+      # agotar la memoria y colgar la VM. swappiness bajo para usarlo solo
+      # como colchón.
+      if [ ! -f /swapfile ]; then
+        fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile
+      fi
+      swapon --show | grep -q /swapfile || swapon /swapfile
+      grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+      echo 'vm.swappiness=10' > /etc/sysctl.d/99-swap.conf && sysctl -q --system
       command -v docker >/dev/null || curl -fsSL https://get.docker.com | sh
       usermod -aG docker "$USER_NAME"
       [ -d "$REPO_DIR/.git" ] || git clone https://github.com/IgnaCleri/life-os.git "$REPO_DIR"
