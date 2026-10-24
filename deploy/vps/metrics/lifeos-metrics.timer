@@ -1,0 +1,9 @@
+[Unit]
+Description=Life OS: muestra de recursos del VPS cada minuto
+
+[Timer]
+OnCalendar=*:*:00
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

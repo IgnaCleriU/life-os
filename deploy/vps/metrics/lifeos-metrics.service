@@ -1,0 +1,7 @@
+[Unit]
+Description=Life OS: muestra de recursos del VPS a CSV
+
+[Service]
+Type=oneshot
+Nice=10
+ExecStart=/usr/local/lib/lifeos/lifeos-metrics.sh

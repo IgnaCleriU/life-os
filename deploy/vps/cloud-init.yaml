@@ -49,6 +49,8 @@ write_files:
         chmod 600 "$REPO_DIR/.env"
       fi
       chown -R "$USER_NAME:$USER_NAME" "$REPO_DIR"
+      # Métricas de recursos cada minuto en /var/log/lifeos-metrics (CSV).
+      "$REPO_DIR/deploy/vps/metrics/install.sh"
       cd "$REPO_DIR" && docker compose up -d --build
 runcmd:
   - [/opt/lifeos/bootstrap.sh, azureuser]
